@@ -1,0 +1,1713 @@
+<!doctype html>
+<!--
+  SW2.5 Balance Item Editor
+  version: 1.0
+  date: 2026-06-07
+  versioning: previous v26 is treated as 0.26
+  notes:
+    - GitHub Pages 向けに不要な再読込・サンプル系ボタンを削除
+    - 正式版1.0：メモ出力設定・表記調整・フッター追加
+-->
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SW2.5 収支・持ち物エディタ 1.0</title>
+  <style>
+    :root {
+      --bg: #f7f7f8;
+      --panel: #ffffff;
+      --line: #d9d9de;
+      --text: #222;
+      --muted: #666;
+      --accent: #2f6feb;
+      --danger: #c62828;
+      --section-bg: #f8fbff;
+      --section-open: #eaf2ff;
+      --section-border: #b8d0ff;
+      --subrow-bg: #fbfbfd;
+      --warn-bg: #fff8e6;
+      --warn-line: #e8c86b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, "メイリオ", Meiryo, sans-serif;
+      line-height: 1.25;
+      font-size: 13px;
+    }
+    .container { max-width: 1040px; margin: 0 auto; padding: 8px; }
+    .topbar {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    h1 { margin: 0 0 4px; font-size: 20px; }
+    .lead { color: var(--muted); margin: 0; font-size: 13px; }
+    .version { color: var(--muted); font-size: 10px; margin-top: 2px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px;
+      margin-bottom: 8px;
+    }
+    .warnbox {
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-line);
+      border-radius: 10px;
+      padding: 7px;
+      margin-bottom: 8px;
+      display: none;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 6px;
+      align-items: start;
+    }
+    .col-12 { grid-column: span 12; }
+    .col-6 { grid-column: span 6; }
+    .col-4 { grid-column: span 4; }
+    .col-3 { grid-column: span 3; }
+    .col-2 { grid-column: span 2; }
+    @media (max-width: 880px) {
+      .col-6, .col-4, .col-3, .col-2 { grid-column: span 12; }
+      .container { padding: 4px; }
+      .topbar { flex-direction: column; align-items: stretch; }
+    }
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 2px;
+      font-weight: 700;
+    }
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 3px 5px;
+      font: inherit;
+      background: #fff;
+      color: inherit;
+      min-width: 0;
+    }
+    input[type="file"] {
+      width: 100%;
+      border: 2px dashed var(--section-border);
+      border-radius: 8px;
+      padding: 14px;
+      background: #f8fbff;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    input[type="file"]::file-selector-button {
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      padding: 8px 12px;
+      margin-right: 12px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .csvStatus {
+      display: inline-block;
+      margin-top: 5px;
+      padding: 2px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fafafa;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .miniHelp {
+      margin-top: 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fafafa;
+      padding: 5px 7px;
+    }
+    .miniHelp > summary {
+      cursor: pointer;
+      font-weight: 800;
+      color: var(--accent);
+      user-select: none;
+    }
+    .categoryList {
+      margin-top: 6px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px 8px;
+      font-size: 12px;
+    }
+    @media (max-width: 700px) {
+      .categoryList { grid-template-columns: 1fr; }
+    }
+    .suggestBox {
+      position: fixed;
+      z-index: 9999;
+      min-width: 220px;
+      max-width: 420px;
+      max-height: 260px;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,.16);
+      padding: 4px;
+      display: none;
+    }
+    .suggestItem {
+      display: block;
+      width: 100%;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      padding: 7px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .suggestItem:hover,
+    .suggestItem:focus {
+      background: #eef4ff;
+      outline: none;
+    }
+    .suggestName {
+      display: block;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .suggestMeta {
+      display: block;
+      margin-top: 2px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    #cashbookOutput { min-height: 220px; }
+    button {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fff;
+      padding: 4px 8px;
+      font: inherit;
+      cursor: pointer;
+    }
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+    button.danger { color: var(--danger); }
+    button.small { padding: 2px 5px; font-size: 12px; }
+    .toolbar { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 5px; align-items: center; }
+    .hint { color: var(--muted); font-size: 11px; margin: 5px 0 0; }
+    .totalBox {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+    }
+    @media (max-width: 720px) { .totalBox { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 420px) { .totalBox { grid-template-columns: 1fr; } }
+    .stat {
+      background: #fafafa;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 7px;
+    }
+    .stat .label { color: var(--muted); font-size: 13px; }
+    .stat .value { font-size: 24px; font-weight: 800; margin-top: 6px; word-break: break-word; }
+    details.section {
+      border: 1px solid var(--section-border);
+      border-radius: 6px;
+      background: var(--section-bg);
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    details.section > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 6px 8px;
+      font-weight: 800;
+      background: var(--section-bg);
+      border-bottom: 1px solid var(--section-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    details.section[open] > summary { background: var(--section-open); }
+    details.section > summary::-webkit-details-marker { display: none; }
+    .summaryLeft { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .summaryTitle { overflow-wrap: anywhere; }
+    .summaryIcon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--section-border);
+      font-size: 11px;
+      font-weight: 700;
+      flex: 0 0 auto;
+    }
+    details.section[open] .summaryIcon::before { content: "−"; }
+    details.section:not([open]) .summaryIcon::before { content: "＋"; }
+    .summaryHint { font-size: 10px; color: var(--muted); white-space: nowrap; }
+    @media (max-width: 540px) { .summaryHint { display: none; } }
+    .sectionBody {
+      padding: 6px;
+      background: #fff;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .gridTable {
+      width: 100%;
+      min-width: 680px;
+      border-collapse: collapse;
+      font-size: 13px;
+      table-layout: fixed;
+    }
+    #equipmentTable { min-width: 900px; }
+    #accessoryTable { min-width: 900px; }
+    #consumableTable { min-width: 760px; }
+    #cardTable { min-width: 760px; }
+    .gridTable th, .gridTable td {
+      border: 1px solid var(--line);
+      padding: 3px;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+    .gridTable th { background: #fafafa; text-align: left; }
+
+    /* PC/スマホ共通で、消耗品とマテリアルカードの価格・数量・持ち物列を揃える */
+    #consumableTable th:nth-child(1), #consumableTable td:nth-child(1) { width: 36%; }
+    #consumableTable th:nth-child(2), #consumableTable td:nth-child(2) { width: 12%; }
+    #consumableTable th:nth-child(3), #consumableTable td:nth-child(3) { width: 7%; }
+    #consumableTable th:nth-child(4), #consumableTable td:nth-child(4) { width: 14%; }
+    #consumableTable th:nth-child(5), #consumableTable td:nth-child(5) { width: 23%; }
+    #consumableTable th:nth-child(6), #consumableTable td:nth-child(6) { width: 8%; }
+
+    #cardTable th:nth-child(1), #cardTable td:nth-child(1) { width: 8%; }
+    #cardTable th:nth-child(2), #cardTable td:nth-child(2) { width: 8%; }
+    #cardTable th:nth-child(3), #cardTable td:nth-child(3) { width: 12%; }
+    #cardTable th:nth-child(4), #cardTable td:nth-child(4) { width: 7%; }
+    #cardTable th:nth-child(5), #cardTable td:nth-child(5) { width: 14%; }
+    #cardTable th:nth-child(6), #cardTable td:nth-child(6) { width: 43%; }
+    #cardTable th:nth-child(7), #cardTable td:nth-child(7) { width: 8%; }
+
+    /* 武器・防具等は、操作系列を狭くしてアイテム名・メモを広くする */
+    #equipmentTable th:nth-child(1), #equipmentTable td:nth-child(1) { width: 12%; }
+    #equipmentTable th:nth-child(2), #equipmentTable td:nth-child(2) { width: 30%; }
+    #equipmentTable th:nth-child(3), #equipmentTable td:nth-child(3) { width: 10%; }
+    #equipmentTable th:nth-child(4), #equipmentTable td:nth-child(4) { width: 7%; }
+    #equipmentTable th:nth-child(5), #equipmentTable td:nth-child(5) { width: 33%; }
+    #equipmentTable th:nth-child(6), #equipmentTable td:nth-child(6) { width: 8%; }
+
+    /* 装飾品は「部位+追加枠+アイテム名」の合計を、武器防具の「種別+アイテム名」と揃える */
+    #accessoryTable th:nth-child(1), #accessoryTable td:nth-child(1) { width: 7%; }
+    #accessoryTable th:nth-child(2), #accessoryTable td:nth-child(2) { width: 5%; }
+    #accessoryTable th:nth-child(3), #accessoryTable td:nth-child(3) { width: 30%; }
+    #accessoryTable th:nth-child(4), #accessoryTable td:nth-child(4) { width: 10%; }
+    #accessoryTable th:nth-child(5), #accessoryTable td:nth-child(5) { width: 7%; }
+    #accessoryTable th:nth-child(6), #accessoryTable td:nth-child(6) { width: 33%; }
+    #accessoryTable th:nth-child(7), #accessoryTable td:nth-child(7) { width: 8%; }
+    .stack { display: flex; flex-direction: column; gap: 3px; }
+    .center { text-align: center; }
+    .right { text-align: right; }
+    .subRow td { background: var(--subrow-bg); border-top: 0; }
+    .badge {
+      display: inline-block;
+      padding: 1px 5px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .checkBig {
+      width: 14px;
+      height: 14px;
+      vertical-align: middle;
+    }
+
+    .deleteCell {
+      text-align: center;
+      vertical-align: middle !important;
+    }
+    .deleteBtn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      min-width: 48px;
+      height: 26px;
+      padding: 0;
+      line-height: 1;
+      white-space: nowrap;
+      margin: 0 auto;
+    }
+    .partMark {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 22px;
+      font-weight: 800;
+    }
+    .footerCredit {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 18px 0 10px;
+    }
+
+    input[type="text"], input[type="number"], select {
+      min-height: 24px;
+    }
+    button, input, select, textarea {
+      box-shadow: none;
+    }
+
+    /* スマートフォンではテーブルをカード化せず、横スクロールで編集する */
+    @media (max-width: 700px) {
+      h1 { font-size: 17px; }
+      .card, .sectionBody { padding: 4px; }
+      .gridTable {
+        width: max-content;
+        min-width: 680px;
+      }
+      #equipmentTable, #accessoryTable { min-width: 900px; }
+      input[type="text"], input[type="number"], textarea, select, button {
+        font-size: 16px; /* iOS Safari の自動ズーム対策 */
+      }
+      .toolbar button { flex: 1 1 auto; }
+      .sectionBody::after {
+        content: "表は左右にスクロールできます";
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      details.section:has(#cashbookOutput) .sectionBody::after,
+      details.section:has(#cashbookPreview) .sectionBody::after {
+        content: "";
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div>
+        <h1>SW2.5 収支・持ち物エディタ</h1>
+        <p class="lead">ゆとシートJSONを読み込み、収支欄テキストと持ち物リストを生成します。</p>
+        <div class="version">version: 1.0</div>
+      </div>
+      <div class="toolbar" style="margin-top:0;">
+        <button id="themeBtn" type="button">カラー選択</button>
+      </div>
+    </div>
+
+    <div class="warnbox" id="csvWarning"></div>
+    <div id="suggestBox" class="suggestBox"></div>
+
+    <div class="card">
+      <div class="row">
+        <div class="col-4">
+          <label for="jsonFile">JSONファイル</label>
+          <input id="jsonFile" type="file" accept=".json,application/json" />
+          <p class="hint">ゆとシートから出力したJSONを選択すると自動で読み込みます。</p>
+        </div>
+        <div class="col-4">
+          <label for="processCsvFile">武器防具強化データ</label>
+          <input id="processCsvFile" type="file" accept=".csv,text/csv" />
+          <div><span class="csvStatus" id="processCsvStatus">未読込</span></div>
+          <p class="hint">武器や防具の強化に関連するデータです。初回読込後はブラウザに保存されます。</p>
+          <div class="toolbar"><button id="clearProcessCsvBtn" type="button">保存済み加工CSVを削除</button></div>
+        </div>
+        <div class="col-4">
+          <label for="priceCsvFile">アイテム価格データ</label>
+          <input id="priceCsvFile" type="file" accept=".csv,text/csv" />
+          <div><span class="csvStatus" id="priceCsvStatus">未読込</span></div>
+          <p class="hint">アイテムの価格に関連するデータです。形式：<code>name,price,aliases,category,note</code>。</p>
+          <details class="miniHelp">
+            <summary>category一覧を見る</summary>
+            <div class="categoryList">
+              <div><strong>武器</strong>：武器・防具等の候補に表示</div>
+              <div><strong>防具</strong>：武器・防具等の候補に表示</div>
+              <div><strong>非金属鎧</strong>：武器・防具等の候補に表示</div>
+              <div><strong>金属鎧</strong>：武器・防具等の候補に表示</div>
+              <div><strong>盾</strong>：武器・防具等の候補に表示</div>
+              <div><strong>装飾品</strong>：装飾品欄の候補に表示</div>
+              <div><strong>消耗品</strong>：消耗品欄の候補に表示</div>
+              <div><strong>マテリアルカード</strong>：マテリアルカード用。通常の消耗品欄には表示しない</div>
+              <div><strong>その他</strong>：その他欄の候補に表示</div>
+            </div>
+            <p class="hint">空欄カテゴリは旧CSV互換のため、3文字以上入力した場合のみ候補表示されます。絞り込みたい場合は必ず category を入力してください。</p>
+          </details>
+          <div class="toolbar"><button id="clearPriceCsvBtn" type="button">保存済みアイテム価格データを削除</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="totalBox">
+        <div class="stat"><div class="label">レギュ初期所持金</div><div class="value" id="totalMoney">0 G</div></div>
+        <div class="stat"><div class="label">支出</div><div class="value" id="totalCost">0 G</div></div>
+        <div class="stat"><div class="label">収入</div><div class="value" id="totalIncome">0 G</div></div>
+        <div class="stat"><div class="label">残り</div><div class="value" id="remainingBudget">0 G</div></div>
+      </div>
+    </div>
+
+    <details class="section">
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">基本情報</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <div class="row">
+          <div class="col-3"><label>キャラクター名</label><input id="characterName" type="text" /></div>
+          <div class="col-3"><label>レギュ初期所持金</label><input id="initialBudget" type="number" step="1" value="0" /></div>
+          <div class="col-2"><label>経験点</label><input id="historyExp" type="text" /></div>
+          <div class="col-2"><label>名誉点</label><input id="historyHonor" type="text" /></div>
+          <div class="col-2"><label>アビスシャード等</label><input id="historyNote" type="text" /></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="section" open>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">武器・防具等</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <div class="toolbar">
+          <label style="display:flex; align-items:center; gap:6px; margin:0;">
+            <input id="equipmentMemoOutput" type="checkbox" class="checkBig" />
+            メモを収支欄に出力
+          </label>
+        </div>
+        <table class="gridTable" id="equipmentTable">
+          <thead><tr><th>種別</th><th>アイテム名</th><th>価格</th><th>数量</th><th>メモ</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="toolbar"><button id="addEquipmentBtn" type="button">行を追加</button></div>
+      </div>
+    </details>
+
+    <details class="section" open>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">装飾品</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <div class="toolbar">
+          <label style="display:flex; align-items:center; gap:6px; margin:0;">
+            <input id="accessoryMemoOutput" type="checkbox" class="checkBig" />
+            メモを収支欄に出力
+          </label>
+        </div>
+        <table class="gridTable" id="accessoryTable">
+          <thead><tr><th>部位</th><th>追加枠</th><th>アイテム名</th><th>価格</th><th>数量</th><th>メモ</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="toolbar"><button id="addAccessoryBtn" type="button">行を追加</button></div>
+      </div>
+    </details>
+
+    <details class="section" open>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">消耗品</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <div class="toolbar">
+          <label style="display:flex; align-items:center; gap:6px; margin:0;">
+            <input id="consumableMemoOutput" type="checkbox" class="checkBig" />
+            メモを収支欄に出力
+          </label>
+        </div>
+        <table class="gridTable" id="consumableTable">
+          <thead><tr><th>アイテム名</th><th>価格</th><th>数量</th><th>持ち物リストに含める</th><th>メモ</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="toolbar"><button id="addConsumableBtn" type="button">行を追加</button></div>
+      </div>
+    </details>
+
+    <details class="section" open>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">マテリアルカード</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <p class="hint" id="cardCostHint"></p>
+        <div class="toolbar">
+          <label style="display:flex; align-items:center; gap:6px; margin:0;">
+            <input id="cardMemoOutput" type="checkbox" class="checkBig" />
+            メモを収支欄に出力
+          </label>
+        </div>
+        <table class="gridTable" id="cardTable">
+          <thead><tr><th>色</th><th>ランク</th><th>価格</th><th>数量</th><th>持ち物リストに含める</th><th>メモ</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="toolbar"><button id="addCardBtn" type="button">行を追加</button></div>
+      </div>
+    </details>
+
+    <div id="otherSections"></div>
+
+    <details class="section">
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">既存の収支履歴（参考）</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody"><textarea id="cashbookPreview" placeholder="JSONから cashbook が読めた場合に表示"></textarea></div>
+    </details>
+
+    <details class="section" open>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">出力</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody stack">
+        <div>
+          <label>ゆとシート用 収支欄テキスト</label>
+          <textarea id="cashbookOutput"></textarea>
+          <div class="toolbar"><button id="copyCashbookBtn" type="button">収支欄をコピー</button></div>
+        </div>
+        <div>
+          <label>持ち物リスト用テキスト</label>
+          <textarea id="itemListOutput"></textarea>
+          <div class="toolbar"><button id="copyItemListBtn" type="button">持ち物リストをコピー</button></div>
+        </div>
+      </div>
+    </details>
+
+    <div class="footerCredit">created by でぃんご</div>
+  </div>
+
+  <script>
+    const VERSION = "1.0";
+
+    const state = {
+      rawJson: null,
+      pricePreset: {},
+      pricePresetAliases: {},
+      pricePresetItems: [],
+      activeSuggestCategory: "",
+      processCsvCount: 0,
+      priceCsvCount: 0,
+      processMaster: [],
+      equipment: [],
+      accessories: [],
+      consumables: [],
+      cards: [],
+      otherSections: [],
+      cashbookEntries: [],
+      initialMoney: 0,
+      sessionIncome: 0,
+      hasCashbookCardPurchase: false
+    };
+
+    const EQUIPMENT_TYPES = ["武器", "非金属鎧", "金属鎧", "盾", "その他"];
+    const ACCESSORY_PARTS = ["頭", "顔", "耳", "首", "背", "右", "左", "腰", "足", "他"];
+    const CARD_COLORS = [["赤","Red"], ["緑","Gre"], ["黒","Bla"], ["白","Whi"], ["金","Gol"]];
+    const CARD_RANKS = [["B", 20], ["A", 200], ["S", 2000], ["SS", 20000]];
+    const PROCESS_RANKS = ["B", "A", "S", "SS"];
+
+    function el(id) { return document.getElementById(id); }
+    function esc(s) {
+      return String(s ?? "")
+        .replaceAll("&", "&amp;").replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+    }
+    function normalizeName(s) {
+      return String(s ?? "")
+        .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
+        .replace(/\[[^\]]+\]/g, "")
+        .replace(/[〈〉]/g, "")
+        .replace(/[　\s]+/g, " ")
+        .replace(/[×xX]\s*\d+$/i, "")
+        .replace(/\d+\s*(個|こ|枚|本|つ)$/g, "")
+        .replace(/買い戻し|買い直し|買い足し|購入|買取|割引/g, "")
+        .trim();
+    }
+    function toNumber(v, fallback = 0) {
+      const raw = String(v ?? "").trim();
+      if (!raw) return fallback;
+      const n = Number(raw.replace(/,/g, "").replace(/[^\d.-]/g, ""));
+      return Number.isFinite(n) ? n : fallback;
+    }
+    function parseMoneyExpression(v) {
+      const raw = String(v ?? "").replace(/,/g, "").replace(/[＋]/g, "+").replace(/[－ー]/g, "-").trim();
+      if (!raw) return 0;
+      const m = raw.match(/[+-]?\d+(?:\.\d+)?/g);
+      if (!m) return 0;
+      return m.reduce((sum, part) => sum + Number(part), 0);
+    }
+    function moneyFormat(n) { return `${Math.round(n).toLocaleString("ja-JP")} G`; }
+    function decodeYutoText(text) {
+      return String(text ?? "")
+        .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
+        .replace(/<br\s*\/?>/gi, "\n").replace(/\r/g, "");
+    }
+    function loadPriceCsvText(text, save = false) {
+      try {
+        state.pricePreset = parsePriceCsv(text);
+        state.priceCsvCount = Object.values(state.pricePresetAliases || {})
+          .filter((v, idx, arr) => arr.indexOf(v) === idx).length;
+        if (save) localStorage.setItem("sw25_price_csv_text", text);
+        updateCsvStatuses();
+        applyPresetAndCashbookPrices();
+        renderAll();
+        generateOutputs();
+      } catch (err) {
+        state.pricePreset = {};
+        state.pricePresetAliases = {};
+        state.priceCsvCount = 0;
+        updateCsvStatuses();
+        showCsvWarning("アイテム価格データの読込に失敗しました。CSV形式を確認してください。");
+      }
+    }
+    function parsePriceCsv(text) {
+      const prices = {};
+      const aliases = {};
+      const items = [];
+      const lines = String(text).split(/\r?\n/).map(v => v.trim()).filter(Boolean);
+      if (!lines.length) {
+        state.pricePresetAliases = {};
+        state.pricePresetItems = [];
+        renderPresetDatalist();
+        return {};
+      }
+      const first = splitCsvLine(lines[0]).map(v => v.trim());
+      const hasHeader = first.some(v => /^name$/i.test(v)) && first.some(v => /^price$/i.test(v));
+      const startIndex = hasHeader ? 1 : 0;
+      const header = hasHeader ? first : [];
+      for (let i = startIndex; i < lines.length; i++) {
+        const cols = splitCsvLine(lines[i]).map(v => v.trim());
+        if (cols.length < 2) continue;
+        let canonical = "";
+        let price = 0;
+        let aliasValues = [];
+        if (hasHeader) {
+          const row = {};
+          header.forEach((key, idx) => row[key] = cols[idx] || "");
+          canonical = row.name || row.Name || "";
+          price = parseMoneyExpression(row.price || row.Price || "0");
+          header.forEach((key, idx) => {
+            if ((/^alias\d*$/i.test(key) || key === "略称") && !/^aliases$/i.test(key)) aliasValues.push(cols[idx] || "");
+          });
+          if (row.aliases) aliasValues.push(...String(row.aliases).split("|"));
+        } else {
+          canonical = cols[0];
+          price = parseMoneyExpression(cols[1]);
+          aliasValues = cols.slice(2);
+        }
+        canonical = String(canonical || "").trim();
+        if (!canonical) continue;
+        const aliasList = [...new Set(aliasValues.flatMap(v => String(v || "").split("|"))
+          .map(v => v.trim()).filter(Boolean))];
+        const names = [canonical, ...aliasList];
+        names.forEach(name => {
+          prices[name] = price;
+          prices[normalizeName(name)] = price;
+          aliases[name] = canonical;
+          aliases[normalizeName(name)] = canonical;
+        });
+        const categoryIndex = hasHeader ? header.findIndex(h => /^category$/i.test(h) || h === "カテゴリ") : -1;
+        const noteIndex = hasHeader ? header.findIndex(h => /^note$/i.test(h) || h === "メモ") : -1;
+        items.push({
+          name: canonical,
+          price,
+          aliases: aliasList,
+          category: categoryIndex >= 0 ? (cols[categoryIndex] || "").trim() : "",
+          note: noteIndex >= 0 ? (cols[noteIndex] || "").trim() : ""
+        });
+      }
+      state.pricePresetAliases = aliases;
+      state.pricePresetItems = items;
+      renderPresetDatalist();
+      return prices;
+    }
+    function renderPresetDatalist() {
+      // v23以降はブラウザ標準datalistではなく、1文字以上入力時だけ出す独自候補を使う。
+    }
+    function presetToText(map) {
+      return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0], "ja"))
+        .filter(([name]) => state.pricePresetAliases[name] === name || state.pricePresetAliases[normalizeName(name)] === name)
+        .map(([name, price]) => `${name},${price}`).join("\n");
+    }
+    function resolvePresetName(name) {
+      const raw = String(name ?? "").trim();
+      const key = normalizeName(raw);
+      return state.pricePresetAliases[raw] || state.pricePresetAliases[key] || raw;
+    }
+    function getPresetPrice(name) {
+      const raw = String(name ?? "").trim();
+      const key = normalizeName(raw);
+      if (Object.prototype.hasOwnProperty.call(state.pricePreset, raw)) return state.pricePreset[raw];
+      if (Object.prototype.hasOwnProperty.call(state.pricePreset, key)) return state.pricePreset[key];
+      const canonical = resolvePresetName(raw);
+      const ckey = normalizeName(canonical);
+      if (Object.prototype.hasOwnProperty.call(state.pricePreset, canonical)) return state.pricePreset[canonical];
+      if (Object.prototype.hasOwnProperty.call(state.pricePreset, ckey)) return state.pricePreset[ckey];
+      return 0;
+    }
+    function getPresetPriceForContext(name, context = "") {
+      const raw = String(name ?? "").trim();
+      const key = normalizeName(raw);
+      const canonical = resolvePresetName(raw);
+      const item = (state.pricePresetItems || []).find(x =>
+        normalizeName(x.name) === normalizeName(canonical) ||
+        normalizeName(x.name) === key ||
+        (x.aliases || []).some(a => normalizeName(a) === key)
+      );
+      if (item && !categoryMatchesForSuggest(item.category, context)) return 0;
+      return getPresetPrice(name);
+    }
+    function applyPresetCandidateToRow(row, context = "") {
+      const before = String(row.name ?? "").trim();
+      if (!before) return;
+      const item = (state.pricePresetItems || []).find(x => normalizeName(x.name) === normalizeName(before));
+      if (!item) return;
+      if (!categoryMatchesForSuggest(item.category, context)) return;
+      if (!row.price && item.price) row.price = item.price;
+    }
+    function setPresetPrice(name, price) {
+      const key = normalizeName(name);
+      if (!key) return;
+      const canonical = resolvePresetName(name);
+      state.pricePreset[normalizeName(canonical)] = toNumber(price, 0);
+      state.pricePreset[canonical] = toNumber(price, 0);
+      state.pricePresetAliases[normalizeName(canonical)] = canonical;
+      state.pricePresetAliases[canonical] = canonical;
+      renderPresetDatalist();
+    }
+
+    function loadProcessCsvText(text, save = false) {
+      try {
+        state.processMaster = parseProcessCsv(text);
+        state.processCsvCount = state.processMaster.length;
+        if (save) localStorage.setItem("sw25_process_csv_text", text);
+        updateCsvStatuses();
+        hideCsvWarning();
+        applyPresetAndCashbookPrices();
+        renderAll();
+        generateOutputs();
+      } catch (err) {
+        state.processMaster = [];
+        state.processCsvCount = 0;
+        updateCsvStatuses();
+        showCsvWarning("武器防具強化データの読込に失敗しました。CSV形式を確認してください。");
+      }
+    }
+    function showCsvWarning(message) {
+      el("csvWarning").textContent = message;
+      el("csvWarning").style.display = "block";
+    }
+    function hideCsvWarning() {
+      el("csvWarning").textContent = "";
+      el("csvWarning").style.display = "none";
+    }
+    function updateCsvStatuses() {
+      const processStatus = el("processCsvStatus");
+      const priceStatus = el("priceCsvStatus");
+      if (processStatus) {
+        processStatus.textContent = state.processCsvCount ? `読込済み（${state.processCsvCount}件）` : "未読込";
+      }
+      if (priceStatus) {
+        priceStatus.textContent = state.priceCsvCount ? `読込済み（${state.priceCsvCount}件）` : "未読込";
+      }
+    }
+    function splitCsvLine(line) {
+      const result = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+          else inQuotes = !inQuotes;
+        } else if (ch === "," && !inQuotes) {
+          result.push(current); current = "";
+        } else current += ch;
+      }
+      result.push(current);
+      return result;
+    }
+    function parseProcessCsv(text) {
+      const lines = String(text).split(/\r?\n/).map(v => v.trim()).filter(Boolean);
+      if (!lines.length) return [];
+      const header = splitCsvLine(lines[0]).map(v => v.trim());
+      return lines.slice(1).map(line => {
+        const cols = splitCsvLine(line);
+        const row = {};
+        header.forEach((key, idx) => row[key] = (cols[idx] || "").trim());
+        return {
+          category: row.category,
+          name: row.name,
+          rank: row.rank,
+          price: toNumber(row.price, 0),
+          weapon: row.weapon === "1",
+          armor: row.armor === "1",
+          nonMetalArmor: row.nonMetalArmor === "1",
+          metalArmor: row.metalArmor === "1",
+          shield: row.shield === "1",
+          multiCountable: row.multiCountable === "1" || row.name === "オーダーメイド",
+          maxCount: Math.max(1, toNumber(row.maxCount, row.name === "オーダーメイド" ? 3 : 1)),
+          note: row.note || ""
+        };
+      }).filter(r => r.name);
+    }
+    function isWeaponType(type) { return type === "武器"; }
+    function getAvailableProcessDefinitions(type) {
+      return state.processMaster.filter(def => {
+        if (isWeaponType(type)) return def.weapon;
+        if (type === "盾") return def.armor && def.shield;
+        if (type === "非金属鎧") return def.armor && def.nonMetalArmor;
+        if (type === "金属鎧") return def.armor && def.metalArmor;
+        return false;
+      });
+    }
+    function getDistinctProcessNames(type) {
+      const names = [...new Set(getAvailableProcessDefinitions(type).map(d => d.name))];
+      if (!names.includes("その他")) names.push("その他");
+      return names;
+    }
+    function getProcessPrice(name, rank) {
+      if (!name || name === "その他") return 0;
+      const row = state.processMaster.find(def => def.name === name && def.rank === rank);
+      return row ? row.price : 0;
+    }
+    function getProcessNote(name, rank) {
+      if (!name || name === "その他") return "";
+      const row = state.processMaster.find(def => def.name === name && def.rank === rank);
+      return row ? row.note : "";
+    }
+    function isMultiCountableProcess(name) {
+      if (!name || name === "その他") return false;
+      const row = state.processMaster.find(def => def.name === name);
+      return Boolean(row && row.multiCountable);
+    }
+    function getMaxProcessCount(name) {
+      const row = state.processMaster.find(def => def.name === name && def.multiCountable);
+      return row ? Math.max(1, row.maxCount) : 1;
+    }
+
+    function blankEquipment() { return { type: "その他", name: "", price: 0, count: 1, note: "", processes: [] }; }
+    function blankProcess(type = "武器") {
+      const first = getDistinctProcessNames(type)[0] || "その他";
+      return { name: first, customName: "", rank: "B", count: 1, price: getProcessPrice(first, "B"), note: getProcessNote(first, "B") };
+    }
+    function blankAccessory(part = "他", child = false, parentPart = "") {
+      return { part: child ? "┗" : part, parentPart, child, hasExtraSlot: false, name: "", price: 0, count: 1, note: "" };
+    }
+    function blankConsumable() { return { name: "", price: 0, count: 1, includeItemList: true, note: "" }; }
+    function blankCard() { return { color: "赤", rank: "A", price: getCardPrice("A", "赤"), count: 1, includeItemList: true, excludeCost: false, note: "" }; }
+    function blankOtherSection(title = "その他", open = true) { return { title, open, memoOutput: false, items: [{ name: "", price: 0, count: 1, includeItemList: false, note: "" }] }; }
+
+    function parseCashbookEntries(cashbook) {
+      const text = decodeYutoText(cashbook);
+      const lines = text.split("\n").map(v => v.trim()).filter(Boolean);
+      const entries = [];
+      let section = "未分類";
+      let previous = null;
+      for (const line of lines) {
+        const start = line.match(/^\[[>vVＶｖ]\](.*)$/);
+        if (start) {
+          section = start[1].trim() || "詳細";
+          previous = null;
+          continue;
+        }
+        if (/^\[---+\]/.test(line)) {
+          section = "未分類";
+          previous = null;
+          continue;
+        }
+        const parsed = parseCashbookLine(line);
+        if (!parsed) continue;
+        parsed.section = section;
+        parsed.parentName = line.startsWith("┗") && previous ? previous.name : "";
+        entries.push(parsed);
+        if (!line.startsWith("┗")) previous = parsed;
+      }
+      return entries;
+    }
+    function parseCashbookLine(line) {
+      const m = line.match(/::\s*([+-]?)\s*([\d,]+(?:[+\-＋－][\d,]+)*)/);
+      if (!m) return null;
+      const sign = m[1] === "+" ? 1 : -1;
+      const unitPrice = Math.abs(parseMoneyExpression(m[2]));
+      const countMatch = line.slice(m.index + m[0].length).match(/\*\s*(\d+)/);
+      const count = countMatch ? toNumber(countMatch[1], 1) : 1;
+      const before = line.slice(0, m.index).replace(/^┗\s*/, "").trim();
+      const after = line.slice(m.index + m[0].length).replace(/\*\s*\d+/, "").trim();
+      const name = before || after.split(/\s+/)[0] || "";
+      return { raw: line, sign, name, cleanName: normalizeName(name), price: unitPrice, count, after, section: "", parentName: "" };
+    }
+    function findCashbookPrice(name) {
+      const key = normalizeName(name);
+      if (!key) return 0;
+      const candidates = state.cashbookEntries.filter(e => e.sign < 0 && !e.raw.startsWith("┗"));
+      let exact = candidates.find(e => normalizeName(e.name) === key);
+      if (exact) return exact.price;
+      exact = candidates.find(e => key.includes(normalizeName(e.name)) || normalizeName(e.name).includes(key));
+      return exact ? exact.price : 0;
+    }
+    function isCardEntry(entry) {
+      return /マテリアルカード|マテカ|カード/.test(entry.raw);
+    }
+
+    function parseSessionIncome(data) {
+      let total = 0;
+      Object.keys(data).forEach(key => {
+        const m = key.match(/^history(\d+)Money$/i);
+        if (!m) return;
+        if (Number(m[1]) === 0) return;
+        total += parseMoneyExpression(data[key]);
+      });
+      return total;
+    }
+    function extractInitialBudget(data) {
+      return parseMoneyExpression(data.history0Money || data.moneyTotal || data.money || 0);
+    }
+
+    function parseJsonToState(data) {
+      state.rawJson = data;
+      state.initialMoney = extractInitialBudget(data);
+      state.sessionIncome = parseSessionIncome(data);
+      state.cashbookEntries = parseCashbookEntries(data.cashbook || "");
+      state.hasCashbookCardPurchase = state.cashbookEntries.some(e => e.sign < 0 && isCardEntry(e));
+
+      el("characterName").value = data.characterName || data.pcName || "";
+      el("initialBudget").value = state.initialMoney;
+      el("historyExp").value = data.history0Exp || "";
+      el("historyHonor").value = data.history0Honor || "";
+      el("historyNote").value = data.history0Note || "";
+      el("cashbookPreview").value = decodeYutoText(data.cashbook || "");
+
+      state.equipment = parseEquipment(data);
+      state.accessories = parseAccessories(data);
+      state.consumables = parseConsumablesFromCashbook(data.cashbook || "");
+      state.cards = parseCards(data);
+      state.otherSections = parseOtherSectionsFromCashbook(data.cashbook || "");
+
+      if (!state.equipment.length) state.equipment.push(blankEquipment());
+      if (!state.consumables.length) state.consumables.push(blankConsumable());
+      if (!state.otherSections.length) state.otherSections.push(blankOtherSection("その他", true));
+
+      applyPresetAndCashbookPrices();
+      renderAll();
+      generateOutputs();
+    }
+
+    function parseEquipment(data) {
+      const rows = [];
+      for (let i = 1; i <= 40; i++) {
+        const name = data[`weapon${i}Name`] || data[`weapon${i}_Name`] || "";
+        if (!name) continue;
+        rows.push({ type: "武器", name, price: 0, count: 1, note: data[`weapon${i}Note`] || "", processes: [] });
+      }
+      for (let i = 1; i <= 40; i++) {
+        const name = data[`armour${i}Name`] || data[`armor${i}Name`] || "";
+        if (!name) continue;
+        const category = data[`armour${i}Category`] || data[`armor${i}Category`] || "その他";
+        rows.push({ type: mapArmourCategory(category), name, price: 0, count: 1, note: data[`armour${i}Note`] || data[`armor${i}Note`] || "", processes: [] });
+      }
+      // 収支履歴の加工行を可能な範囲で紐づける
+      rows.forEach(row => {
+        const rowKey = normalizeName(row.name);
+        state.cashbookEntries.forEach(entry => {
+          if (!entry.raw.startsWith("┗")) return;
+          const parent = normalizeName(entry.parentName);
+          if (!parent || !(rowKey.includes(parent) || parent.includes(rowKey))) return;
+          row.processes.push(parseProcessFromEntry(entry, row.type));
+        });
+      });
+      return rows;
+    }
+    function mapArmourCategory(category) {
+      const s = String(category);
+      if (s.includes("盾")) return "盾";
+      if (s.includes("非金属")) return "非金属鎧";
+      if (s.includes("金属")) return "金属鎧";
+      return "その他";
+    }
+    function parseProcessFromEntry(entry, parentType) {
+      const text = entry.after || "";
+      let name = "その他";
+      for (const n of getDistinctProcessNames(parentType)) {
+        if (n !== "その他" && text.includes(n)) { name = n; break; }
+      }
+      const rankMatch = text.match(/(SS|S|A|B)\s*ランク|ランク\s*(SS|S|A|B)|\b(SS|S|A|B)\b/);
+      const rank = rankMatch ? (rankMatch[1] || rankMatch[2] || rankMatch[3]) : "B";
+      const note = text.replace(name, "").replace(/(SS|S|A|B)\s*ランク/g, "").trim();
+      return { name, customName: name === "その他" ? text : "", rank, count: entry.count, price: entry.price, note };
+    }
+
+    function parseAccessories(data) {
+      const rows = [];
+      const defs = [
+        ["頭", "Head"], ["顔", "Face"], ["耳", "Ear"], ["首", "Neck"], ["背", "Back"],
+        ["右", "HandR"], ["左", "HandL"], ["腰", "Waist"], ["足", "Leg"], ["他", "Other"]
+      ];
+      for (const [part, code] of defs) {
+        const name = data[`accessory${code}Name`] || "";
+        const note = data[`accessory${code}Note`] || "";
+        rows.push({ part, parentPart: "", child: false, hasExtraSlot: data[`accessory${code}Add`] === "1", name, price: 0, count: 1, note });
+        const extraKeys = [
+          `accessory${code}_Name`,
+          `accessory${code}__Name`,
+          `accessory${code}___Name`
+        ];
+        extraKeys.forEach((key, idx) => {
+          if (!data[key]) return;
+          const noteKey = key.replace(/Name$/, "Note");
+          rows.push({ part: "┗", parentPart: part, child: true, hasExtraSlot: false, name: data[key], price: 0, count: 1, note: data[noteKey] || "" });
+        });
+      }
+      return rows;
+    }
+
+    function parseConsumablesFromCashbook(cashbook) {
+      const rows = [];
+      state.cashbookEntries.forEach(entry => {
+        if (entry.sign >= 0) return;
+        if (!entry.section.includes("消耗品")) return;
+        rows.push({ name: entry.name, price: entry.price, count: entry.count, includeItemList: true, note: "" });
+      });
+      return rows;
+    }
+    function getCardPrice(rank, color = "赤") {
+      return getPresetPrice(`マテリアルカード${color}${rank}`) || getPresetPrice(`${color}${rank}`) || 0;
+    }
+    function parseCards(data) {
+      const rows = [];
+      for (const [jp, code] of CARD_COLORS) {
+        for (const [rank, defaultPrice] of CARD_RANKS) {
+          const key = `card${code}${rank}`;
+          const count = toNumber(data[key], 0);
+          if (!count) continue;
+          rows.push({ color: jp, rank, price: getCardPrice(rank, jp), count, includeItemList: true, excludeCost: state.hasCashbookCardPurchase, note: "" });
+        }
+      }
+      return rows;
+    }
+
+    function parseOtherSectionsFromCashbook(cashbook) {
+      const ignore = ["武器・防具等", "鎧と両手", "装備", "装飾品", "消耗品", "マテリアルカード"];
+      const bySection = new Map();
+      state.cashbookEntries.forEach(entry => {
+        if (entry.sign >= 0) return;
+        if (entry.raw.startsWith("┗")) return;
+        if (ignore.some(x => entry.section.includes(x))) return;
+        if (entry.section === "未分類" && !entry.name) return;
+        const title = `その他_${entry.section || "未分類"}`;
+        if (!bySection.has(title)) bySection.set(title, []);
+        bySection.get(title).push({ name: entry.name, price: entry.price, count: entry.count, includeItemList: false, note: "" });
+      });
+      return [...bySection.entries()].map(([title, items]) => ({ title, items, open: false, memoOutput: false }));
+    }
+
+    function applyPresetAndCashbookPrices() {
+      state.equipment.forEach(row => {
+        if (!row.price) row.price = findCashbookPrice(row.name) || getPresetPrice(row.name);
+        row.processes.forEach(proc => {
+          if (!proc.price) proc.price = getProcessPrice(proc.name, proc.rank);
+          if (!proc.note) proc.note = getProcessNote(proc.name, proc.rank);
+          if (!isMultiCountableProcess(proc.name)) proc.count = 1;
+        });
+      });
+      state.accessories.forEach(row => {
+        if (!row.price && row.name) row.price = findCashbookPrice(row.name) || getPresetPrice(row.name);
+      });
+      state.consumables.forEach(row => { if (!row.price && row.name) row.price = getPresetPrice(row.name); });
+      state.otherSections.forEach(sec => sec.items.forEach(row => { if (!row.price && row.name) row.price = getPresetPrice(row.name); }));
+      state.cards.forEach(row => { if (!row.price) row.price = getCardPrice(row.rank); });
+    }
+
+    function td(label, html, cls = "") { return `<td data-label="${esc(label)}" class="${cls}">${html}</td>`; }
+    function selectHtml(options, selected, action, data = "") {
+      return `<select data-action="${action}" ${data}>${options.map(v => `<option value="${esc(v)}" ${String(v) === String(selected) ? "selected" : ""}>${esc(v)}</option>`).join("")}</select>`;
+    }
+    function inputHtml(value, action, data = "", type = "text") {
+      const suggest = type === "text" && /data-key="name"/.test(data) ? ' data-suggest="price" autocomplete="off"' : "";
+      return `<input type="${type}" value="${esc(value)}" data-action="${action}"${suggest} ${data}>`;
+    }
+    function checkboxHtml(checked, action, data = "") {
+      return `<input type="checkbox" class="checkBig" ${checked ? "checked" : ""} data-action="${action}" ${data}>`;
+    }
+
+    function renderAll() {
+      renderEquipmentTable();
+      renderAccessoryTable();
+      renderConsumableTable();
+      renderCardTable();
+      renderOtherSections();
+      updateTotals();
+    }
+
+    function renderEquipmentTable() {
+      const tbody = el("equipmentTable").querySelector("tbody");
+      tbody.innerHTML = "";
+      state.equipment.forEach((row, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          td("種別", selectHtml(EQUIPMENT_TYPES, row.type, "equipType", `data-i="${i}"`)) +
+          td("アイテム名", `<div class="stack">${inputHtml(row.name, "equipField", `data-i="${i}" data-key="name"`)}<div class="toolbar"><button class="small" type="button" data-action="addProcess" data-i="${i}">加工を追加</button><span class="badge">加工数: ${row.processes.length}</span></div></div>`) +
+          td("価格", inputHtml(row.price, "equipField", `data-i="${i}" data-key="price"`, "number")) +
+          td("数量", inputHtml(row.count, "equipField", `data-i="${i}" data-key="count" min="1"`, "number")) +
+          td("メモ", inputHtml(row.note, "equipField", `data-i="${i}" data-key="note"`)) +
+          td("", `<button class="small danger deleteBtn" type="button" data-action="removeEquipment" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
+        tbody.appendChild(tr);
+
+        row.processes.forEach((proc, p) => {
+          const names = getDistinctProcessNames(row.type);
+          const multi = isMultiCountableProcess(proc.name);
+          const max = getMaxProcessCount(proc.name);
+          const countOptions = Array.from({ length: max }, (_, idx) => String(idx + 1));
+          const sub = document.createElement("tr");
+          sub.className = "subRow";
+          sub.innerHTML =
+            td("種別", `<div class="partMark">┗ 加工</div>`) +
+            td("アイテム名", `<div class="stack">${selectHtml(names, proc.name, "processName", `data-i="${i}" data-p="${p}"`)}${proc.name === "その他" ? inputHtml(proc.customName, "processField", `data-i="${i}" data-p="${p}" data-key="customName"`) : ""}<div class="row" style="grid-template-columns: 1fr 1fr; gap: 6px;"><div>${selectHtml(PROCESS_RANKS, proc.rank, "processRank", `data-i="${i}" data-p="${p}"`)}</div><div>${multi ? selectHtml(countOptions, String(proc.count), "processCount", `data-i="${i}" data-p="${p}"`) : `<select disabled><option>1</option></select>`}</div></div></div>`) +
+            td("価格", inputHtml(proc.price, "processField", `data-i="${i}" data-p="${p}" data-key="price"`, "number")) +
+            td("数量", `<span class="badge">${Math.max(1, toNumber(proc.count, 1))}</span>`) +
+            td("メモ", inputHtml(proc.note, "processField", `data-i="${i}" data-p="${p}" data-key="note"`)) +
+            td("", `<button class="small danger deleteBtn" type="button" data-action="removeProcess" data-i="${i}" data-p="${p}">加工を削除</button>`, "mobileNoLabel deleteCell");
+          tbody.appendChild(sub);
+        });
+      });
+    }
+
+    function renderAccessoryTable() {
+      const tbody = el("accessoryTable").querySelector("tbody");
+      tbody.innerHTML = "";
+      state.accessories.forEach((row, i) => {
+        const tr = document.createElement("tr");
+        const partCell = row.child ? `<div class="partMark">┗</div>` : selectHtml(ACCESSORY_PARTS, row.part, "accessoryField", `data-i="${i}" data-key="part"`);
+        tr.innerHTML =
+          td("部位", partCell) +
+          td("追加枠", `<div class="center">${checkboxHtml(row.hasExtraSlot, "extraSlot", `data-i="${i}"`)}</div>`) +
+          td("アイテム名", inputHtml(row.name, "accessoryField", `data-i="${i}" data-key="name"`)) +
+          td("価格", inputHtml(row.price, "accessoryField", `data-i="${i}" data-key="price"`, "number")) +
+          td("数量", inputHtml(row.count, "accessoryField", `data-i="${i}" data-key="count" min="1"`, "number")) +
+          td("メモ", inputHtml(row.note, "accessoryField", `data-i="${i}" data-key="note"`)) +
+          td("", `<button class="small danger deleteBtn" type="button" data-action="removeAccessory" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderConsumableTable() {
+      const tbody = el("consumableTable").querySelector("tbody");
+      tbody.innerHTML = "";
+      state.consumables.forEach((row, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          td("アイテム名", inputHtml(row.name, "consumableField", `data-i="${i}" data-key="name"`)) +
+          td("価格", inputHtml(row.price, "consumableField", `data-i="${i}" data-key="price"`, "number")) +
+          td("数量", inputHtml(row.count, "consumableField", `data-i="${i}" data-key="count" min="1"`, "number")) +
+          td("持ち物リストに含める", `<div class="center">${checkboxHtml(row.includeItemList, "consumableField", `data-i="${i}" data-key="includeItemList"`)}</div>`) +
+          td("メモ", inputHtml(row.note, "consumableField", `data-i="${i}" data-key="note"`)) +
+          td("", `<button class="small danger deleteBtn" type="button" data-action="removeConsumable" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderCardTable() {
+      const tbody = el("cardTable").querySelector("tbody");
+      tbody.innerHTML = "";
+      el("cardCostHint").textContent = state.hasCashbookCardPurchase ? "収支履歴にカード購入記録があるため、シート上の所持カードは支出計算から除外しています。" : "";
+      state.cards.forEach((row, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          td("色", selectHtml(CARD_COLORS.map(v => v[0]), row.color, "cardField", `data-i="${i}" data-key="color"`)) +
+          td("ランク", selectHtml(CARD_RANKS.map(v => v[0]), row.rank, "cardRank", `data-i="${i}"`)) +
+          td("価格", inputHtml(row.price, "cardField", `data-i="${i}" data-key="price"`, "number")) +
+          td("数量", inputHtml(row.count, "cardField", `data-i="${i}" data-key="count" min="1"`, "number")) +
+          td("持ち物リストに含める", `<div class="center">${checkboxHtml(row.includeItemList, "cardField", `data-i="${i}" data-key="includeItemList"`)}</div>`) +
+          td("メモ", inputHtml(row.note || "", "cardField", `data-i="${i}" data-key="note"`)) +
+          td("", `<button class="small danger deleteBtn" type="button" data-action="removeCard" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderOtherSections() {
+      const root = el("otherSections");
+      root.innerHTML = "";
+      state.otherSections.forEach((section, s) => {
+        const details = document.createElement("details");
+        details.className = "section";
+        details.dataset.otherIndex = String(s);
+        details.open = Boolean(section.open);
+        details.addEventListener("toggle", () => { section.open = details.open; });
+        details.innerHTML = `
+          <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">${esc(section.title)}</span></span><span class="summaryHint">クリックで開閉</span></summary>
+          <div class="sectionBody">
+            <div class="toolbar">
+              <label style="display:flex; align-items:center; gap:6px; margin:0;">
+                <input type="checkbox" class="checkBig" ${section.memoOutput ? "checked" : ""} data-action="otherMemoOutput" data-s="${s}" />
+                メモを収支欄に出力
+              </label>
+              <button type="button" data-action="addOtherItem" data-s="${s}">行を追加</button>
+              <button type="button" class="danger" data-action="removeOtherSection" data-s="${s}">この枠を削除</button>
+            </div>
+            <table class="gridTable">
+              <thead><tr><th>アイテム名</th><th>価格</th><th>数量</th><th>持ち物リストに含める</th><th>メモ</th><th></th></tr></thead>
+              <tbody>${section.items.map((item, i) => `
+                <tr>
+                  ${td("アイテム名", inputHtml(item.name, "otherField", `data-s="${s}" data-i="${i}" data-key="name"`))}
+                  ${td("価格", inputHtml(item.price, "otherField", `data-s="${s}" data-i="${i}" data-key="price"`, "number"))}
+                  ${td("数量", inputHtml(item.count, "otherField", `data-s="${s}" data-i="${i}" data-key="count" min="1"`, "number"))}
+                  ${td("持ち物リストに含める", `<div class="center">${checkboxHtml(item.includeItemList, "otherField", `data-s="${s}" data-i="${i}" data-key="includeItemList"`)}</div>`)}
+                  ${td("メモ", inputHtml(item.note, "otherField", `data-s="${s}" data-i="${i}" data-key="note"`))}
+                  ${td("", `<button class="small danger deleteBtn" type="button" data-action="removeOtherItem" data-s="${s}" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell")}
+                </tr>`).join("")}</tbody>
+            </table>
+          </div>`;
+        root.appendChild(details);
+      });
+      const add = document.createElement("div");
+      add.className = "toolbar";
+      add.style.marginBottom = "12px";
+      add.innerHTML = `<button type="button" data-action="addOtherSection">その他枠を追加</button>`;
+      root.appendChild(add);
+    }
+
+    function updateTotals() {
+      let cost = 0;
+      state.equipment.forEach(row => {
+        cost += toNumber(row.price) * Math.max(1, toNumber(row.count, 1));
+        row.processes.forEach(proc => cost += toNumber(proc.price) * Math.max(1, toNumber(proc.count, 1)));
+      });
+      state.accessories.forEach(row => cost += toNumber(row.price) * Math.max(1, toNumber(row.count, 1)));
+      state.consumables.forEach(row => cost += toNumber(row.price) * Math.max(1, toNumber(row.count, 1)));
+      state.cards.forEach(row => {
+        if (!row.excludeCost) cost += toNumber(row.price) * Math.max(1, toNumber(row.count, 1));
+      });
+      state.otherSections.forEach(sec => sec.items.forEach(row => cost += toNumber(row.price) * Math.max(1, toNumber(row.count, 1))));
+      const money = parseMoneyExpression(el("initialBudget").value || state.initialMoney);
+      const income = state.sessionIncome;
+      el("totalMoney").textContent = moneyFormat(money);
+      el("totalCost").textContent = moneyFormat(cost);
+      el("totalIncome").textContent = moneyFormat(income);
+      el("remainingBudget").textContent = moneyFormat(money + income - cost);
+    }
+
+    function buildSection(title, lines) {
+      const body = lines.filter(Boolean);
+      if (!body.length) return "";
+      return `[>]${title}\n${body.join("\n")}\n[---]`;
+    }
+    function cashbookLineForEquipment(row) {
+      const name = normalizeName(row.name);
+      if (!name) return "";
+      const multi = toNumber(row.count, 1) > 1 ? `*${toNumber(row.count, 1)}` : "";
+      const note = el("equipmentMemoOutput").checked && row.note ? ` ${row.note}` : "";
+      return `${row.type}　${name}　::-${toNumber(row.price)}${multi}${note}`;
+    }
+    function cashbookLineForProcess(proc) {
+      const label = proc.name === "その他" ? normalizeName(proc.customName) || "その他" : proc.name;
+      if (!label) return "";
+      const multi = toNumber(proc.count, 1) > 1 ? `*${toNumber(proc.count, 1)}` : "";
+      const parts = [];
+      if (proc.rank) parts.push(`${proc.rank}ランク`);
+      if (el("equipmentMemoOutput").checked && proc.note) parts.push(proc.note);
+      return `┗　::-${toNumber(proc.price)}${multi} ${label}${parts.length ? " " + parts.join(" ") : ""}`;
+    }
+    function cashbookLineForAccessory(row) {
+      const name = normalizeName(row.name);
+      if (!name) return "";
+      const part = row.child ? "┗" : row.part;
+      const multi = toNumber(row.count, 1) > 1 ? `*${toNumber(row.count, 1)}` : "";
+      const note = el("accessoryMemoOutput").checked && row.note ? ` ${row.note}` : "";
+      return `${part}　::-${toNumber(row.price)}${multi} ${name}${note}`;
+    }
+    function cashbookLineForCommon(row, includeNote = true) {
+      const name = normalizeName(row.name);
+      if (!name) return "";
+      const multi = toNumber(row.count, 1) > 1 ? `*${toNumber(row.count, 1)}` : "";
+      const note = includeNote && row.note ? ` ${row.note}` : "";
+      return `${name}　::-${toNumber(row.price)}${multi}${note}`;
+    }
+    function cashbookLineForCard(row) {
+      if (row.excludeCost) return "";
+      const multi = toNumber(row.count, 1) > 1 ? `*${toNumber(row.count, 1)}` : "";
+      const note = el("cardMemoOutput").checked && row.note ? ` ${row.note}` : "";
+      return `${row.color}${row.rank}　::-${toNumber(row.price)}${multi}${note}`;
+    }
+    function itemLine(row) {
+      const name = normalizeName(row.name);
+      if (!name) return "";
+      return `${name}×${Math.max(1, toNumber(row.count, 1))}`;
+    }
+    function cardItemLine(row) {
+      return `マテリアルカード${row.color}${row.rank}×${Math.max(1, toNumber(row.count, 1))}`;
+    }
+    function generateOutputs() {
+      const equipLines = [];
+      state.equipment.forEach(row => {
+        const main = cashbookLineForEquipment(row);
+        if (main) equipLines.push(main);
+        row.processes.forEach(proc => {
+          const sub = cashbookLineForProcess(proc);
+          if (sub) equipLines.push(sub);
+        });
+      });
+      const sections = [
+        buildSection("武器・防具等", equipLines),
+        buildSection("装飾品", state.accessories.map(cashbookLineForAccessory)),
+        buildSection("消耗品", state.consumables.map(row => cashbookLineForCommon(row, el("consumableMemoOutput").checked))),
+        buildSection("マテリアルカード", state.cards.map(cashbookLineForCard)),
+        ...state.otherSections.map(sec => buildSection(sec.title, sec.items.map(row => cashbookLineForCommon(row, sec.memoOutput))))
+      ];
+      el("cashbookOutput").value = sections.filter(Boolean).join("\n\n");
+
+      const itemLines = [
+        ...state.consumables.filter(r => r.includeItemList).map(itemLine),
+        ...state.cards.filter(r => r.includeItemList).map(cardItemLine),
+        ...state.otherSections.flatMap(sec => sec.items.filter(r => r.includeItemList).map(itemLine))
+      ].filter(Boolean);
+      el("itemListOutput").value = itemLines.join("\n");
+      updateTotals();
+    }
+
+    function getSuggestCategoryForInput(input) {
+      if (!input) return "";
+      const action = input.dataset.action;
+      if (action === "equipField") return "equipment";
+      if (action === "accessoryField") return "accessory";
+      if (action === "consumableField") return "consumable";
+      if (action === "otherField") return "other";
+      return "";
+    }
+    function categoryMatchesForSuggest(itemCategory, context) {
+      const c = String(itemCategory || "").trim();
+      if (context === "other") return !c.includes("マテリアルカード");
+      if (!context) return true;
+      if (!c) return true; // 空欄カテゴリは getPresetSuggestions 側で3文字以上に制限する
+      if (context === "equipment") {
+        return ["武器", "防具", "武器防具", "武器・防具", "武器防具等", "装備", "非金属鎧", "金属鎧", "盾"].some(x => c.includes(x));
+      }
+      if (context === "accessory") return c.includes("装飾品");
+      if (context === "consumable") return c.includes("消耗品");
+      return true;
+    }
+    function getPresetSuggestions(query, context = "") {
+      const q = normalizeName(query);
+      if (!q || q.length < 1) return [];
+      const results = [];
+      const seen = new Set();
+      for (const item of state.pricePresetItems || []) {
+        const category = String(item.category || "").trim();
+        if (!category && q.length < 3) continue;
+        if (!categoryMatchesForSuggest(category, context)) continue;
+        const names = [item.name, ...(item.aliases || [])];
+        const matched = names.some(name => normalizeName(name).includes(q));
+        if (!matched) continue;
+        const key = normalizeName(item.name);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        results.push(item);
+        if (results.length >= 20) break;
+      }
+      return results;
+    }
+    function hideSuggestBox() {
+      const box = el("suggestBox");
+      if (!box) return;
+      box.style.display = "none";
+      box.innerHTML = "";
+      delete box.dataset.targetId;
+    }
+    function showSuggestBox(input) {
+      const box = el("suggestBox");
+      if (!box || !input || input.dataset.suggest !== "price") return;
+      const query = input.value;
+      const context = getSuggestCategoryForInput(input);
+      const suggestions = getPresetSuggestions(query, context);
+      if (!suggestions.length) {
+        hideSuggestBox();
+        return;
+      }
+      if (!input.id) input.id = `suggestTarget_${Math.random().toString(36).slice(2)}`;
+      box.dataset.targetId = input.id;
+      box.innerHTML = suggestions.map(item => {
+        const aliasText = (item.aliases || []).length ? ` / 略称: ${esc(item.aliases.join("・"))}` : "";
+        const categoryText = item.category ? ` / ${esc(item.category)}` : "";
+        return `<button type="button" class="suggestItem" data-name="${esc(item.name)}" data-price="${esc(item.price)}">
+          <span class="suggestName">${esc(item.name)}</span>
+          <span class="suggestMeta">${esc(item.price)}G${categoryText}${aliasText}</span>
+        </button>`;
+      }).join("");
+      const rect = input.getBoundingClientRect();
+      box.style.left = `${Math.max(4, rect.left)}px`;
+      box.style.top = `${rect.bottom + 4}px`;
+      box.style.width = `${Math.max(220, rect.width)}px`;
+      box.style.display = "block";
+    }
+    function applySuggestionToInput(input, name, price) {
+      if (!input) return;
+      input.value = name;
+      const action = input.dataset.action;
+      const i = Number(input.dataset.i);
+      const s = Number(input.dataset.s);
+      if (action === "equipField") {
+        state.equipment[i].name = name;
+        state.equipment[i].price = toNumber(price, 0);
+      } else if (action === "accessoryField") {
+        state.accessories[i].name = name;
+        state.accessories[i].price = toNumber(price, 0);
+      } else if (action === "consumableField") {
+        state.consumables[i].name = name;
+        state.consumables[i].price = toNumber(price, 0);
+      } else if (action === "otherField") {
+        state.otherSections[s].items[i].name = name;
+        state.otherSections[s].items[i].price = toNumber(price, 0);
+      }
+      hideSuggestBox();
+      renderAll();
+      generateOutputs();
+    }
+
+    function handleField(target) {
+      const action = target.dataset.action;
+      const i = Number(target.dataset.i);
+      const s = Number(target.dataset.s);
+      const p = Number(target.dataset.p);
+      const key = target.dataset.key;
+      const value = target.type === "checkbox" ? target.checked : target.value;
+      const numeric = target.type === "number";
+
+      if (action === "equipType") {
+        const row = state.equipment[i];
+        row.type = value;
+        row.processes.forEach(proc => {
+          const names = getDistinctProcessNames(row.type);
+          if (!names.includes(proc.name)) {
+            proc.name = names[0] || "その他";
+            proc.rank = "B";
+            proc.count = 1;
+            proc.price = getProcessPrice(proc.name, proc.rank);
+            proc.note = getProcessNote(proc.name, proc.rank);
+          }
+        });
+        renderAll(); generateOutputs(); return;
+      }
+      if (action === "equipField") {
+        state.equipment[i][key] = numeric ? toNumber(value, key === "count" ? 1 : 0) : value;
+        if (key === "name") applyPresetCandidateToRow(state.equipment[i], "equipment");
+        if (key === "price" || key === "name") setPresetPrice(state.equipment[i].name, state.equipment[i].price);
+      }
+      if (action === "processName") {
+        const proc = state.equipment[i].processes[p];
+        proc.name = value;
+        proc.customName = "";
+        proc.count = isMultiCountableProcess(value) ? Math.min(proc.count || 1, getMaxProcessCount(value)) : 1;
+        proc.price = getProcessPrice(proc.name, proc.rank);
+        proc.note = getProcessNote(proc.name, proc.rank);
+        renderAll(); generateOutputs(); return;
+      }
+      if (action === "processRank") {
+        const proc = state.equipment[i].processes[p];
+        proc.rank = value;
+        proc.price = getProcessPrice(proc.name, proc.rank);
+        proc.note = getProcessNote(proc.name, proc.rank);
+        renderAll(); generateOutputs(); return;
+      }
+      if (action === "processCount") state.equipment[i].processes[p].count = toNumber(value, 1);
+      if (action === "processField") state.equipment[i].processes[p][key] = numeric ? toNumber(value, 0) : value;
+
+      if (action === "accessoryField") {
+        state.accessories[i][key] = numeric ? toNumber(value, key === "count" ? 1 : 0) : value;
+        if (key === "name") applyPresetCandidateToRow(state.accessories[i], "accessory");
+        if (key === "price" || key === "name") setPresetPrice(state.accessories[i].name, state.accessories[i].price);
+      }
+      if (action === "extraSlot") {
+        const row = state.accessories[i];
+        row.hasExtraSlot = target.checked;
+        const parentPart = row.child ? row.parentPart : row.part;
+        if (target.checked) {
+          const next = state.accessories[i + 1];
+          const nextIsInsertedChild = next && next.child && next.parentPart === parentPart && !next.name && !next.hasExtraSlot;
+          if (!nextIsInsertedChild) state.accessories.splice(i + 1, 0, blankAccessory(parentPart, true, parentPart));
+        } else {
+          const next = state.accessories[i + 1];
+          if (next && next.child && next.parentPart === parentPart && !next.name && !next.hasExtraSlot) {
+            state.accessories.splice(i + 1, 1);
+          }
+        }
+        renderAll(); generateOutputs(); return;
+      }
+      if (action === "consumableField") {
+        state.consumables[i][key] = numeric ? toNumber(value, key === "count" ? 1 : 0) : value;
+        if (key === "name") applyPresetCandidateToRow(state.consumables[i], "consumable");
+        if (key === "price" || key === "name") setPresetPrice(state.consumables[i].name, state.consumables[i].price);
+      }
+      if (action === "cardRank") {
+        state.cards[i].rank = value;
+        state.cards[i].price = getCardPrice(value, state.cards[i].color);
+        renderAll(); generateOutputs(); return;
+      }
+      if (action === "cardField") {
+        state.cards[i][key] = numeric ? toNumber(value, key === "count" ? 1 : 0) : value;
+        if (key === "color") state.cards[i].price = getCardPrice(state.cards[i].rank, state.cards[i].color);
+      }
+      if (action === "otherField") {
+        state.otherSections[s].items[i][key] = numeric ? toNumber(value, key === "count" ? 1 : 0) : value;
+        if (key === "name") applyPresetCandidateToRow(state.otherSections[s].items[i], "other");
+        if (key === "price" || key === "name") setPresetPrice(state.otherSections[s].items[i].name, state.otherSections[s].items[i].price);
+      }
+      if (action === "otherMemoOutput") {
+        state.otherSections[s].memoOutput = Boolean(value);
+      }
+
+      generateOutputs();
+    }
+
+    document.addEventListener("input", e => {
+      if (e.target && e.target.dataset && e.target.dataset.action) {
+        handleField(e.target);
+        if (e.target.dataset.suggest === "price") showSuggestBox(e.target);
+      }
+    });
+    document.addEventListener("change", e => {
+      if (e.target && e.target.dataset && e.target.dataset.action) {
+        handleField(e.target);
+        if (e.target.dataset.suggest === "price") setTimeout(() => hideSuggestBox(), 120);
+      }
+    });
+    document.addEventListener("focusin", e => {
+      if (e.target && e.target.dataset && e.target.dataset.suggest === "price" && e.target.value.trim().length >= 1) {
+        showSuggestBox(e.target);
+      }
+    });
+    window.addEventListener("scroll", hideSuggestBox, true);
+    window.addEventListener("resize", hideSuggestBox);
+
+    document.addEventListener("click", e => {
+      const suggestion = e.target.closest(".suggestItem");
+      if (suggestion) {
+        const box = el("suggestBox");
+        const input = box && box.dataset.targetId ? document.getElementById(box.dataset.targetId) : null;
+        applySuggestionToInput(input, suggestion.dataset.name, suggestion.dataset.price);
+        return;
+      }
+      if (!e.target.closest("#suggestBox") && !(e.target.dataset && e.target.dataset.suggest === "price")) {
+        hideSuggestBox();
+      }
+      const t = e.target.closest("[data-action]");
+      if (!t || ["INPUT", "SELECT", "TEXTAREA"].includes(t.tagName)) return;
+      const action = t.dataset.action;
+      const i = Number(t.dataset.i);
+      const s = Number(t.dataset.s);
+      const p = Number(t.dataset.p);
+      if (action === "addProcess") state.equipment[i].processes.push(blankProcess(state.equipment[i].type));
+      if (action === "removeProcess") state.equipment[i].processes.splice(p, 1);
+      if (action === "removeEquipment") state.equipment.splice(i, 1);
+      if (action === "removeAccessory") state.accessories.splice(i, 1);
+      if (action === "removeConsumable") state.consumables.splice(i, 1);
+      if (action === "removeCard") state.cards.splice(i, 1);
+      if (action === "addOtherItem") state.otherSections[s].items.push({ name: "", price: 0, count: 1, includeItemList: false, note: "" });
+      if (action === "removeOtherItem") state.otherSections[s].items.splice(i, 1);
+      if (action === "addOtherSection") state.otherSections.push(blankOtherSection(`その他_${state.otherSections.length + 1}`, true));
+      if (action === "removeOtherSection") state.otherSections.splice(s, 1);
+      renderAll(); generateOutputs();
+    });
+
+    el("addEquipmentBtn").addEventListener("click", () => { state.equipment.push(blankEquipment()); renderAll(); generateOutputs(); });
+    el("addAccessoryBtn").addEventListener("click", () => { state.accessories.push(blankAccessory("他")); renderAll(); generateOutputs(); });
+    el("addConsumableBtn").addEventListener("click", () => { state.consumables.push(blankConsumable()); renderAll(); generateOutputs(); });
+    el("addCardBtn").addEventListener("click", () => { const row = blankCard(); row.excludeCost = state.hasCashbookCardPurchase; state.cards.push(row); renderAll(); generateOutputs(); });
+    el("copyCashbookBtn").addEventListener("click", () => copyFrom("cashbookOutput"));
+    el("copyItemListBtn").addEventListener("click", () => copyFrom("itemListOutput"));
+    el("equipmentMemoOutput").addEventListener("change", generateOutputs);
+    el("accessoryMemoOutput").addEventListener("change", generateOutputs);
+    el("consumableMemoOutput").addEventListener("change", generateOutputs);
+    el("cardMemoOutput").addEventListener("change", generateOutputs);
+    el("initialBudget").addEventListener("input", updateTotals);
+    el("processCsvFile").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      loadProcessCsvText(text, true);
+    });
+    el("priceCsvFile").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const text = await file.text();
+      loadPriceCsvText(text, true);
+    });
+    el("clearProcessCsvBtn").addEventListener("click", () => {
+      localStorage.removeItem("sw25_process_csv_text");
+      state.processMaster = [];
+      state.processCsvCount = 0;
+      updateCsvStatuses();
+      renderAll();
+      generateOutputs();
+    });
+    el("clearPriceCsvBtn").addEventListener("click", () => {
+      const ok = confirm("保存済みアイテム価格データを削除します。現在画面に入力済みの価格は消えません。よろしいですか？");
+      if (!ok) return;
+      localStorage.removeItem("sw25_price_csv_text");
+      state.pricePreset = {};
+      state.pricePresetAliases = {};
+      state.pricePresetItems = [];
+      state.priceCsvCount = 0;
+      renderPresetDatalist();
+      updateCsvStatuses();
+      renderAll();
+      generateOutputs();
+    });
+    el("jsonFile").addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        state.rawJson = JSON.parse(text);
+        parseJsonToState(state.rawJson);
+      } catch (err) {
+        alert("JSONの読み込みに失敗しました。");
+      }
+    });
+    el("themeBtn").addEventListener("click", () => {
+      const current = localStorage.getItem("sw25_theme_color") || "#eaf2ff";
+      const input = document.createElement("input");
+      input.type = "color";
+      input.value = current;
+      input.addEventListener("input", () => applyThemeColor(input.value, true));
+      input.click();
+    });
+    function applyThemeColor(color, save) {
+      document.documentElement.style.setProperty("--section-open", color);
+      document.documentElement.style.setProperty("--section-bg", color + "44");
+      document.documentElement.style.setProperty("--section-border", color);
+      if (save) localStorage.setItem("sw25_theme_color", color);
+    }
+    async function copyFrom(id) {
+      const text = el(id).value;
+      try { await navigator.clipboard.writeText(text); }
+      catch {
+        el(id).select();
+        document.execCommand("copy");
+      }
+    }
+
+    (async function init() {
+      const savedColor = localStorage.getItem("sw25_theme_color");
+      if (savedColor) applyThemeColor(savedColor, false);
+      const savedProcessCsv = localStorage.getItem("sw25_process_csv_text");
+      if (savedProcessCsv) loadProcessCsvText(savedProcessCsv, false);
+      const savedPriceCsv = localStorage.getItem("sw25_price_csv_text");
+      if (savedPriceCsv) loadPriceCsvText(savedPriceCsv, false);
+      state.equipment = [blankEquipment()];
+      state.accessories = ACCESSORY_PARTS.map(part => blankAccessory(part));
+      state.consumables = [blankConsumable()];
+      state.cards = [];
+      state.otherSections = [blankOtherSection("その他", true)];
+      updateCsvStatuses();
+      renderAll();
+      generateOutputs();
+    })();
+  </script>
+</body>
+</html>
