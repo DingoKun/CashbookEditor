@@ -1,18 +1,18 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: 1.0
+  version: 1.1
   date: 2026-06-07
   versioning: previous v26 is treated as 0.26
   notes:
     - GitHub Pages 向けに不要な再読込・サンプル系ボタンを削除
-    - 正式版1.0：メモ出力設定・表記調整・フッター追加
+    - 1.1：サンプルCSVリンクを追加
 -->
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ 1.0</title>
+  <title>SW2.5 収支・持ち物エディタ 1.1</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -376,6 +376,23 @@
       font-size: 12px;
       padding: 18px 0 10px;
     }
+    .sampleLinks {
+      margin-top: 8px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fafafa;
+    }
+    .sampleLinks a {
+      font-weight: 800;
+      color: var(--accent);
+      text-decoration: none;
+      margin-right: 12px;
+      white-space: nowrap;
+    }
+    .sampleLinks a:hover {
+      text-decoration: underline;
+    }
 
     input[type="text"], input[type="number"], select {
       min-height: 24px;
@@ -418,7 +435,7 @@
       <div>
         <h1>SW2.5 収支・持ち物エディタ</h1>
         <p class="lead">ゆとシートJSONを読み込み、収支欄テキストと持ち物リストを生成します。</p>
-        <div class="version">version: 1.0</div>
+        <div class="version">version: 1.1</div>
       </div>
       <div class="toolbar" style="margin-top:0;">
         <button id="themeBtn" type="button">カラー選択</button>
@@ -465,6 +482,16 @@
           <div class="toolbar"><button id="clearPriceCsvBtn" type="button">保存済みアイテム価格データを削除</button></div>
         </div>
       </div>
+    </div>
+
+    <div class="card sampleLinks">
+      <strong>サンプルCSV：</strong>
+      <a href="./data_sample.csv" target="_blank" rel="noopener">data_sample.csvを見る</a>
+      <a href="./data_sample.csv" download>ダウンロード</a>
+      <span style="display:inline-block; width:10px;"></span>
+      <a href="./price_sample.csv" target="_blank" rel="noopener">price_sample.csvを見る</a>
+      <a href="./price_sample.csv" download>ダウンロード</a>
+      <p class="hint">形式確認用の架空データです。実際に使うデータは各自で作成・読み込みしてください。</p>
     </div>
 
     <div class="card">
@@ -585,7 +612,7 @@
   </div>
 
   <script>
-    const VERSION = "1.0";
+    const VERSION = "1.1";
 
     const state = {
       rawJson: null,
