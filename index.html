@@ -1,0 +1,1525 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SW2.5 収支欄補助ツール</title>
+  <style>
+    :root {
+      --bg: #f7f7f8;
+      --panel: #ffffff;
+      --line: #d9d9de;
+      --text: #222;
+      --muted: #666;
+      --accent: #2f6feb;
+      --danger: #c62828;
+      --section-bg: #f8fbff;
+      --section-open: #eaf2ff;
+      --section-border: #b8d0ff;
+      --subrow-bg: #fbfbfd;
+      --warn-bg: #fff8e6;
+      --warn-line: #e8c86b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .pageHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .pageHeader h1 { margin: 0; }
+    .themeButton {
+      white-space: nowrap;
+      font-weight: 700;
+    }
+    .hiddenColorInput {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      width: 1px;
+      height: 1px;
+    }
+    h1, h2, h3 { margin: 0 0 12px; }
+    .lead { color: var(--muted); margin: 0 0 16px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .warnbox {
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-line);
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+    .col-12 { grid-column: span 12; }
+    .col-6 { grid-column: span 6; }
+    .col-4 { grid-column: span 4; }
+    .col-3 { grid-column: span 3; }
+    @media (max-width: 920px) {
+      .col-6, .col-4, .col-3 { grid-column: span 12; }
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    input[type="text"],
+    input[type="number"],
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 6px 8px;
+      min-height: 34px;
+      font: inherit;
+      background: #fff;
+      color: inherit;
+    }
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 7px 10px;
+      font: inherit;
+      cursor: pointer;
+    }
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+    button.subtle { background: #fff; color: var(--text); }
+    button.danger { color: var(--danger); }
+    button.small { padding: 5px 8px; font-size: 13px; }
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .hint { color: var(--muted); font-size: 13px; }
+    .totalBox {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    @media (max-width: 720px) {
+      .totalBox { grid-template-columns: 1fr; }
+    }
+    .stat {
+      background: #fafafa;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .stat .label { color: var(--muted); font-size: 13px; }
+    .stat .value { font-size: 24px; font-weight: 700; margin-top: 6px; }
+    details.section {
+      border: 1px solid var(--section-border);
+      border-radius: 10px;
+      background: var(--section-bg);
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    details.section > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px 14px;
+      font-weight: 700;
+      background: var(--section-bg);
+      border-bottom: 1px solid var(--section-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    details.section[open] > summary { background: var(--section-open); }
+    details.section > summary::-webkit-details-marker { display: none; }
+    .summaryLeft { display: flex; align-items: center; gap: 10px; }
+    .summaryIcon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--section-border);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    details.section[open] .summaryIcon::before { content: "−"; }
+    details.section:not([open]) .summaryIcon::before { content: "＋"; }
+    .summaryHint { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .sectionBody { padding: 12px; background: #fff; }
+    .gridTable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .alignedItemTable { table-layout: fixed; }
+    .alignedItemTable .itemNameCol { width: 230px; }
+    .alignedItemTable .cardColorCol { width: 115px; }
+    .alignedItemTable .cardRankCol { width: 115px; }
+    .alignedItemTable .priceCol { width: 260px; }
+    .alignedItemTable .qtyCol { width: 80px; }
+    .alignedItemTable .includeCol { width: 170px; }
+    .alignedItemTable .memoCol { width: 220px; }
+    .alignedItemTable .actionCol { width: 70px; }
+
+    .gridTable th, .gridTable td {
+      border: 1px solid var(--line);
+      padding: 4px 6px;
+      vertical-align: top;
+    }
+    .gridTable th {
+      background: #fafafa;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .stack { display: flex; flex-direction: column; gap: 6px; }
+    .center { text-align: center; }
+    .right { text-align: right; }
+    .subRow td {
+      background: var(--subrow-bg);
+      border-top: 0;
+    }
+    .indentCell { padding-left: 24px !important; }
+    .accessoryPartCell {
+      vertical-align: middle !important;
+    }
+    .accessorySubPartLabel {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .shortCell { width: 90px; min-width: 90px; }
+    .veryShortCell { width: 60px; min-width: 60px; }
+    .qtySelect { width: 72px; min-width: 72px; }
+    .checkCell {
+      text-align: center;
+      vertical-align: middle !important;
+    }
+    .largeCheck {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      vertical-align: middle;
+      cursor: pointer;
+    }
+    .accessoryMemoHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .headerCheckLabel {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin: 0;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .partOutputLabel {
+      display: inline-block;
+      min-width: 2em;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    #cashbookOutput { min-height: 260px; }
+    #cashbookPreview { min-height: 90px; }
+    .sectionBody { padding: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="pageHeader">
+      <h1>SW2.5 収支欄補助ツール</h1>
+      <div>
+        <button id="colorSelectBtn" class="themeButton" type="button">カラー選択</button>
+        <input id="themeColorPicker" class="hiddenColorInput" type="color" value="#eaf2ff" />
+      </div>
+    </div>
+    <p class="lead">JSONを読み込み、価格を入力・調整し、ゆとシート用の収支欄テキストと消耗品の持ち物リストを生成します。</p>
+
+    <div class="warnbox" id="csvWarning"></div>
+
+    <div class="card">
+      <div class="row">
+        <div class="col-6">
+          <label for="jsonFile">JSONファイル</label>
+          <input id="jsonFile" type="file" accept=".json,application/json" />
+        </div>
+        <div class="col-6">
+          <label for="pricePreset">価格プリセット（任意）</label>
+          <textarea id="pricePreset" placeholder="1行に1件: アイテム名,価格&#10;例:&#10;ひらめき眼鏡,4000&#10;アルケミーキット,200&#10;マテリアルカード赤A,200"></textarea>
+        </div>
+        <div class="col-12">
+          <div class="toolbar">
+            <button class="primary" id="parseBtn">JSONを解析</button>
+            <button class="subtle" id="loadSampleBtn">サンプルJSONを読み込む</button>
+            <button id="reloadCsvBtn">data.csv を再読込</button>
+            <button id="savePresetBtn">価格プリセットを保存</button>
+            <button id="generateBtn">出力生成</button>
+          </div>
+          <p class="hint">加工定義は html と同階層の <code>data.csv</code> を読みに行きます。ローカルで <code>file://</code> 直開きだと読めない環境があるため、その場合は簡易サーバーか GitHub Pages で開いてください。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="totalBox">
+        <div class="stat"><div class="label">所持金</div><div class="value" id="totalBudget">0 G</div></div>
+        <div class="stat"><div class="label">支出</div><div class="value" id="totalCost">0 G</div></div>
+        <div class="stat"><div class="label">収入</div><div class="value" id="totalIncome">0 G</div></div>
+        <div class="stat"><div class="label">残り</div><div class="value" id="remainingBudget">0 G</div></div>
+      </div>
+    </div>
+
+    <details class="section">
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span>基本情報</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <div class="row">
+          <div class="col-3"><label>キャラクター名</label><input id="characterName" type="text" /></div>
+          <div class="col-3"><label>レギュ初期所持金</label><input id="initialBudget" type="number" step="1" value="0" /></div>
+          <div class="col-3"><label>経験点</label><input id="initialExp" type="number" step="1" value="0" /></div>
+          <div class="col-3"><label>名誉点</label><input id="initialHonor" type="number" step="1" value="0" /></div>
+          <div class="col-6"><label>アビスシャード</label><input id="initialAbyssShard" type="text" /></div>
+          <div class="col-6"><label>備考</label><input id="characterNote" type="text" placeholder="任意" /></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="section" open>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span>武器・防具等</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <table class="gridTable" id="equipmentTable">
+          <thead>
+            <tr>
+              <th>種別</th>
+              <th>アイテム名</th>
+              <th>価格</th>
+              <th class="shortCell">数量</th>
+              <th><div class="accessoryMemoHeader"><span>メモ</span><label class="headerCheckLabel"><input id="equipmentMemoOutputToggle" class="largeCheck" type="checkbox">メモを収支欄に出力</label></div></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="toolbar"><button id="addEquipmentBtn">行を追加</button></div>
+      </div>
+    </details>
+
+    <details class="section" open>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span>装飾品</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <table class="gridTable" id="accessoryTable">
+          <thead>
+            <tr>
+              <th>部位</th>
+              <th class="veryShortCell">追加枠</th>
+              <th>アイテム名</th>
+              <th>価格</th>
+              <th class="shortCell">数量</th>
+              <th><div class="accessoryMemoHeader"><span>メモ</span><label class="headerCheckLabel"><input id="accessoryMemoOutputToggle" class="largeCheck" type="checkbox">メモを収支欄に出力</label></div></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="toolbar"><button id="addAccessoryBtn">行を追加</button></div>
+      </div>
+    </details>
+
+    <details class="section" open>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span>消耗品</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <table class="gridTable alignedItemTable" id="consumableTable">
+          <colgroup><col class="itemNameCol"><col class="priceCol"><col class="qtyCol"><col class="includeCol"><col class="memoCol"><col class="actionCol"></colgroup>
+          <thead>
+            <tr>
+              <th>アイテム名</th>
+              <th>価格</th>
+              <th class="shortCell">数量</th>
+              <th>持ち物リストに含める</th>
+              <th>メモ</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="toolbar"><button id="addConsumableBtn">行を追加</button></div>
+      </div>
+    </details>
+
+    <details class="section" open>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span>マテリアルカード</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <table class="gridTable alignedItemTable" id="cardTable">
+          <colgroup><col class="cardColorCol"><col class="cardRankCol"><col class="priceCol"><col class="qtyCol"><col class="includeCol"><col class="memoCol"><col class="actionCol"></colgroup>
+          <thead>
+            <tr>
+              <th class="mediumCell">色</th>
+              <th class="mediumCell">ランク</th>
+              <th>価格</th>
+              <th class="shortCell">数量</th>
+              <th>持ち物リストに含める</th>
+              <th></th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div class="toolbar"><button id="addCardBtn">行を追加</button></div>
+      </div>
+    </details>
+
+    <div id="skillSections"></div>
+    <div class="toolbar" style="margin-bottom:16px;"><button id="addSkillSectionBtn">その他枠を追加</button></div>
+
+    <details class="section">
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span>既存の収支履歴（参考）</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody"><textarea id="cashbookPreview" placeholder="JSONから cashbook が読めた場合に表示"></textarea></div>
+    </details>
+
+    <details class="section" open>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span>出力</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody stack">
+        <div>
+          <label>ゆとシート用 収支欄テキスト</label>
+          <textarea id="cashbookOutput"></textarea>
+          <div class="toolbar"><button id="copyCashbookBtn">収支欄をコピー</button></div>
+        </div>
+        <div>
+          <label>持ち物リスト用テキスト（消耗品＋必要ならカード）</label>
+          <textarea id="itemListOutput"></textarea>
+          <div class="toolbar"><button id="copyItemListBtn">持ち物リストをコピー</button></div>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <script>
+    const state = {
+      rawJson: null,
+      pricePreset: {},
+      processMaster: [],
+      equipment: [],
+      accessories: [],
+      includeAccessoryMemo: false,
+      includeEquipmentMemo: false,
+      consumables: [],
+      cards: [],
+      skillSections: []
+    };
+
+    const EQUIPMENT_TYPES = ["武器", "非金属鎧", "金属鎧", "盾", "その他"];
+    const ACCESSORY_PARTS = ["頭", "顔", "耳", "首", "背", "右", "左", "腰", "足", "他"];
+    const PROCESS_RANKS = ["B", "A", "S", "SS"];
+    const PROCESS_COUNT_OPTIONS = [1, 2, 3];
+    const CARD_COLORS = ["赤", "緑", "黒", "白", "金"];
+    const CARD_RANKS = ["B", "A", "S", "SS"];
+    const CARD_DEFAULT_PRICES = { B: 20, A: 200, S: 2000, SS: 20000 };
+
+    const SAMPLE_JSON = {
+      characterName: "サンプル",
+      history0Money: 125000,
+      accessoryHeadName: "スマルティエの帽子",
+      accessoryFaceName: "ひらめき眼鏡",
+      accessoryEarName: "スマルティエの耳飾り",
+      accessoryNeckName: "甘え鳴きのチョーカー",
+      accessoryBackName: "野伏のスマルティエのマント",
+      accessoryHandRName: "スマルティエの知性の指輪",
+      accessoryHandLName: "信念のリング",
+      accessoryWaistName: "アルケミーキット",
+      accessoryWaist_Name: "多機能スマルティエのベルト",
+      accessoryLegName: "スマルティエのブーツ",
+      accessoryOtherName: "俊足の指輪",
+      accessoryOther_Name: "俊足の指輪",
+      armour1Name: "ドラゴンスケイル",
+      armour1Category: "非金属鎧",
+      weapon1Name: "ヘビーフレグランスステッキ",
+      weapon1Usage: "2H",
+      cardRedA: "8",
+      cardGreA: "22",
+      cashbook: "[>]鎧と両手<br>非金属鎧　ドラゴンスケイル　::-4500<br>2H　ヘビーフレグランスステッキ ::-560<br>[---]"
+    };
+
+    function el(id) { return document.getElementById(id); }
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', '&quot;');
+    }
+    function normalizeCashbookText(cashbook) {
+      return String(cashbook || "")
+        .replace(/&amp;/g, "&")
+        .replace(/&gt;/g, ">")
+        .replace(/&lt;/g, "<")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/\r/g, "");
+    }
+    function toNumber(v, fallback = 0) {
+      const raw = String(v ?? "").trim();
+      if (!raw) return fallback;
+      const n = Number(raw.replace(/[^0-9.-]/g, ""));
+      return Number.isFinite(n) ? n : fallback;
+    }
+    function normalizeName(name) {
+      return String(name ?? "").trim();
+    }
+    function loadPricePreset() {
+      try { return JSON.parse(localStorage.getItem("sw25_price_preset") || "{}"); }
+      catch { return {}; }
+    }
+    function savePricePreset() {
+      localStorage.setItem("sw25_price_preset", JSON.stringify(state.pricePreset));
+    }
+    function parsePricePresetText(text) {
+      const map = {};
+      String(text).split(/\r?\n/).forEach(line => {
+        const s = line.trim();
+        if (!s) return;
+        const parts = s.split(/[,	]/).map(x => x.trim());
+        if (parts.length < 2) return;
+        map[parts[0]] = toNumber(parts[1], 0);
+      });
+      return map;
+    }
+    function presetToText(map) {
+      return Object.entries(map)
+        .sort((a, b) => a[0].localeCompare(b[0], "ja"))
+        .map(([name, price]) => `${name},${price}`)
+        .join("\n");
+    }
+    function getPresetPrice(name) {
+      const key = normalizeName(name);
+      return Object.prototype.hasOwnProperty.call(state.pricePreset, key) ? state.pricePreset[key] : 0;
+    }
+    function setPresetPrice(name, price) {
+      const key = normalizeName(name);
+      if (!key) return;
+      state.pricePreset[key] = toNumber(price, 0);
+    }
+    function getCardFullName(color, rank) {
+      return `マテリアルカード${color}${rank}`;
+    }
+    function getCardShortName(row) {
+      return `${row.color || "緑"}${row.rank || "A"}`;
+    }
+    function getCardPrice(color, rank) {
+      return CARD_DEFAULT_PRICES[rank] || 0;
+    }
+    function blankProcess(parentType = "武器") {
+      const names = getDistinctProcessNames(parentType);
+      const firstName = names[0] || "その他";
+      return {
+        name: firstName,
+        customName: "",
+        rank: "B",
+        count: 1,
+        price: getProcessPrice(firstName, "B"),
+        note: getProcessNote(firstName, "B")
+      };
+    }
+    function blankEquipment() {
+      return { type: "その他", name: "", price: 0, count: 1, note: "", processes: [] };
+    }
+    function blankAccessory(part = "他", isSub = false, parentPart = "") {
+      return { part: isSub ? "┗" : part, parentPart: parentPart || "", isSub, hasExtraSlot: false, name: "", price: 0, count: 1, note: "" };
+    }
+    function blankConsumable() {
+      return { name: "", price: 0, count: 1, includeItemList: true, note: "" };
+    }
+    function blankCard(color = "緑", rank = "A", count = 0) {
+      const price = getCardPrice(color, rank);
+      return { color, rank, price, count, includeItemList: true };
+    }
+    function blankSkillSection() {
+      return { title: "その他", isNew: true, items: [{ name: "", price: 0, count: 1, includeItemList: false, note: "" }] };
+    }
+
+    async function loadProcessMaster() {
+      try {
+        const response = await fetch("data.csv", { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const text = await response.text();
+        state.processMaster = parseProcessCsv(text);
+        hideCsvWarning();
+      } catch (err) {
+        state.processMaster = [];
+        showCsvWarning("data.csv の読込に失敗しました。ローカルで file:// から開いている場合、ブラウザが同階層CSVの読込を禁止することがあります。簡易サーバーまたは GitHub Pages で開いてください。");
+      }
+      renderAll();
+      generateOutputs();
+    }
+    function showCsvWarning(message) {
+      const box = el("csvWarning");
+      box.textContent = message;
+      box.style.display = "block";
+    }
+    function hideCsvWarning() {
+      const box = el("csvWarning");
+      box.textContent = "";
+      box.style.display = "none";
+    }
+    function parseProcessCsv(text) {
+      const lines = String(text).split(/\r?\n/).map(v => v.trim()).filter(Boolean);
+      if (!lines.length) return [];
+      const header = lines[0].split(",").map(v => v.trim());
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = splitCsvLine(lines[i]);
+        if (cols.length < header.length) continue;
+        const row = {};
+        header.forEach((key, idx) => row[key] = (cols[idx] || "").trim());
+        rows.push({
+          category: row.category,
+          name: row.name,
+          rank: row.rank,
+          price: toNumber(row.price, 0),
+          weapon: row.weapon === "1",
+          armor: row.armor === "1",
+          nonMetalArmor: row.nonMetalArmor === "1",
+          metalArmor: row.metalArmor === "1",
+          shield: row.shield === "1",
+          // 旧版data.csvには multiCountable / maxCount 列が無い場合があるため、
+          // オーダーメイドだけはツール側でも数量1～3を許可する。
+          multiCountable: row.multiCountable === "1" || row.name === "オーダーメイド",
+          maxCount: row.maxCount ? toNumber(row.maxCount, 1) : (row.name === "オーダーメイド" ? 3 : 1),
+          note: row.note || ""
+        });
+      }
+      return rows;
+    }
+    function splitCsvLine(line) {
+      const result = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === "," && !inQuotes) {
+          result.push(current);
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+      result.push(current);
+      return result;
+    }
+    function isWeaponType(type) {
+      return type === "武器";
+    }
+    function getAvailableProcessDefinitions(type) {
+      return state.processMaster.filter(def => {
+        if (isWeaponType(type)) return def.weapon;
+        if (type === "盾") return def.armor && def.shield;
+        if (type === "非金属鎧") return def.armor && def.nonMetalArmor;
+        if (type === "金属鎧") return def.armor && def.metalArmor;
+        return false;
+      });
+    }
+    function getDistinctProcessNames(type) {
+      const names = [...new Set(getAvailableProcessDefinitions(type).map(d => d.name))];
+      if (!names.includes("その他")) names.push("その他");
+      return names;
+    }
+    function getProcessPrice(name, rank) {
+      if (!name || name === "その他") return 0;
+      const row = state.processMaster.find(def => def.name === name && def.rank === rank);
+      return row ? row.price : 0;
+    }
+    function getProcessNote(name, rank) {
+      if (!name || name === "その他") return "";
+      const row = state.processMaster.find(def => def.name === name && def.rank === rank);
+      return row ? row.note : "";
+    }
+    function isMultiCountableProcess(name) {
+      return name === "オーダーメイド";
+    }
+    function getMaxProcessCount(name) {
+      return name === "オーダーメイド" ? 3 : 1;
+    }
+    function getProcessDisplayName(proc) {
+      return proc.name === "その他" ? normalizeName(proc.customName) || "その他" : proc.name;
+    }
+
+    function ensureAccessoryBaseRows() {
+      const baseParts = ["頭", "顔", "耳", "首", "背", "右", "左", "腰", "足", "他"];
+      const bases = new Map();
+      const childrenByParent = new Map(baseParts.map(part => [part, []]));
+      state.accessories.forEach(row => {
+        if (row.isSub || row.part === "┗") {
+          row.isSub = true;
+          row.part = "┗";
+          const parent = baseParts.includes(row.parentPart) ? row.parentPart : "他";
+          row.parentPart = parent;
+          childrenByParent.get(parent).push(row);
+        } else if (baseParts.includes(row.part) && !bases.has(row.part)) {
+          row.isSub = false;
+          row.parentPart = "";
+          bases.set(row.part, row);
+        }
+      });
+      const result = [];
+      baseParts.forEach(part => {
+        const base = bases.get(part) || blankAccessory(part);
+        result.push(base);
+        (childrenByParent.get(part) || []).forEach(child => result.push(child));
+      });
+      state.accessories = result;
+    }
+
+    function renderAll() {
+      renderEquipmentTable();
+      renderAccessoryTable();
+      renderConsumableTable();
+      renderCardTable();
+      renderSkillSections();
+      updateTotals();
+    }
+
+    function renderEquipmentTable() {
+      const tbody = el("equipmentTable").querySelector("tbody");
+      tbody.innerHTML = "";
+      state.equipment.forEach((row, i) => {
+        const main = document.createElement("tr");
+        main.innerHTML = `
+          <td>${selectHtmlData(EQUIPMENT_TYPES, normalizeEquipmentType(row.type), `data-action="equipment-type" data-i="${i}"`)}</td>
+          <td>
+            <div class="stack">
+              <input type="text" value="${escapeHtml(row.name)}" oninput="window.handlers.setEquipment(${i}, 'name', this.value)">
+              <div class="toolbar" style="margin-top:4px;">
+                <button class="small" onclick="window.handlers.addProcess(${i})">加工を追加</button>
+                <span class="badge">加工数: ${row.processes.length}</span>
+              </div>
+            </div>
+          </td>
+          <td><input type="number" value="${row.price}" oninput="window.handlers.setEquipment(${i}, 'price', this.value)"></td>
+          <td class="shortCell"><input type="number" min="1" value="${row.count}" oninput="window.handlers.setEquipment(${i}, 'count', this.value)"></td>
+          <td><input type="text" value="${escapeHtml(row.note)}" oninput="window.handlers.setEquipment(${i}, 'note', this.value)"></td>
+          <td><button class="small danger" onclick="window.handlers.removeEquipment(${i})">削除</button></td>
+        `;
+        tbody.appendChild(main);
+
+        row.processes.forEach((proc, pIndex) => {
+          const names = getDistinctProcessNames(row.type);
+          const multiCountable = isMultiCountableProcess(proc.name);
+          const maxCount = getMaxProcessCount(proc.name);
+          const sub = document.createElement("tr");
+          sub.className = "subRow";
+          sub.innerHTML = `
+            <td class="indentCell">┗ 加工</td>
+            <td colspan="2">
+              <div class="row" style="grid-template-columns: minmax(180px,2fr) 90px 72px; gap: 8px;">
+                <div>
+                  <label style="margin-bottom:4px;">加工種別</label>
+                  ${selectHtmlData(names, proc.name, `data-action="process-name" data-i="${i}" data-p="${pIndex}"`)}
+                  ${proc.name === "その他" ? `<div style="margin-top:6px;"><input type="text" placeholder="加工名称" value="${escapeHtml(proc.customName || "")}" oninput="window.handlers.setProcessCustomName(${i}, ${pIndex}, this.value)"></div>` : ""}
+                </div>
+                <div>
+                  <label style="margin-bottom:4px;">ランク</label>
+                  ${selectHtmlData(PROCESS_RANKS, proc.rank, `data-action="process-rank" data-i="${i}" data-p="${pIndex}"`)}
+                </div>
+                <div>
+                  <label style="margin-bottom:4px;">数量</label>
+                  ${multiCountable ? selectHtmlData(PROCESS_COUNT_OPTIONS.slice(0, maxCount).map(String), String(proc.count), `class="qtySelect" data-action="process-count" data-i="${i}" data-p="${pIndex}"`) : '<select class="qtySelect" disabled><option>1</option></select>'}
+                </div>
+              </div>
+            </td>
+            <td class="shortCell">
+              <label style="margin-bottom:4px;">価格</label>
+              <input type="number" value="${proc.price}" oninput="window.handlers.setProcessField(${i}, ${pIndex}, 'price', this.value)">
+            </td>
+            <td>
+              <label style="margin-bottom:4px;">メモ</label>
+              <input type="text" value="${escapeHtml(proc.note)}" oninput="window.handlers.setProcessField(${i}, ${pIndex}, 'note', this.value)">
+            </td>
+            <td><button class="small danger" onclick="window.handlers.removeProcess(${i}, ${pIndex})">加工を削除</button></td>
+          `;
+          tbody.appendChild(sub);
+        });
+      });
+    }
+
+    function renderAccessoryTable() {
+      const tbody = el("accessoryTable").querySelector("tbody");
+      tbody.innerHTML = "";
+      state.accessories.forEach((row, i) => {
+        const isSub = row.isSub || row.part === "┗";
+        const tr = document.createElement("tr");
+        if (isSub) tr.className = "subRow";
+        tr.innerHTML = `
+          <td class="accessoryPartCell">${isSub ? '<span class="accessorySubPartLabel">┗</span>' : selectHtml(ACCESSORY_PARTS, row.part, v => `window.handlers.setAccessoryPart(${i}, v)`)}</td>
+          <td class="checkCell">${isSub ? '' : `<input type="checkbox" class="largeCheck" title="この部位に追加装備枠を作る" ${row.hasExtraSlot ? "checked" : ""} onchange="window.handlers.toggleAccessoryExtraSlot(${i}, this.checked)">`}</td>
+          <td><input type="text" value="${escapeHtml(row.name)}" oninput="window.handlers.setAccessory(${i}, 'name', this.value)"></td>
+          <td><input type="number" value="${row.price}" oninput="window.handlers.setAccessory(${i}, 'price', this.value)"></td>
+          <td class="shortCell"><input type="number" min="1" value="${row.count}" oninput="window.handlers.setAccessory(${i}, 'count', this.value)"></td>
+          <td><input type="text" value="${escapeHtml(row.note)}" oninput="window.handlers.setAccessory(${i}, 'note', this.value)"></td>
+          <td><button class="small danger" onclick="window.handlers.removeAccessory(${i})">削除</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderConsumableTable() {
+      const tbody = el("consumableTable").querySelector("tbody");
+      tbody.innerHTML = "";
+      state.consumables.forEach((row, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><input type="text" value="${escapeHtml(row.name)}" oninput="window.handlers.setConsumable(${i}, 'name', this.value)"></td>
+          <td><input type="number" value="${row.price}" oninput="window.handlers.setConsumable(${i}, 'price', this.value)"></td>
+          <td class="shortCell"><input type="number" min="1" value="${row.count}" oninput="window.handlers.setConsumable(${i}, 'count', this.value)"></td>
+          <td class="center"><input type="checkbox" ${row.includeItemList ? "checked" : ""} onchange="window.handlers.setConsumable(${i}, 'includeItemList', this.checked)"></td>
+          <td><input type="text" value="${escapeHtml(row.note)}" oninput="window.handlers.setConsumable(${i}, 'note', this.value)"></td>
+          <td><button class="small danger" onclick="window.handlers.removeConsumable(${i})">削除</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderCardTable() {
+      const tbody = el("cardTable").querySelector("tbody");
+      tbody.innerHTML = "";
+      state.cards.forEach((row, i) => {
+        row.color = CARD_COLORS.includes(row.color) ? row.color : "緑";
+        row.rank = CARD_RANKS.includes(row.rank) ? row.rank : "A";
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td class="mediumCell">${selectHtmlData(CARD_COLORS, row.color, `data-action="card-color" data-i="${i}"`)}</td>
+          <td class="mediumCell">${selectHtmlData(CARD_RANKS, row.rank, `data-action="card-rank" data-i="${i}"`)}</td>
+          <td><input type="number" value="${row.price}" oninput="window.handlers.setCard(${i}, 'price', this.value)"></td>
+          <td class="shortCell"><input type="number" min="1" value="${row.count}" oninput="window.handlers.setCard(${i}, 'count', this.value)"></td>
+          <td class="center"><input type="checkbox" ${row.includeItemList ? "checked" : ""} onchange="window.handlers.setCard(${i}, 'includeItemList', this.checked)"></td>
+          <td></td>
+          <td><button class="small danger" onclick="window.handlers.removeCard(${i})">削除</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderSkillSections() {
+      const root = el("skillSections");
+      root.innerHTML = "";
+      state.skillSections.forEach((section, sIndex) => {
+        const detail = document.createElement("details");
+        detail.className = "section otherSection";
+        if (section.isNew) detail.open = true;
+        const title = normalizeName(section.title) || "その他";
+        const displayTitle = title.startsWith("その他_") ? title : `その他_${title}`;
+        detail.innerHTML = `
+          <summary><span class="summaryLeft"><span class="summaryIcon"></span><span>${escapeHtml(displayTitle)}</span></span><span class="summaryHint">クリックで開閉</span></summary>
+          <div class="sectionBody">
+            <div class="row">
+              <div class="col-6">
+                <label>見出し</label>
+                <input type="text" value="${escapeHtml(section.title)}" oninput="window.handlers.setSkillSectionTitle(${sIndex}, this.value)">
+              </div>
+              <div class="col-6 right">
+                <label>&nbsp;</label>
+                <div><button class="danger" onclick="window.handlers.removeSkillSection(${sIndex})">この枠を削除</button></div>
+              </div>
+              <div class="col-12">
+                <table class="gridTable alignedItemTable">
+                  <colgroup><col class="nameCol"><col class="priceCol"><col class="qtyCol"><col class="includeCol"><col class="memoCol"><col class="actionCol"></colgroup>
+                  <thead><tr><th>アイテム名</th><th>価格</th><th class="shortCell">数量</th><th>持ち物リストに含める</th><th>メモ</th><th></th></tr></thead>
+                  <tbody>
+                    ${section.items.map((item, i) => `
+                      <tr>
+                        <td><input type="text" value="${escapeHtml(item.name)}" oninput="window.handlers.setSkillItem(${sIndex}, ${i}, 'name', this.value)"></td>
+                        <td><input type="number" value="${item.price}" oninput="window.handlers.setSkillItem(${sIndex}, ${i}, 'price', this.value)"></td>
+                        <td class="shortCell"><input type="number" min="1" value="${item.count}" oninput="window.handlers.setSkillItem(${sIndex}, ${i}, 'count', this.value)"></td>
+                        <td class="center"><input type="checkbox" ${item.includeItemList ? "checked" : ""} onchange="window.handlers.setSkillItem(${sIndex}, ${i}, 'includeItemList', this.checked)"></td>
+                        <td><input type="text" value="${escapeHtml(item.note)}" oninput="window.handlers.setSkillItem(${sIndex}, ${i}, 'note', this.value)"></td>
+                        <td><button class="small danger" onclick="window.handlers.removeSkillItem(${sIndex}, ${i})">削除</button></td>
+                      </tr>
+                    `).join("")}
+                  </tbody>
+                </table>
+                <div class="toolbar"><button onclick="window.handlers.addSkillItem(${sIndex})">行を追加</button></div>
+              </div>
+            </div>
+          </div>
+        `;
+        root.appendChild(detail);
+      });
+    }
+
+    function selectHtml(options, selected, onChangeExpr) {
+      const changeCode = typeof onChangeExpr === "function" ? onChangeExpr("this.value") : String(onChangeExpr || "");
+      return `<select onchange="${changeCode}; window.handlers.afterInlineChange();">${options.map(v => `<option value="${escapeHtml(v)}" ${String(v) === String(selected) ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}</select>`;
+    }
+    function selectHtmlData(options, selected, attrs = "") {
+      return `<select ${attrs}>${options.map(v => `<option value="${escapeHtml(v)}" ${String(v) === String(selected) ? "selected" : ""}>${escapeHtml(v)}</option>`).join("")}</select>`;
+    }
+    function extractInitialBudget(data) {
+      return toNumber(data.history0Money || 0, 0);
+    }
+
+    function parseJsonToState(data) {
+      state.rawJson = data;
+      el("characterName").value = data.characterName || data.pcName || "";
+      const initialBudget = extractInitialBudget(data);
+      el("initialBudget").value = initialBudget;
+      el("initialExp").value = toNumber(data.history0Exp || 0, 0);
+      el("initialHonor").value = toNumber(data.history0Honor || 0, 0);
+      el("initialAbyssShard").value = data.history0Note || "";
+      el("cashbookPreview").value = normalizeCashbookText(data.cashbook || "");
+
+      state.equipment = parseEquipment(data);
+      state.accessories = parseAccessories(data);
+      ensureAccessoryBaseRows();
+      state.cards = parseCards(data);
+      state.consumables = parseConsumablesFromCashbook(data.cashbook || "");
+      state.skillSections = parseOtherSectionsFromCashbook(data.cashbook || "");
+      if (state.skillSections.length === 0) state.skillSections = [blankSkillSection()];
+
+      if (state.equipment.length === 0) state.equipment.push(blankEquipment());
+      if (state.accessories.length === 0) {
+        state.accessories = ["頭", "顔", "耳", "首", "背", "右", "左", "腰", "足", "他"].map(blankAccessory);
+      }
+      if (state.consumables.length === 0) state.consumables.push(blankConsumable());
+
+      applyPresetPrices();
+      renderAll();
+      generateOutputs();
+    }
+
+    function normalizeEquipmentType(type) {
+      const value = String(type || "").trim();
+      if (["1H", "1h", "2H", "2h", "騎獣"].includes(value)) return "武器";
+      if (EQUIPMENT_TYPES.includes(value)) return value;
+      return "その他";
+    }
+
+    function parseEquipment(data) {
+      const rows = [];
+      for (let i = 1; i <= 20; i++) {
+        const name = data[`weapon${i}Name`] || data[`weapon${i}_Name`] || "";
+        if (!name) continue;
+        rows.push({
+          // ゆとシートの weaponN* に入っているものは、用法が 1H投・2H などでもすべて武器として扱う
+          type: "武器",
+          name,
+          price: getPresetPrice(name),
+          count: 1,
+          note: data[`weapon${i}Note`] || "",
+          processes: []
+        });
+      }
+      for (let i = 1; i <= 20; i++) {
+        const name = data[`armour${i}Name`] || data[`armor${i}Name`] || "";
+        if (!name) continue;
+        const category = data[`armour${i}Category`] || data[`armor${i}Category`] || "その他";
+        rows.push({
+          type: mapArmourCategory(category),
+          name,
+          price: getPresetPrice(name),
+          count: 1,
+          note: data[`armour${i}Note`] || data[`armor${i}Note`] || "",
+          processes: []
+        });
+      }
+      return rows;
+    }
+    function mapArmourCategory(category) {
+      if (String(category).includes("盾")) return "盾";
+      if (String(category).includes("非金属")) return "非金属鎧";
+      if (String(category).includes("金属")) return "金属鎧";
+      return "その他";
+    }
+
+    function parseAccessories(data) {
+      const rows = [];
+      const defs = [
+        ["頭", ["accessoryHeadName"]],
+        ["顔", ["accessoryFaceName"]],
+        ["耳", ["accessoryEarName"]],
+        ["首", ["accessoryNeckName"]],
+        ["背", ["accessoryBackName"]],
+        ["右", ["accessoryHandRName"]],
+        ["左", ["accessoryHandLName"]],
+        ["腰", ["accessoryWaistName"]],
+        ["足", ["accessoryLegName"]],
+        ["他", ["accessoryOtherName"]]
+      ];
+      for (const [part, keys] of defs) {
+        const name = keys.map(k => data[k]).find(Boolean);
+        rows.push({ part, parentPart: "", isSub: false, hasExtraSlot: false, name: name || "", price: name ? getPresetPrice(name) : 0, count: 1, note: guessAccessoryNote(data, part) });
+      }
+      [
+        ["背", data.accessoryBack_Name],
+        ["腰", data.accessoryWaist_Name],
+        ["他", data.accessoryOther_Name],
+        ["耳", data.accessoryEar_Name],
+        ["首", data.accessoryNeck_Name],
+        ["右", data.accessoryHandR_Name],
+        ["左", data.accessoryHandL_Name],
+        ["頭", data.accessoryHead_Name],
+        ["顔", data.accessoryFace_Name],
+        ["足", data.accessoryLeg_Name]
+      ].forEach(([parentPart, name]) => {
+        if (!name) return;
+        const parent = rows.find(row => row.part === parentPart && !row.isSub);
+        if (parent) parent.hasExtraSlot = true;
+        rows.push({ part: "┗", parentPart, isSub: true, hasExtraSlot: false, name, price: getPresetPrice(name), count: 1, note: "" });
+      });
+      return rows;
+    }
+    function guessAccessoryNote(data, part) {
+      const map = {
+        "頭": data.accessoryHeadNote,
+        "顔": data.accessoryFaceNote,
+        "耳": data.accessoryEarNote,
+        "首": data.accessoryNeckNote,
+        "背": data.accessoryBackNote,
+        "右": data.accessoryHandRNote,
+        "左": data.accessoryHandLNote,
+        "腰": data.accessoryWaistNote,
+        "足": data.accessoryLegNote,
+        "他": data.accessoryOtherNote
+      };
+      return map[part] || "";
+    }
+
+    function parseCards(data) {
+      const rows = [];
+      const cardDefs = [["赤", "Red"], ["緑", "Gre"], ["黒", "Bla"], ["白", "Whi"], ["金", "Gol"]];
+      for (const [color, code] of cardDefs) {
+        for (const rank of CARD_RANKS) {
+          const key = `card${code}${rank}`;
+          const count = toNumber(data[key], 0);
+          if (!count) continue;
+          rows.push({ color, rank, price: getCardPrice(color, rank), count, includeItemList: true });
+        }
+      }
+      return rows;
+    }
+
+    function parseConsumablesFromCashbook(cashbook) {
+      const text = normalizeCashbookText(cashbook);
+      const lines = text.split("\n").map(v => v.trim()).filter(Boolean);
+      const rows = [];
+      let inConsumables = false;
+      for (const line of lines) {
+        if (line.startsWith("[>]")) {
+          inConsumables = line.includes("消耗品");
+          continue;
+        }
+        if (line === "[---]") {
+          inConsumables = false;
+          continue;
+        }
+        if (!inConsumables) continue;
+        const parsed = parseCashbookLine(line);
+        if (!parsed) continue;
+        rows.push({ name: parsed.name, price: parsed.price, count: parsed.count, includeItemList: true, note: parsed.note });
+      }
+      return rows;
+    }
+
+    function parseOtherSectionsFromCashbook(cashbook) {
+      const text = normalizeCashbookText(cashbook);
+      const excludeTitles = new Set(["武器・防具等", "鎧と両手", "装飾品", "消耗品", "マテリアルカード"]);
+      const sections = [];
+      let current = null;
+      let unclassified = null;
+      const pushCurrent = () => {
+        if (current && current.items.length) sections.push(current);
+        current = null;
+      };
+      for (const rawLine of text.split("\n")) {
+        const line = rawLine.trim();
+        if (!line) continue;
+        if (line.startsWith("[>]")) {
+          pushCurrent();
+          const title = line.replace(/^\[>\]/, "").trim();
+          current = excludeTitles.has(title) ? null : { title: title || "その他", isNew: false, items: [] };
+          continue;
+        }
+        if (line === "[---]") {
+          pushCurrent();
+          continue;
+        }
+        const parsed = parseCashbookLine(line);
+        if (!parsed) continue;
+        const target = current || (unclassified ||= { title: "未分類", isNew: false, items: [] });
+        target.items.push({
+          name: parsed.name,
+          price: parsed.price,
+          count: parsed.count,
+          includeItemList: false,
+          note: parsed.note || ""
+        });
+      }
+      pushCurrent();
+      if (unclassified && unclassified.items.length) sections.push(unclassified);
+      return sections;
+    }
+
+    function parseCashbookLine(line) {
+      const signMatch = line.match(/::\s*[+-]?(\d+)/);
+      if (!signMatch) return null;
+      const price = toNumber(signMatch[1], 0);
+      const countMatch = line.match(/\*(\d+)\s*$/);
+      const count = countMatch ? toNumber(countMatch[1], 1) : 1;
+      const name = line.replace(/\s*::.*$/, "").trim();
+      return { name, price, count, note: "" };
+    }
+
+    function applyPresetPrices() {
+      state.equipment.forEach(r => {
+        if (!r.price) r.price = getPresetPrice(r.name);
+        r.processes.forEach(p => {
+          if (!p.price) p.price = getProcessPrice(p.name, p.rank);
+          if (!p.note) p.note = getProcessNote(p.name, p.rank);
+        });
+      });
+      state.accessories.forEach(r => { if (!r.price && r.name) r.price = getPresetPrice(r.name); });
+      state.consumables.forEach(r => { if (!r.price) r.price = getPresetPrice(r.name); });
+      state.cards.forEach(r => { if (!r.price) r.price = getCardPrice(r.color || "緑", r.rank || "A"); });
+      state.skillSections.forEach(s => s.items.forEach(r => { if (!r.price) r.price = getPresetPrice(r.name); }));
+    }
+
+    function moneyFormat(n) { return `${Math.round(n).toLocaleString("ja-JP")} G`; }
+    function updateTotals() {
+      let cost = 0;
+      const equipmentAndProcesses = state.equipment.flatMap(row => [row, ...(row.processes || [])]);
+      const all = [
+        ...equipmentAndProcesses,
+        ...state.accessories,
+        ...state.consumables,
+        ...state.cards,
+        ...state.skillSections.flatMap(s => s.items)
+      ];
+      all.forEach(row => {
+        cost += toNumber(row.price) * Math.max(0, toNumber(row.count, 0));
+      });
+      const income = 0;
+      const budget = toNumber(el("initialBudget").value, 0);
+      el("totalBudget").textContent = moneyFormat(budget);
+      el("totalCost").textContent = moneyFormat(cost);
+      el("totalIncome").textContent = moneyFormat(income);
+      el("remainingBudget").textContent = moneyFormat(budget + income - cost);
+    }
+
+    function buildSection(title, lines) {
+      const body = lines.filter(Boolean);
+      if (body.length === 0) return "";
+      return `[>]${title}\n${body.join("\n")}\n[---]`;
+    }
+    function cashbookLineForEquipment(row) {
+      const name = normalizeName(row.name);
+      if (!name) return "";
+      const amount = `::-${toNumber(row.price)}`;
+      const multi = toNumber(row.count, 1) > 1 ? `*${toNumber(row.count, 1)}` : "";
+      const note = state.includeEquipmentMemo && row.note ? ` ${row.note}` : "";
+      return `${row.type}　${name}　${amount}${multi}${note}`;
+    }
+    function cashbookLineForProcess(proc) {
+      const label = getProcessDisplayName(proc);
+      if (!label) return "";
+      const amount = `::-${toNumber(proc.price)}`;
+      const multi = toNumber(proc.count, 1) > 1 ? `*${toNumber(proc.count, 1)}` : "";
+      const noteParts = [];
+      if (proc.rank) noteParts.push(`${proc.rank}ランク`);
+      if (state.includeEquipmentMemo && proc.note) noteParts.push(proc.note);
+      const note = noteParts.length ? ` ${noteParts.join(" ")}` : "";
+      return `┗　${amount}${multi} ${label}${note}`;
+    }
+    function cashbookPartLabel(row) {
+      const label = (row.isSub || row.part === "┗") ? "┗" : row.part;
+      return `${label}　`;
+    }
+    function cashbookLineForAccessory(row) {
+      const name = normalizeName(row.name);
+      if (!name) return "";
+      const amount = `::-${toNumber(row.price)}`;
+      const multi = toNumber(row.count, 1) > 1 ? `*${toNumber(row.count, 1)}` : "";
+      const note = state.includeAccessoryMemo && row.note ? ` ${row.note}` : "";
+      return `${cashbookPartLabel(row)}${amount}${multi} ${name}${note}`;
+    }
+    function cashbookLineForCommon(row) {
+      const name = normalizeName(row.name);
+      if (!name) return "";
+      const amount = `::-${toNumber(row.price)}`;
+      const multi = toNumber(row.count, 1) > 1 ? `*${toNumber(row.count, 1)}` : "";
+      const note = row.note ? ` ${row.note}` : "";
+      return `${name} ${amount}${multi}${note}`;
+    }
+    function cashbookLineForCard(row) {
+      const count = toNumber(row.count, 0);
+      if (count <= 0) return "";
+      const amount = `::-${toNumber(row.price)}`;
+      const multi = count > 1 ? `*${count}` : "";
+      return `${getCardShortName(row)} ${amount}${multi}`;
+    }
+    function itemListLine(row) {
+      const count = toNumber(row.count, 0);
+      if (count <= 0) return "";
+      const name = row && row.color && row.rank ? getCardFullName(row.color, row.rank) : normalizeName(row.name);
+      if (!name) return "";
+      return `${name}×${count}`;
+    }
+
+    function generateOutputs() {
+      const equipmentLines = [];
+      state.equipment.forEach(row => {
+        const main = cashbookLineForEquipment(row);
+        if (main) equipmentLines.push(main);
+        (row.processes || []).forEach(proc => {
+          const sub = cashbookLineForProcess(proc);
+          if (sub) equipmentLines.push(sub);
+        });
+      });
+
+      const sections = [];
+      sections.push(buildSection("武器・防具等", equipmentLines));
+      sections.push(buildSection("装飾品", state.accessories.map(cashbookLineForAccessory)));
+      sections.push(buildSection("消耗品", state.consumables.map(cashbookLineForCommon)));
+      sections.push(buildSection("マテリアルカード", state.cards.map(cashbookLineForCard)));
+      state.skillSections.forEach(section => sections.push(buildSection(section.title || "その他", section.items.map(cashbookLineForCommon))));
+      el("cashbookOutput").value = sections.filter(Boolean).join("\n\n");
+
+      const itemLines = [
+        ...state.consumables.filter(r => r.includeItemList).map(itemListLine),
+        ...state.cards.filter(r => r.includeItemList).map(itemListLine),
+        ...state.skillSections.flatMap(s => s.items.filter(r => r.includeItemList).map(itemListLine))
+      ].filter(Boolean);
+      el("itemListOutput").value = itemLines.join("\n");
+      updateTotals();
+    }
+
+    async function copyFrom(id) {
+      const text = el(id).value;
+      try { await navigator.clipboard.writeText(text); }
+      catch {
+        el(id).select();
+        document.execCommand("copy");
+      }
+    }
+
+    window.handlers = {
+      setEquipmentType(i, value) {
+        const row = state.equipment[i];
+        row.type = normalizeEquipmentType(value);
+        // 種別変更により選択できない加工が残る場合は、選択可能な先頭候補へ差し替える。
+        row.processes = (row.processes || []).map(proc => {
+          const names = getDistinctProcessNames(row.type);
+          if (names.includes(proc.name)) {
+            proc.price = getProcessPrice(proc.name, proc.rank);
+            proc.note = getProcessNote(proc.name, proc.rank) || proc.note || "";
+            if (!isMultiCountableProcess(proc.name)) proc.count = 1;
+            return proc;
+          }
+          return blankProcess(row.type);
+        });
+        renderAll();
+        generateOutputs();
+      },
+      setEquipment(i, key, value) {
+        state.equipment[i][key] = key === "price" || key === "count" ? toNumber(value, key === "count" ? 1 : 0) : value;
+        generateOutputs();
+      },
+      removeEquipment(i) { state.equipment.splice(i, 1); renderAll(); generateOutputs(); },
+      addProcess(i) {
+        state.equipment[i].processes.push(blankProcess(state.equipment[i].type));
+        renderAll();
+        generateOutputs();
+      },
+      removeProcess(i, p) { state.equipment[i].processes.splice(p, 1); renderAll(); generateOutputs(); },
+      setProcessName(i, p, value) {
+        const proc = state.equipment[i].processes[p];
+        proc.name = value;
+        proc.customName = "";
+        proc.count = 1;
+        proc.price = getProcessPrice(proc.name, proc.rank);
+        proc.note = getProcessNote(proc.name, proc.rank) || "";
+        renderAll();
+        generateOutputs();
+      },
+      setProcessCustomName(i, p, value) {
+        state.equipment[i].processes[p].customName = value;
+        generateOutputs();
+      },
+      setProcessRank(i, p, value) {
+        const proc = state.equipment[i].processes[p];
+        proc.rank = value;
+        proc.price = getProcessPrice(proc.name, proc.rank);
+        proc.note = getProcessNote(proc.name, proc.rank) || "";
+        if (!isMultiCountableProcess(proc.name)) proc.count = 1;
+        renderAll();
+        generateOutputs();
+      },
+      setProcessCount(i, p, value) {
+        state.equipment[i].processes[p].count = toNumber(value, 1);
+        generateOutputs();
+      },
+      setProcessField(i, p, key, value) {
+        state.equipment[i].processes[p][key] = key === "price" ? toNumber(value, 0) : value;
+        generateOutputs();
+      },
+      setAccessory(i, key, value) {
+        state.accessories[i][key] = key === "price" || key === "count" ? toNumber(value, key === "count" ? 1 : 0) : value;
+        if (key === "name" || key === "price") setPresetPrice(state.accessories[i].name, state.accessories[i].price);
+        generateOutputs();
+      },
+      setAccessoryPart(i, value) {
+        const row = state.accessories[i];
+        if (!row || row.isSub || row.part === "┗") return;
+        const oldPart = row.part;
+        row.part = value;
+        state.accessories.forEach(child => {
+          if ((child.isSub || child.part === "┗") && child.parentPart === oldPart) child.parentPart = value;
+        });
+        ensureAccessoryBaseRows();
+        renderAll();
+        generateOutputs();
+      },
+      toggleAccessoryExtraSlot(i, checked) {
+        const row = state.accessories[i];
+        if (!row || row.isSub || row.part === "┗") return;
+        row.hasExtraSlot = checked;
+        const hasChild = state.accessories.some(child => (child.isSub || child.part === "┗") && child.parentPart === row.part);
+        if (checked && !hasChild) {
+          state.accessories.splice(i + 1, 0, blankAccessory("┗", true, row.part));
+        }
+        if (!checked) {
+          const childIndex = state.accessories.findIndex(child => (child.isSub || child.part === "┗") && child.parentPart === row.part && !normalizeName(child.name) && !toNumber(child.price, 0) && !normalizeName(child.note));
+          if (childIndex >= 0) state.accessories.splice(childIndex, 1);
+        }
+        ensureAccessoryBaseRows();
+        renderAll();
+        generateOutputs();
+      },
+      removeAccessory(i) {
+        const row = state.accessories[i];
+        if (row && !(row.isSub || row.part === "┗")) {
+          state.accessories.filter(child => (child.isSub || child.part === "┗") && child.parentPart === row.part).forEach(child => child.parentPart = "他");
+        }
+        state.accessories.splice(i, 1);
+        ensureAccessoryBaseRows();
+        renderAll();
+        generateOutputs();
+      },
+      setConsumable(i, key, value) {
+        state.consumables[i][key] = (key === "price" || key === "count") ? toNumber(value, key === "count" ? 1 : 0) : value;
+        if (key === "name" || key === "price") setPresetPrice(state.consumables[i].name, state.consumables[i].price);
+        generateOutputs();
+      },
+      removeConsumable(i) { state.consumables.splice(i, 1); renderAll(); generateOutputs(); },
+      setCard(i, key, value) {
+        const row = state.cards[i];
+        if (!row) return;
+        if (key === "price" || key === "count") {
+          row[key] = toNumber(value, key === "count" ? 1 : 0);
+        } else {
+          row[key] = value;
+        }
+        if (key === "color" || key === "rank") {
+          row.price = getCardPrice(row.color || "緑", row.rank || "A");
+          renderAll();
+        }
+        if (key === "price") setPresetPrice(getCardFullName(row.color || "緑", row.rank || "A"), row.price);
+        generateOutputs();
+      },
+      removeCard(i) { state.cards.splice(i, 1); renderAll(); generateOutputs(); },
+      setSkillSectionTitle(s, value) { state.skillSections[s].title = value; generateOutputs(); },
+      addSkillItem(s) { state.skillSections[s].items.push({ name: "", price: 0, count: 1, includeItemList: false, note: "" }); renderAll(); generateOutputs(); },
+      removeSkillItem(s, i) { state.skillSections[s].items.splice(i, 1); renderAll(); generateOutputs(); },
+      setSkillItem(s, i, key, value) {
+        state.skillSections[s].items[i][key] = (key === "price" || key === "count") ? toNumber(value, key === "count" ? 1 : 0) : value;
+        if (key === "name" || key === "price") setPresetPrice(state.skillSections[s].items[i].name, state.skillSections[s].items[i].price);
+        generateOutputs();
+      },
+      removeSkillSection(s) { state.skillSections.splice(s, 1); renderAll(); generateOutputs(); },
+      afterInlineChange() { generateOutputs(); }
+    };
+
+    el("addEquipmentBtn").addEventListener("click", () => { state.equipment.push(blankEquipment()); renderAll(); generateOutputs(); });
+    el("addAccessoryBtn").addEventListener("click", () => { state.accessories.push(blankAccessory("他")); renderAll(); generateOutputs(); });
+    el("addConsumableBtn").addEventListener("click", () => { state.consumables.push(blankConsumable()); renderAll(); generateOutputs(); });
+    el("addCardBtn").addEventListener("click", () => { state.cards.push(blankCard("緑", "A", 1)); renderAll(); generateOutputs(); });
+    el("addSkillSectionBtn").addEventListener("click", () => { state.skillSections.push(blankSkillSection()); renderAll(); generateOutputs(); });
+    el("reloadCsvBtn").addEventListener("click", loadProcessMaster);
+    el("generateBtn").addEventListener("click", generateOutputs);
+    el("copyCashbookBtn").addEventListener("click", () => copyFrom("cashbookOutput"));
+    el("copyItemListBtn").addEventListener("click", () => copyFrom("itemListOutput"));
+    el("accessoryMemoOutputToggle").addEventListener("change", (e) => {
+      state.includeAccessoryMemo = e.target.checked;
+      generateOutputs();
+    });
+    el("equipmentMemoOutputToggle").addEventListener("change", (e) => {
+      state.includeEquipmentMemo = e.target.checked;
+      generateOutputs();
+    });
+    el("savePresetBtn").addEventListener("click", () => {
+      state.pricePreset = parsePricePresetText(el("pricePreset").value);
+      savePricePreset();
+      applyPresetPrices();
+      renderAll();
+      generateOutputs();
+    });
+    async function parseSelectedJsonOrState() {
+      const file = el("jsonFile").files?.[0];
+      if (file) {
+        const text = await file.text();
+        state.rawJson = JSON.parse(text);
+      }
+      if (!state.rawJson) {
+        alert("先にJSONを読み込んでください。");
+        return;
+      }
+      state.pricePreset = parsePricePresetText(el("pricePreset").value);
+      savePricePreset();
+      parseJsonToState(state.rawJson);
+    }
+    el("loadSampleBtn").addEventListener("click", () => {
+      el("jsonFile").value = "";
+      state.rawJson = SAMPLE_JSON;
+      parseJsonToState(SAMPLE_JSON);
+    });
+    el("parseBtn").addEventListener("click", async () => {
+      try {
+        await parseSelectedJsonOrState();
+      } catch {
+        alert("JSONの読み込みに失敗しました。");
+      }
+    });
+
+    document.addEventListener("change", (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLSelectElement)) return;
+      const action = target.dataset.action;
+      if (!action) return;
+      const i = toNumber(target.dataset.i, 0);
+      const p = toNumber(target.dataset.p, 0);
+      if (action === "equipment-type") {
+        window.handlers.setEquipmentType(i, target.value);
+      } else if (action === "process-name") {
+        window.handlers.setProcessName(i, p, target.value);
+      } else if (action === "process-rank") {
+        window.handlers.setProcessRank(i, p, target.value);
+      } else if (action === "process-count") {
+        window.handlers.setProcessCount(i, p, target.value);
+      } else if (action === "card-color") {
+        window.handlers.setCard(i, "color", target.value);
+      } else if (action === "card-rank") {
+        window.handlers.setCard(i, "rank", target.value);
+      }
+      window.handlers.afterInlineChange();
+    });
+
+    el("jsonFile").addEventListener("change", async () => {
+      try {
+        await parseSelectedJsonOrState();
+      } catch {
+        alert("JSONの読み込みに失敗しました。");
+      }
+    });
+
+    function hexToRgb(hex) {
+      const m = String(hex || "").replace("#", "").match(/^([0-9a-fA-F]{6})$/);
+      if (!m) return null;
+      const n = parseInt(m[1], 16);
+      return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    }
+    function mixWithWhite(hex, ratio) {
+      const rgb = hexToRgb(hex);
+      if (!rgb) return hex;
+      const mix = (v) => Math.round(v * ratio + 255 * (1 - ratio));
+      return `rgb(${mix(rgb.r)}, ${mix(rgb.g)}, ${mix(rgb.b)})`;
+    }
+    function applyThemeColor(hex) {
+      const color = hex || "#eaf2ff";
+      document.documentElement.style.setProperty("--section-open", mixWithWhite(color, 0.45));
+      document.documentElement.style.setProperty("--section-bg", mixWithWhite(color, 0.18));
+      document.documentElement.style.setProperty("--section-border", mixWithWhite(color, 0.75));
+      localStorage.setItem("sw25_section_color", color);
+      el("themeColorPicker").value = color;
+    }
+    el("colorSelectBtn").addEventListener("click", () => el("themeColorPicker").click());
+    el("themeColorPicker").addEventListener("input", (e) => applyThemeColor(e.target.value));
+
+    el("characterName").addEventListener("input", generateOutputs);
+    el("initialBudget").addEventListener("input", updateTotals);
+    el("initialExp").addEventListener("input", generateOutputs);
+    el("initialHonor").addEventListener("input", generateOutputs);
+    el("initialAbyssShard").addEventListener("input", generateOutputs);
+
+    (async function init() {
+      applyThemeColor(localStorage.getItem("sw25_section_color") || "#eaf2ff");
+      state.pricePreset = loadPricePreset();
+      el("pricePreset").value = presetToText(state.pricePreset);
+      el("accessoryMemoOutputToggle").checked = state.includeAccessoryMemo;
+      el("equipmentMemoOutputToggle").checked = state.includeEquipmentMemo;
+      state.equipment = [blankEquipment()];
+      state.accessories = ["頭", "顔", "耳", "首", "背", "右", "左", "腰", "足", "他"].map(blankAccessory);
+      state.consumables = [blankConsumable()];
+      state.cards = [];
+      state.skillSections = [blankSkillSection()];
+      await loadProcessMaster();
+      renderAll();
+      generateOutputs();
+    })();
+  </script>
+</body>
+</html>
