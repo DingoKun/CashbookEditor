@@ -1,18 +1,18 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: 1.1
+  version: v1.1.1
   date: 2026-06-07
   versioning: previous v26 is treated as 0.26
   notes:
     - GitHub Pages 向けに不要な再読込・サンプル系ボタンを削除
-    - 1.1：サンプルCSVリンクを追加
+    - v1.1.1：CSV読込欄とサンプルリンクを省スペース化
 -->
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ 1.1</title>
+  <title>SW2.5 収支・持ち物エディタ v1.1.1</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -99,25 +99,53 @@
     }
     input[type="file"] {
       width: 100%;
-      border: 2px dashed var(--section-border);
-      border-radius: 8px;
-      padding: 14px;
-      background: #f8fbff;
-      font-size: 15px;
-      font-weight: 700;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 5px;
+      background: #fff;
+      font-size: 12px;
       cursor: pointer;
     }
     input[type="file"]::file-selector-button {
-      border: 1px solid var(--accent);
-      border-radius: 6px;
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      background: #fff;
+      color: var(--text);
+      padding: 4px 7px;
+      margin-right: 8px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    input[type="file"].fileMain {
+      border: 2px dashed var(--section-border);
+      border-radius: 8px;
+      padding: 12px;
+      background: #f8fbff;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    input[type="file"].fileMain::file-selector-button {
+      border-color: var(--accent);
       background: var(--accent);
       color: #fff;
       padding: 8px 12px;
-      margin-right: 12px;
-      font: inherit;
       font-weight: 800;
-      cursor: pointer;
     }
+    .miniActions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      margin-top: 4px;
+    }
+    .miniActions a {
+      color: var(--accent);
+      font-weight: 800;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .miniActions a:hover { text-decoration: underline; }
     .csvStatus {
       display: inline-block;
       margin-top: 5px;
@@ -376,24 +404,6 @@
       font-size: 12px;
       padding: 18px 0 10px;
     }
-    .sampleLinks {
-      margin-top: 8px;
-      padding: 8px 10px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fafafa;
-    }
-    .sampleLinks a {
-      font-weight: 800;
-      color: var(--accent);
-      text-decoration: none;
-      margin-right: 12px;
-      white-space: nowrap;
-    }
-    .sampleLinks a:hover {
-      text-decoration: underline;
-    }
-
     input[type="text"], input[type="number"], select {
       min-height: 24px;
     }
@@ -435,7 +445,7 @@
       <div>
         <h1>SW2.5 収支・持ち物エディタ</h1>
         <p class="lead">ゆとシートJSONを読み込み、収支欄テキストと持ち物リストを生成します。</p>
-        <div class="version">version: 1.1</div>
+        <div class="version">version: v1.1.1</div>
       </div>
       <div class="toolbar" style="margin-top:0;">
         <button id="themeBtn" type="button">カラー選択</button>
@@ -447,25 +457,31 @@
 
     <div class="card">
       <div class="row">
-        <div class="col-4">
+        <div class="col-6">
           <label for="jsonFile">JSONファイル</label>
-          <input id="jsonFile" type="file" accept=".json,application/json" />
+          <input id="jsonFile" class="fileMain" type="file" accept=".json,application/json" />
           <p class="hint">ゆとシートから出力したJSONを選択すると自動で読み込みます。</p>
         </div>
-        <div class="col-4">
+        <div class="col-3">
           <label for="processCsvFile">武器防具強化データ</label>
           <input id="processCsvFile" type="file" accept=".csv,text/csv" />
-          <div><span class="csvStatus" id="processCsvStatus">未読込</span></div>
+          <div class="miniActions">
+            <span class="csvStatus" id="processCsvStatus">未読込</span>
+            <a href="./data_sample.csv" download>サンプルDL</a>
+          </div>
           <p class="hint">武器や防具の強化に関連するデータです。初回読込後はブラウザに保存されます。</p>
-          <div class="toolbar"><button id="clearProcessCsvBtn" type="button">保存済み加工CSVを削除</button></div>
+          <div class="toolbar"><button id="clearProcessCsvBtn" type="button">保存済みデータを削除</button></div>
         </div>
-        <div class="col-4">
+        <div class="col-3">
           <label for="priceCsvFile">アイテム価格データ</label>
           <input id="priceCsvFile" type="file" accept=".csv,text/csv" />
-          <div><span class="csvStatus" id="priceCsvStatus">未読込</span></div>
+          <div class="miniActions">
+            <span class="csvStatus" id="priceCsvStatus">未読込</span>
+            <a href="./price_sample.csv" download>サンプルDL</a>
+          </div>
           <p class="hint">アイテムの価格に関連するデータです。形式：<code>name,price,aliases,category,note</code>。</p>
           <details class="miniHelp">
-            <summary>category一覧を見る</summary>
+            <summary>category一覧</summary>
             <div class="categoryList">
               <div><strong>武器</strong>：武器・防具等の候補に表示</div>
               <div><strong>防具</strong>：武器・防具等の候補に表示</div>
@@ -477,21 +493,14 @@
               <div><strong>マテリアルカード</strong>：マテリアルカード用。通常の消耗品欄には表示しない</div>
               <div><strong>その他</strong>：その他欄の候補に表示</div>
             </div>
-            <p class="hint">空欄カテゴリは旧CSV互換のため、3文字以上入力した場合のみ候補表示されます。絞り込みたい場合は必ず category を入力してください。</p>
+            <p class="hint">空欄カテゴリは旧CSV互換のため、3文字以上入力した場合のみ候補表示されます。</p>
           </details>
-          <div class="toolbar"><button id="clearPriceCsvBtn" type="button">保存済みアイテム価格データを削除</button></div>
+          <div class="toolbar"><button id="clearPriceCsvBtn" type="button">保存済みデータを削除</button></div>
+        </div>
+        <div class="col-12">
+          <p class="hint">サンプルCSVは形式確認用の架空データです。実際に使うデータは各自で作成・読み込みしてください。</p>
         </div>
       </div>
-    </div>
-
-    <div class="card sampleLinks">
-      <strong>サンプルCSV：</strong>
-      <a href="./data_sample.csv" target="_blank" rel="noopener">data_sample.csvを見る</a>
-      <a href="./data_sample.csv" download>ダウンロード</a>
-      <span style="display:inline-block; width:10px;"></span>
-      <a href="./price_sample.csv" target="_blank" rel="noopener">price_sample.csvを見る</a>
-      <a href="./price_sample.csv" download>ダウンロード</a>
-      <p class="hint">形式確認用の架空データです。実際に使うデータは各自で作成・読み込みしてください。</p>
     </div>
 
     <div class="card">
@@ -612,7 +621,7 @@
   </div>
 
   <script>
-    const VERSION = "1.1";
+    const VERSION = "v1.1.1";
 
     const state = {
       rawJson: null,
