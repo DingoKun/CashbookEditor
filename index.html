@@ -1,18 +1,18 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.1.3
+  version: v1.1.6
   date: 2026-06-07
   versioning: previous v26 is treated as 0.26
   notes:
     - GitHub Pages 向けに不要な再読込・サンプル系ボタンを削除
-    - v1.1.3：ファイル選択・サンプルDLにもカラー選択を反映
+    - v1.1.6：マテリアルカード列幅と出力欄ラベルを調整
 -->
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.1.3</title>
+  <title>SW2.5 収支・持ち物エディタ v1.1.6</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -284,6 +284,12 @@
       box-shadow: 0 6px 20px rgba(0,0,0,.16);
       text-align: right;
       pointer-events: none;
+      transition: opacity .15s ease, transform .15s ease;
+    }
+    .floatingRemaining.isHidden {
+      opacity: 0;
+      transform: translateY(-8px);
+      pointer-events: none;
     }
     .floatingRemaining .floatingLabel {
       color: var(--muted);
@@ -374,20 +380,27 @@
     .gridTable th { background: #fafafa; text-align: left; }
 
     /* PC/スマホ共通で、消耗品とマテリアルカードの価格・数量・持ち物列を揃える */
-    #consumableTable th:nth-child(1), #consumableTable td:nth-child(1) { width: 36%; }
-    #consumableTable th:nth-child(2), #consumableTable td:nth-child(2) { width: 12%; }
-    #consumableTable th:nth-child(3), #consumableTable td:nth-child(3) { width: 7%; }
-    #consumableTable th:nth-child(4), #consumableTable td:nth-child(4) { width: 14%; }
-    #consumableTable th:nth-child(5), #consumableTable td:nth-child(5) { width: 23%; }
+    #consumableTable th:nth-child(1), #consumableTable td:nth-child(1) { width: 12%; }
+    #consumableTable th:nth-child(2), #consumableTable td:nth-child(2) { width: 30%; }
+    #consumableTable th:nth-child(3), #consumableTable td:nth-child(3) { width: 10%; }
+    #consumableTable th:nth-child(4), #consumableTable td:nth-child(4) { width: 7%; }
+    #consumableTable th:nth-child(5), #consumableTable td:nth-child(5) { width: 33%; }
     #consumableTable th:nth-child(6), #consumableTable td:nth-child(6) { width: 8%; }
 
-    #cardTable th:nth-child(1), #cardTable td:nth-child(1) { width: 8%; }
-    #cardTable th:nth-child(2), #cardTable td:nth-child(2) { width: 8%; }
-    #cardTable th:nth-child(3), #cardTable td:nth-child(3) { width: 12%; }
-    #cardTable th:nth-child(4), #cardTable td:nth-child(4) { width: 7%; }
-    #cardTable th:nth-child(5), #cardTable td:nth-child(5) { width: 14%; }
-    #cardTable th:nth-child(6), #cardTable td:nth-child(6) { width: 43%; }
+    #cardTable th:nth-child(1), #cardTable td:nth-child(1) { width: 12%; }
+    #cardTable th:nth-child(2), #cardTable td:nth-child(2) { width: 15%; }
+    #cardTable th:nth-child(3), #cardTable td:nth-child(3) { width: 15%; }
+    #cardTable th:nth-child(4), #cardTable td:nth-child(4) { width: 10%; }
+    #cardTable th:nth-child(5), #cardTable td:nth-child(5) { width: 7%; }
+    #cardTable th:nth-child(6), #cardTable td:nth-child(6) { width: 33%; }
     #cardTable th:nth-child(7), #cardTable td:nth-child(7) { width: 8%; }
+
+    #otherSections .gridTable th:nth-child(1), #otherSections .gridTable td:nth-child(1) { width: 12%; }
+    #otherSections .gridTable th:nth-child(2), #otherSections .gridTable td:nth-child(2) { width: 30%; }
+    #otherSections .gridTable th:nth-child(3), #otherSections .gridTable td:nth-child(3) { width: 10%; }
+    #otherSections .gridTable th:nth-child(4), #otherSections .gridTable td:nth-child(4) { width: 7%; }
+    #otherSections .gridTable th:nth-child(5), #otherSections .gridTable td:nth-child(5) { width: 33%; }
+    #otherSections .gridTable th:nth-child(6), #otherSections .gridTable td:nth-child(6) { width: 8%; }
 
     /* 武器・防具等は、操作系列を狭くしてアイテム名・メモを広くする */
     #equipmentTable th:nth-child(1), #equipmentTable td:nth-child(1) { width: 12%; }
@@ -406,7 +419,13 @@
     #accessoryTable th:nth-child(6), #accessoryTable td:nth-child(6) { width: 33%; }
     #accessoryTable th:nth-child(7), #accessoryTable td:nth-child(7) { width: 8%; }
     .stack { display: flex; flex-direction: column; gap: 3px; }
-    .center { text-align: center; }
+    .center {
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 24px;
+    }
     .right { text-align: right; }
     .subRow td { background: var(--subrow-bg); border-top: 0; }
     .badge {
@@ -422,6 +441,8 @@
       width: 14px;
       height: 14px;
       vertical-align: middle;
+      margin: 0;
+      flex: 0 0 auto;
     }
 
     .deleteCell {
@@ -494,7 +515,7 @@
       <div>
         <h1>SW2.5 収支・持ち物エディタ</h1>
         <p class="lead">ゆとシートJSONを読み込み、収支欄テキストと持ち物リストを生成します。</p>
-        <div class="version">version: v1.1.3</div>
+        <div class="version">version: v1.1.6</div>
       </div>
       <div class="toolbar" style="margin-top:0;">
         <button id="themeBtn" type="button">カラー選択</button>
@@ -503,8 +524,8 @@
 
     <div class="warnbox" id="csvWarning"></div>
     <div id="suggestBox" class="suggestBox"></div>
-    <div class="floatingRemaining" aria-live="polite">
-      <div class="floatingLabel">残りガメル</div>
+    <div class="floatingRemaining isHidden" aria-live="polite">
+      <div class="floatingLabel">残り</div>
       <div class="floatingValue" id="floatingRemainingBudget">0 G</div>
     </div>
 
@@ -622,7 +643,7 @@
           </label>
         </div>
         <table class="gridTable" id="consumableTable">
-          <thead><tr><th>アイテム名</th><th>価格</th><th>数量</th><th>持ち物リストに含める</th><th>メモ</th><th></th></tr></thead>
+          <thead><tr><th>所持品に含める</th><th>アイテム名</th><th>価格</th><th>数量</th><th>メモ</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
         <div class="toolbar"><button id="addConsumableBtn" type="button">行を追加</button></div>
@@ -640,7 +661,7 @@
           </label>
         </div>
         <table class="gridTable" id="cardTable">
-          <thead><tr><th>色</th><th>ランク</th><th>価格</th><th>数量</th><th>持ち物リストに含める</th><th>メモ</th><th></th></tr></thead>
+          <thead><tr><th>所持品に含める</th><th>色</th><th>ランク</th><th>価格</th><th>数量</th><th>メモ</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
         <div class="toolbar"><button id="addCardBtn" type="button">行を追加</button></div>
@@ -658,14 +679,14 @@
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">出力</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="sectionBody stack">
         <div>
-          <label>ゆとシート用 収支欄テキスト</label>
+          <label>収支履歴テキスト</label>
           <textarea id="cashbookOutput"></textarea>
-          <div class="toolbar"><button id="copyCashbookBtn" type="button">収支欄をコピー</button></div>
+          <div class="toolbar"><button id="copyCashbookBtn" type="button">収支履歴をコピー</button></div>
         </div>
         <div>
-          <label>持ち物リスト用テキスト</label>
+          <label>所持品テキスト</label>
           <textarea id="itemListOutput"></textarea>
-          <div class="toolbar"><button id="copyItemListBtn" type="button">持ち物リストをコピー</button></div>
+          <div class="toolbar"><button id="copyItemListBtn" type="button">所持品テキストをコピー</button></div>
         </div>
       </div>
     </details>
@@ -674,7 +695,7 @@
   </div>
 
   <script>
-    const VERSION = "v1.1.3";
+    const VERSION = "v1.1.6";
 
     const state = {
       rawJson: null,
@@ -1292,10 +1313,10 @@
       state.consumables.forEach((row, i) => {
         const tr = document.createElement("tr");
         tr.innerHTML =
+          td("所持品に含める", `<div class="center">${checkboxHtml(row.includeItemList, "consumableField", `data-i="${i}" data-key="includeItemList"`)}</div>`) +
           td("アイテム名", inputHtml(row.name, "consumableField", `data-i="${i}" data-key="name"`)) +
           td("価格", inputHtml(row.price, "consumableField", `data-i="${i}" data-key="price"`, "number")) +
           td("数量", inputHtml(row.count, "consumableField", `data-i="${i}" data-key="count" min="1"`, "number")) +
-          td("持ち物リストに含める", `<div class="center">${checkboxHtml(row.includeItemList, "consumableField", `data-i="${i}" data-key="includeItemList"`)}</div>`) +
           td("メモ", inputHtml(row.note, "consumableField", `data-i="${i}" data-key="note"`)) +
           td("", `<button class="small danger deleteBtn" type="button" data-action="removeConsumable" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
         tbody.appendChild(tr);
@@ -1309,11 +1330,11 @@
       state.cards.forEach((row, i) => {
         const tr = document.createElement("tr");
         tr.innerHTML =
+          td("所持品に含める", `<div class="center">${checkboxHtml(row.includeItemList, "cardField", `data-i="${i}" data-key="includeItemList"`)}</div>`) +
           td("色", selectHtml(CARD_COLORS.map(v => v[0]), row.color, "cardField", `data-i="${i}" data-key="color"`)) +
           td("ランク", selectHtml(CARD_RANKS.map(v => v[0]), row.rank, "cardRank", `data-i="${i}"`)) +
           td("価格", inputHtml(row.price, "cardField", `data-i="${i}" data-key="price"`, "number")) +
           td("数量", inputHtml(row.count, "cardField", `data-i="${i}" data-key="count" min="1"`, "number")) +
-          td("持ち物リストに含める", `<div class="center">${checkboxHtml(row.includeItemList, "cardField", `data-i="${i}" data-key="includeItemList"`)}</div>`) +
           td("メモ", inputHtml(row.note || "", "cardField", `data-i="${i}" data-key="note"`)) +
           td("", `<button class="small danger deleteBtn" type="button" data-action="removeCard" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
         tbody.appendChild(tr);
@@ -1341,13 +1362,13 @@
               <button type="button" class="danger" data-action="removeOtherSection" data-s="${s}">この枠を削除</button>
             </div>
             <table class="gridTable">
-              <thead><tr><th>アイテム名</th><th>価格</th><th>数量</th><th>持ち物リストに含める</th><th>メモ</th><th></th></tr></thead>
+              <thead><tr><th>所持品に含める</th><th>アイテム名</th><th>価格</th><th>数量</th><th>メモ</th><th></th></tr></thead>
               <tbody>${section.items.map((item, i) => `
                 <tr>
+                  ${td("所持品に含める", `<div class="center">${checkboxHtml(item.includeItemList, "otherField", `data-s="${s}" data-i="${i}" data-key="includeItemList"`)}</div>`)}
                   ${td("アイテム名", inputHtml(item.name, "otherField", `data-s="${s}" data-i="${i}" data-key="name"`))}
                   ${td("価格", inputHtml(item.price, "otherField", `data-s="${s}" data-i="${i}" data-key="price"`, "number"))}
                   ${td("数量", inputHtml(item.count, "otherField", `data-s="${s}" data-i="${i}" data-key="count" min="1"`, "number"))}
-                  ${td("持ち物リストに含める", `<div class="center">${checkboxHtml(item.includeItemList, "otherField", `data-s="${s}" data-i="${i}" data-key="includeItemList"`)}</div>`)}
                   ${td("メモ", inputHtml(item.note, "otherField", `data-s="${s}" data-i="${i}" data-key="note"`))}
                   ${td("", `<button class="small danger deleteBtn" type="button" data-action="removeOtherItem" data-s="${s}" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell")}
                 </tr>`).join("")}</tbody>
@@ -1383,6 +1404,15 @@
       el("remainingBudget").textContent = moneyFormat(remaining);
       const floating = el("floatingRemainingBudget");
       if (floating) floating.textContent = moneyFormat(remaining);
+      updateFloatingRemainingVisibility();
+    }
+    function updateFloatingRemainingVisibility() {
+      const box = document.querySelector(".floatingRemaining");
+      const original = el("remainingBudget");
+      if (!box || !original) return;
+      const rect = original.getBoundingClientRect();
+      const visible = rect.top >= 0 && rect.bottom <= window.innerHeight && rect.left >= 0 && rect.right <= window.innerWidth;
+      box.classList.toggle("isHidden", visible);
     }
 
     function buildSection(title, lines) {
@@ -1673,8 +1703,8 @@
         showSuggestBox(e.target);
       }
     });
-    window.addEventListener("scroll", hideSuggestBox, true);
-    window.addEventListener("resize", hideSuggestBox);
+    window.addEventListener("scroll", () => { hideSuggestBox(); updateFloatingRemainingVisibility(); }, true);
+    window.addEventListener("resize", () => { hideSuggestBox(); updateFloatingRemainingVisibility(); });
 
     document.addEventListener("click", e => {
       const suggestion = e.target.closest(".suggestItem");
