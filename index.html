@@ -1,18 +1,18 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.1.6
+  version: v1.1.10
   date: 2026-06-07
   versioning: previous v26 is treated as 0.26
   notes:
     - GitHub Pages 向けに不要な再読込・サンプル系ボタンを削除
-    - v1.1.6：マテリアルカード列幅と出力欄ラベルを調整
+    - v1.1.10：更新履歴表示を追加
 -->
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.1.6</title>
+  <title>SW2.5 収支・持ち物エディタ v1.1.10</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -474,6 +474,58 @@
       font-size: 12px;
       padding: 18px 0 10px;
     }
+    .modalBackdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(0,0,0,.35);
+    }
+    .modalBackdrop.isOpen { display: flex; }
+    .modalPanel {
+      width: min(760px, 100%);
+      max-height: min(80vh, 760px);
+      overflow: auto;
+      background: #fff;
+      border: 2px solid var(--accent);
+      border-radius: 12px;
+      box-shadow: 0 12px 36px rgba(0,0,0,.28);
+    }
+    .modalHeader {
+      position: sticky;
+      top: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--section-open);
+      border-bottom: 1px solid var(--section-border);
+      font-weight: 900;
+    }
+    .modalBody {
+      padding: 12px;
+      font-size: 13px;
+    }
+    .changelogItem {
+      border-left: 4px solid var(--accent);
+      padding: 6px 0 8px 10px;
+      margin: 0 0 10px;
+      background: #fafafa;
+    }
+    .changelogItem h3 {
+      margin: 0 0 4px;
+      font-size: 14px;
+    }
+    .changelogItem ul {
+      margin: 4px 0 0 1.2em;
+      padding: 0;
+    }
+    .changelogItem li { margin: 2px 0; }
+
     input[type="text"], input[type="number"], select {
       min-height: 24px;
     }
@@ -515,9 +567,10 @@
       <div>
         <h1>SW2.5 収支・持ち物エディタ</h1>
         <p class="lead">ゆとシートJSONを読み込み、収支欄テキストと持ち物リストを生成します。</p>
-        <div class="version">version: v1.1.6</div>
+        <div class="version">version: v1.1.10</div>
       </div>
       <div class="toolbar" style="margin-top:0;">
+        <button id="changelogBtn" type="button">更新履歴</button>
         <button id="themeBtn" type="button">カラー選択</button>
       </div>
     </div>
@@ -527,6 +580,69 @@
     <div class="floatingRemaining isHidden" aria-live="polite">
       <div class="floatingLabel">残り</div>
       <div class="floatingValue" id="floatingRemainingBudget">0 G</div>
+    </div>
+    <div id="changelogModal" class="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="changelogTitle">
+      <div class="modalPanel">
+        <div class="modalHeader">
+          <span id="changelogTitle">更新履歴</span>
+          <button id="closeChangelogBtn" type="button" class="small">閉じる</button>
+        </div>
+        <div class="modalBody">
+          <div class="changelogItem">
+            <h3>v1.1.10</h3>
+            <ul>
+              <li>ページ内に更新履歴を確認できるボタンを追加。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.1.9</h3>
+            <ul>
+              <li>その他欄の追加行（┗）を支出計算に含めるよう修正。</li>
+              <li>ゆとシートのルビ・太字・リンク等の簡易整形記法を読み込み時に変換。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.1.8</h3>
+            <ul>
+              <li>装飾品の追加枠（┗）に記載された価格を読み込めるよう修正。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.1.7</h3>
+            <ul>
+              <li>装飾品の価格読取を修正。部位名ではなくアイテム名を照合するよう変更。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.1.6</h3>
+            <ul>
+              <li>出力欄の文言を「収支履歴テキスト」「所持品テキスト」に修正。</li>
+              <li>マテリアルカード欄の列幅を調整。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.1.5</h3>
+            <ul>
+              <li>消耗品・その他欄の列幅を調整。</li>
+              <li>所持品チェックボックスをセル中央に配置。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.1.4</h3>
+            <ul>
+              <li>残り金額の固定表示を、元の「残り」欄が見えない時だけ表示するよう修正。</li>
+              <li>「持ち物リストに含める」を「所持品に含める」に統一。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.1.3以前</h3>
+            <ul>
+              <li>サンプルCSVリンク、省スペース表示、カラー反映、残り金額固定表示などを追加。</li>
+              <li>正式版1.0で、CSVローカル読込・価格候補・メモ出力設定・その他枠などを実装。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="card">
@@ -695,7 +811,7 @@
   </div>
 
   <script>
-    const VERSION = "v1.1.6";
+    const VERSION = "v1.1.10";
 
     const state = {
       rawJson: null,
@@ -730,9 +846,8 @@
         .replaceAll(">", "&gt;").replaceAll('"', "&quot;");
     }
     function normalizeName(s) {
-      return String(s ?? "")
-        .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
-        .replace(/\[[^\]]+\]/g, "")
+      return formatYutoText(s)
+        .replace(/\[[^\]]+\]/g, "") // [魔] などのアイコン類は照合上は除外
         .replace(/[〈〉]/g, "")
         .replace(/[　\s]+/g, " ")
         .replace(/[×xX]\s*\d+$/i, "")
@@ -758,6 +873,20 @@
       return String(text ?? "")
         .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
         .replace(/<br\s*\/?>/gi, "\n").replace(/\r/g, "");
+    }
+    function formatYutoText(text) {
+      let s = decodeYutoText(text);
+      // ゆとシートの簡易装飾・リンク記法を、編集欄で扱いやすい表示に寄せる
+      s = s.replace(/\[\[([^>\]]+)>[^\]]+\]\]/g, "$1");       // [[テキスト>URL]]
+      s = s.replace(/\[([^#\]\[]+)#[^\]]+\]/g, "$1");          // [テキスト#シートID]
+      s = s.replace(/\|([^《\n]+)《([^》]+)》/g, "$1（$2）");       // |テキスト《ルビ》
+      s = s.replace(/《《([^》]+)》》/g, "$1");                       // 傍点
+      s = s.replace(/'''([^']*?)'''/g, "$1");                       // 斜体
+      s = s.replace(/''([^']*?)''/g, "$1");                         // 太字
+      s = s.replace(/%%(.*?)%%/g, "$1");                             // 打消線
+      s = s.replace(/__(.*?)__/g, "$1");                             // 下線
+      s = s.replace(/\{\{(.*?)\}\}/g, "$1");                     // 透明
+      return s.trim();
     }
     function loadPriceCsvText(text, save = false) {
       try {
@@ -1051,13 +1180,22 @@
       const count = countMatch ? toNumber(countMatch[1], 1) : 1;
       const before = line.slice(0, m.index).replace(/^┗\s*/, "").trim();
       const after = line.slice(m.index + m[0].length).replace(/\*\s*\d+/, "").trim();
-      const name = before || after.split(/\s+/)[0] || "";
+      const labels = ["武器", "非金属鎧", "金属鎧", "盾", "頭", "顔", "耳", "首", "背", "右", "左", "腰", "足", "他"];
+      let name = "";
+      if (after) {
+        name = after.split(/\s+/)[0] || "";
+      } else if (before) {
+        const parts = before.split(/\s+/).filter(Boolean);
+        if (parts.length >= 2 && labels.includes(parts[0])) name = parts.slice(1).join(" ");
+        else name = before;
+      }
+      name = formatYutoText(name);
       return { raw: line, sign, name, cleanName: normalizeName(name), price: unitPrice, count, after, section: "", parentName: "" };
     }
     function findCashbookPrice(name) {
       const key = normalizeName(name);
       if (!key) return 0;
-      const candidates = state.cashbookEntries.filter(e => e.sign < 0 && !e.raw.startsWith("┗"));
+      const candidates = state.cashbookEntries.filter(e => e.sign < 0);
       let exact = candidates.find(e => normalizeName(e.name) === key);
       if (exact) return exact.price;
       exact = candidates.find(e => key.includes(normalizeName(e.name)) || normalizeName(e.name).includes(key));
@@ -1113,15 +1251,15 @@
     function parseEquipment(data) {
       const rows = [];
       for (let i = 1; i <= 40; i++) {
-        const name = data[`weapon${i}Name`] || data[`weapon${i}_Name`] || "";
+        const name = formatYutoText(data[`weapon${i}Name`] || data[`weapon${i}_Name`] || "");
         if (!name) continue;
-        rows.push({ type: "武器", name, price: 0, count: 1, note: data[`weapon${i}Note`] || "", processes: [] });
+        rows.push({ type: "武器", name, price: 0, count: 1, note: formatYutoText(data[`weapon${i}Note`] || ""), processes: [] });
       }
       for (let i = 1; i <= 40; i++) {
-        const name = data[`armour${i}Name`] || data[`armor${i}Name`] || "";
+        const name = formatYutoText(data[`armour${i}Name`] || data[`armor${i}Name`] || "");
         if (!name) continue;
         const category = data[`armour${i}Category`] || data[`armor${i}Category`] || "その他";
-        rows.push({ type: mapArmourCategory(category), name, price: 0, count: 1, note: data[`armour${i}Note`] || data[`armor${i}Note`] || "", processes: [] });
+        rows.push({ type: mapArmourCategory(category), name, price: 0, count: 1, note: formatYutoText(data[`armour${i}Note`] || data[`armor${i}Note`] || ""), processes: [] });
       }
       // 収支履歴の加工行を可能な範囲で紐づける
       rows.forEach(row => {
@@ -1161,8 +1299,8 @@
         ["右", "HandR"], ["左", "HandL"], ["腰", "Waist"], ["足", "Leg"], ["他", "Other"]
       ];
       for (const [part, code] of defs) {
-        const name = data[`accessory${code}Name`] || "";
-        const note = data[`accessory${code}Note`] || "";
+        const name = formatYutoText(data[`accessory${code}Name`] || "");
+        const note = formatYutoText(data[`accessory${code}Note`] || "");
         rows.push({ part, parentPart: "", child: false, hasExtraSlot: data[`accessory${code}Add`] === "1", name, price: 0, count: 1, note });
         const extraKeys = [
           `accessory${code}_Name`,
@@ -1172,7 +1310,7 @@
         extraKeys.forEach((key, idx) => {
           if (!data[key]) return;
           const noteKey = key.replace(/Name$/, "Note");
-          rows.push({ part: "┗", parentPart: part, child: true, hasExtraSlot: false, name: data[key], price: 0, count: 1, note: data[noteKey] || "" });
+          rows.push({ part: "┗", parentPart: part, child: true, hasExtraSlot: false, name: formatYutoText(data[key]), price: 0, count: 1, note: formatYutoText(data[noteKey] || "") });
         });
       }
       return rows;
@@ -1208,7 +1346,6 @@
       const bySection = new Map();
       state.cashbookEntries.forEach(entry => {
         if (entry.sign >= 0) return;
-        if (entry.raw.startsWith("┗")) return;
         if (ignore.some(x => entry.section.includes(x))) return;
         if (entry.section === "未分類" && !entry.name) return;
         const title = `その他_${entry.section || "未分類"}`;
@@ -1791,6 +1928,23 @@
         alert("JSONの読み込みに失敗しました。");
       }
     });
+    function openChangelog() {
+      const modal = el("changelogModal");
+      if (modal) modal.classList.add("isOpen");
+    }
+    function closeChangelog() {
+      const modal = el("changelogModal");
+      if (modal) modal.classList.remove("isOpen");
+    }
+    el("changelogBtn").addEventListener("click", openChangelog);
+    el("closeChangelogBtn").addEventListener("click", closeChangelog);
+    el("changelogModal").addEventListener("click", e => {
+      if (e.target === el("changelogModal")) closeChangelog();
+    });
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") closeChangelog();
+    });
+
     el("themeBtn").addEventListener("click", () => {
       const current = localStorage.getItem("sw25_theme_color") || "#eaf2ff";
       const input = document.createElement("input");
