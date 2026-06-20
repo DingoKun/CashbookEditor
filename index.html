@@ -1,18 +1,18 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.1.10
+  version: v1.1.14
   date: 2026-06-07
   versioning: previous v26 is treated as 0.26
   notes:
     - GitHub Pages 向けに不要な再読込・サンプル系ボタンを削除
-    - v1.1.10：更新履歴表示を追加
+    - v1.1.14：カラー選択時の見出し可読性を改善
 -->
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.1.10</title>
+  <title>SW2.5 収支・持ち物エディタ v1.1.14</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -181,6 +181,26 @@
       color: var(--accent);
       user-select: none;
     }
+    .readHelp {
+      margin: 8px 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdf7;
+      padding: 7px 10px;
+    }
+    .readHelp > summary {
+      cursor: pointer;
+      font-weight: 900;
+      color: var(--accent);
+      user-select: none;
+    }
+    .readHelp ul {
+      margin: 6px 0 0 1.2em;
+      padding: 0;
+    }
+    .readHelp li {
+      margin: 3px 0;
+    }
     .categoryList {
       margin-top: 6px;
       display: grid;
@@ -326,6 +346,7 @@
       cursor: pointer;
       padding: 6px 8px;
       font-weight: 800;
+      color: var(--text);
       background: var(--section-bg);
       border-bottom: 1px solid var(--section-border);
       display: flex;
@@ -333,7 +354,10 @@
       justify-content: space-between;
       gap: 6px;
     }
-    details.section[open] > summary { background: var(--section-open); }
+    details.section[open] > summary {
+      background: var(--section-open);
+      color: var(--text);
+    }
     details.section > summary::-webkit-details-marker { display: none; }
     .summaryLeft { display: flex; align-items: center; gap: 6px; min-width: 0; }
     .summaryTitle { overflow-wrap: anywhere; }
@@ -352,7 +376,7 @@
     }
     details.section[open] .summaryIcon::before { content: "−"; }
     details.section:not([open]) .summaryIcon::before { content: "＋"; }
-    .summaryHint { font-size: 10px; color: var(--muted); white-space: nowrap; }
+    .summaryHint { font-size: 10px; color: var(--muted); white-space: nowrap; font-weight: 700; }
     @media (max-width: 540px) { .summaryHint { display: none; } }
     .sectionBody {
       padding: 6px;
@@ -567,7 +591,7 @@
       <div>
         <h1>SW2.5 収支・持ち物エディタ</h1>
         <p class="lead">ゆとシートJSONを読み込み、収支欄テキストと持ち物リストを生成します。</p>
-        <div class="version">version: v1.1.10</div>
+        <div class="version">version: v1.1.14</div>
       </div>
       <div class="toolbar" style="margin-top:0;">
         <button id="changelogBtn" type="button">更新履歴</button>
@@ -588,6 +612,36 @@
           <button id="closeChangelogBtn" type="button" class="small">閉じる</button>
         </div>
         <div class="modalBody">
+          <div class="changelogItem">
+            <h3>v1.1.14</h3>
+            <ul>
+              <li>カラー選択時、開閉見出しは選択色をそのまま塗らず、淡い背景色にして文字を読みやすく調整。</li>
+              <li>選択色はボタン・枠線・リンクなどのアクセントとして使うよう整理。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.1.13</h3>
+            <ul>
+              <li>読み込み時の注意書きをページ内に追加。</li>
+              <li>未知の加工を「加工名 ランク メモ」の形で分解しやすく修正。</li>
+              <li>コメント行・表組み行・見出し行を収支履歴読取対象から除外。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.1.12</h3>
+            <ul>
+              <li>装備行の価格後にメモがある場合、メモをアイテム名として誤読する問題を修正。</li>
+              <li>武器・防具本体価格と加工価格の照合優先順位を調整し、加工費を本体価格として拾いにくく修正。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.1.11</h3>
+            <ul>
+              <li>武器名に[魔][打]などのアイコンが含まれる場合でも、収支履歴の加工行を親武器へ紐づけやすく修正。</li>
+              <li>CSV未読込時や未知加工時に「Bランク」等が重複出力される問題を修正。</li>
+              <li>その他系見出しが「その他_その他_その他」のように重複する問題を修正。</li>
+            </ul>
+          </div>
           <div class="changelogItem">
             <h3>v1.1.10</h3>
             <ul>
@@ -692,6 +746,20 @@
         </div>
       </div>
     </div>
+
+    <details class="readHelp">
+      <summary>読み込み時の注意</summary>
+      <ul>
+        <li>収支履歴は、基本的に1行1項目で <code>::-価格</code> または <code>::-価格*数量</code> と書かれている行を読み取ります。</li>
+        <li>数量は <code>*5</code> 形式を推奨します。<code>×5</code> だけの場合、数量として扱えないことがあります。</li>
+        <li>1行に複数の価格がある場合、最初の価格だけを読み取ることがあります。</li>
+        <li>武器・防具の加工は、本体行の直後に <code>┗　::-価格 加工名 ランク メモ</code> の形で書くと紐づきやすくなります。本体行から離れている加工行は紐づかない場合があります。</li>
+        <li>ツール未登録の加工は、<code>加工名 Bランク メモ</code> の順で書くと読み込みやすくなります。</li>
+        <li><code>//</code> で始まるコメント行、表組み行、見出し行は読み込み対象外です。</li>
+        <li>売却・返金・収入などの <code>::+</code> 行は、所持品購入としては読み込みません。セッション報酬はJSONの履歴欄から収入として読み込みます。</li>
+        <li>ゆとシートのルビ・太字・リンクなどは簡易変換しますが、完全再現ではありません。</li>
+      </ul>
+    </details>
 
     <div class="card">
       <div class="totalBox">
@@ -807,11 +875,11 @@
       </div>
     </details>
 
-    <div class="footerCredit">created by でぃんご</div>
+    <div class="footerCredit">created by でぃんご（@dingo_kun）</div>
   </div>
 
   <script>
-    const VERSION = "v1.1.10";
+    const VERSION = "v1.1.14";
 
     const state = {
       rawJson: null,
@@ -1107,8 +1175,9 @@
         return false;
       });
     }
+    const FALLBACK_PROCESS_NAMES = ["アビス強化", "オーダーメイド", "魔法の武器化", "妖精の武器化", "銀製", "防弾加工", "宿木加工", "宿り木加工", "その他"];
     function getDistinctProcessNames(type) {
-      const names = [...new Set(getAvailableProcessDefinitions(type).map(d => d.name))];
+      const names = [...new Set([...getAvailableProcessDefinitions(type).map(d => d.name), ...FALLBACK_PROCESS_NAMES])];
       if (!names.includes("その他")) names.push("その他");
       return names;
     }
@@ -1151,6 +1220,9 @@
       let section = "未分類";
       let previous = null;
       for (const line of lines) {
+        if (/^\/\//.test(line)) continue;
+        if (/^\|/.test(line)) continue;
+        if (/^\*+/.test(line)) continue;
         const start = line.match(/^\[[>vVＶｖ]\](.*)$/);
         if (start) {
           section = start[1].trim() || "詳細";
@@ -1181,13 +1253,18 @@
       const before = line.slice(0, m.index).replace(/^┗\s*/, "").trim();
       const after = line.slice(m.index + m[0].length).replace(/\*\s*\d+/, "").trim();
       const labels = ["武器", "非金属鎧", "金属鎧", "盾", "頭", "顔", "耳", "首", "背", "右", "左", "腰", "足", "他"];
+      const parts = before.split(/\s+/).filter(Boolean);
       let name = "";
-      if (after) {
+      if (parts.length >= 2 && labels.includes(parts[0])) {
+        // 例：武器　アイテム名　::-価格 メモ
+        // 価格後の文字列はメモ扱いなので、価格前のアイテム名を優先する
+        name = parts.slice(1).join(" ");
+      } else if (before && !labels.includes(before)) {
+        // 例：冒険者セット　::-100
+        name = before;
+      } else if (after) {
+        // 例：頭　::-260 アイテム名 / ┗　::-100 加工名
         name = after.split(/\s+/)[0] || "";
-      } else if (before) {
-        const parts = before.split(/\s+/).filter(Boolean);
-        if (parts.length >= 2 && labels.includes(parts[0])) name = parts.slice(1).join(" ");
-        else name = before;
       }
       name = formatYutoText(name);
       return { raw: line, sign, name, cleanName: normalizeName(name), price: unitPrice, count, after, section: "", parentName: "" };
@@ -1196,9 +1273,21 @@
       const key = normalizeName(name);
       if (!key) return 0;
       const candidates = state.cashbookEntries.filter(e => e.sign < 0);
-      let exact = candidates.find(e => normalizeName(e.name) === key);
+      const main = candidates.filter(e => !e.raw.startsWith("┗"));
+      const child = candidates.filter(e => e.raw.startsWith("┗"));
+      let exact = main.find(e => normalizeName(e.name) === key);
       if (exact) return exact.price;
-      exact = candidates.find(e => key.includes(normalizeName(e.name)) || normalizeName(e.name).includes(key));
+      exact = child.find(e => normalizeName(e.name) === key);
+      if (exact) return exact.price;
+      exact = main.find(e => {
+        const n = normalizeName(e.name);
+        return n && (key.includes(n) || n.includes(key));
+      });
+      if (exact) return exact.price;
+      exact = child.find(e => {
+        const n = normalizeName(e.name);
+        return n && (key.includes(n) || n.includes(key));
+      });
       return exact ? exact.price : 0;
     }
     function isCardEntry(entry) {
@@ -1267,7 +1356,9 @@
         state.cashbookEntries.forEach(entry => {
           if (!entry.raw.startsWith("┗")) return;
           const parent = normalizeName(entry.parentName);
-          if (!parent || !(rowKey.includes(parent) || parent.includes(rowKey))) return;
+          if (!parent) return;
+          const matched = rowKey.includes(parent) || parent.includes(rowKey) || rowKey.replace(/[（）()]/g, "").includes(parent.replace(/[（）()]/g, "")) || parent.replace(/[（）()]/g, "").includes(rowKey.replace(/[（）()]/g, ""));
+          if (!matched) return;
           row.processes.push(parseProcessFromEntry(entry, row.type));
         });
       });
@@ -1280,16 +1371,37 @@
       if (s.includes("金属")) return "金属鎧";
       return "その他";
     }
+    function stripProcessRankText(text) {
+      return String(text || "")
+        .replace(/(SS|S|A|B)\s*ランク/g, "")
+        .replace(/ランク\s*(SS|S|A|B)/g, "")
+        .replace(/\b(SS|S|A|B)\b/g, "")
+        .replace(/[　\s]+/g, " ")
+        .trim();
+    }
+    function processTextContainsName(text, name) {
+      return normalizeName(text).includes(normalizeName(name));
+    }
     function parseProcessFromEntry(entry, parentType) {
-      const text = entry.after || "";
+      const text = formatYutoText(entry.after || entry.name || "");
       let name = "その他";
       for (const n of getDistinctProcessNames(parentType)) {
-        if (n !== "その他" && text.includes(n)) { name = n; break; }
+        if (n !== "その他" && processTextContainsName(text, n)) { name = n; break; }
       }
       const rankMatch = text.match(/(SS|S|A|B)\s*ランク|ランク\s*(SS|S|A|B)|\b(SS|S|A|B)\b/);
       const rank = rankMatch ? (rankMatch[1] || rankMatch[2] || rankMatch[3]) : "B";
-      const note = text.replace(name, "").replace(/(SS|S|A|B)\s*ランク/g, "").trim();
-      return { name, customName: name === "その他" ? text : "", rank, count: entry.count, price: entry.price, note };
+      let note = "";
+      let customName = "";
+      if (name === "その他") {
+        const rankless = stripProcessRankText(text);
+        const parts = rankless.split(/[　\s]+/).filter(Boolean);
+        customName = parts.shift() || rankless || "その他";
+        note = parts.join(" ");
+      } else {
+        const withoutName = text.replace(name, "");
+        note = stripProcessRankText(withoutName);
+      }
+      return { name, customName, rank, rankOutput: Boolean(rankMatch), count: entry.count, price: entry.price, note };
     }
 
     function parseAccessories(data) {
@@ -1348,7 +1460,8 @@
         if (entry.sign >= 0) return;
         if (ignore.some(x => entry.section.includes(x))) return;
         if (entry.section === "未分類" && !entry.name) return;
-        const title = `その他_${entry.section || "未分類"}`;
+        const baseSection = entry.section || "未分類";
+        const title = baseSection.startsWith("その他") ? baseSection : `その他_${baseSection}`;
         if (!bySection.has(title)) bySection.set(title, []);
         bySection.get(title).push({ name: entry.name, price: entry.price, count: entry.count, includeItemList: false, note: "" });
       });
@@ -1565,12 +1678,15 @@
       return `${row.type}　${name}　::-${toNumber(row.price)}${multi}${note}`;
     }
     function cashbookLineForProcess(proc) {
-      const label = proc.name === "その他" ? normalizeName(proc.customName) || "その他" : proc.name;
+      const rawLabel = proc.name === "その他" ? normalizeName(proc.customName) || "その他" : proc.name;
+      const label = stripProcessRankText(rawLabel);
       if (!label) return "";
       const multi = toNumber(proc.count, 1) > 1 ? `*${toNumber(proc.count, 1)}` : "";
       const parts = [];
-      if (proc.rank) parts.push(`${proc.rank}ランク`);
-      if (el("equipmentMemoOutput").checked && proc.note) parts.push(proc.note);
+      const shouldOutputRank = proc.rank && proc.rankOutput !== false;
+      if (shouldOutputRank) parts.push(`${proc.rank}ランク`);
+      const cleanNote = stripProcessRankText((proc.note || "").replace(label, ""));
+      if (el("equipmentMemoOutput").checked && cleanNote) parts.push(cleanNote);
       return `┗　::-${toNumber(proc.price)}${multi} ${label}${parts.length ? " " + parts.join(" ") : ""}`;
     }
     function cashbookLineForAccessory(row) {
@@ -1761,6 +1877,7 @@
         const proc = state.equipment[i].processes[p];
         proc.name = value;
         proc.customName = "";
+        proc.rankOutput = true;
         proc.count = isMultiCountableProcess(value) ? Math.min(proc.count || 1, getMaxProcessCount(value)) : 1;
         proc.price = getProcessPrice(proc.name, proc.rank);
         proc.note = getProcessNote(proc.name, proc.rank);
@@ -1769,6 +1886,7 @@
       if (action === "processRank") {
         const proc = state.equipment[i].processes[p];
         proc.rank = value;
+        proc.rankOutput = true;
         proc.price = getProcessPrice(proc.name, proc.rank);
         proc.note = getProcessNote(proc.name, proc.rank);
         renderAll(); generateOutputs(); return;
@@ -1953,11 +2071,28 @@
       input.addEventListener("input", () => applyThemeColor(input.value, true));
       input.click();
     });
+    function hexToRgb(color) {
+      const raw = String(color || "").replace("#", "").trim();
+      if (!/^[0-9a-fA-F]{6}$/.test(raw)) return { r: 47, g: 111, b: 235 };
+      return {
+        r: parseInt(raw.slice(0, 2), 16),
+        g: parseInt(raw.slice(2, 4), 16),
+        b: parseInt(raw.slice(4, 6), 16)
+      };
+    }
+    function mixColor(color, whiteRatio) {
+      const { r, g, b } = hexToRgb(color);
+      const mix = (v) => Math.round(v * (1 - whiteRatio) + 255 * whiteRatio);
+      return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+    }
     function applyThemeColor(color, save) {
+      const openColor = mixColor(color, 0.58);
+      const bgColor = mixColor(color, 0.88);
+      const borderColor = mixColor(color, 0.28);
       document.documentElement.style.setProperty("--accent", color);
-      document.documentElement.style.setProperty("--section-open", color);
-      document.documentElement.style.setProperty("--section-bg", color + "44");
-      document.documentElement.style.setProperty("--section-border", color);
+      document.documentElement.style.setProperty("--section-open", openColor);
+      document.documentElement.style.setProperty("--section-bg", bgColor);
+      document.documentElement.style.setProperty("--section-border", borderColor);
       if (save) localStorage.setItem("sw25_theme_color", color);
     }
     async function copyFrom(id) {
