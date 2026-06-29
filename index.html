@@ -1,11 +1,12 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.4.6
+  version: v1.4.7
   date: 2026-06-29
   versioning: previous v26 is treated as 0.26
   notes:
     - GitHub Pages 向けに不要な再読込・サンプル系ボタンを削除
+    - v1.4.7：矢・太矢の12本セット表記統一と、公開用の非公式・権利表示を追加
     - v1.4.6：価格候補・登録済み価格辞書の列幅を、名称と略称を広く、価格・カテゴリ・メモをコンパクトに調整
     - v1.4.5：主要編集欄を常時展開へ戻し、収支サマリーをPC1段・狭幅2段のカード表示へ調整
     - v1.4.4：収支サマリーとスマホ表示を省スペース化し、使い方モーダルを追加
@@ -30,7 +31,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.4.6</title>
+  <title>SW2.5 収支・持ち物エディタ v1.4.7</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -638,6 +639,13 @@
       font-size: 12px;
       padding: 18px 0 10px;
     }
+    .rightsNotice {
+      max-width: 760px;
+      margin: 5px auto 0;
+      font-size: 10px;
+      line-height: 1.45;
+    }
+    .rightsNotice a { color: inherit; }
     .modalBackdrop {
       position: fixed;
       inset: 0;
@@ -805,7 +813,7 @@
       <div>
         <div class="titleLine">
           <h1>SW2.5 収支・持ち物エディタ</h1>
-          <span class="version">v1.4.6</span>
+          <span class="version">v1.4.7</span>
         </div>
         <p class="lead">ゆとシートJSONを読み込み、収支欄テキストと持ち物リストを生成します。</p>
       </div>
@@ -853,6 +861,11 @@
         </div>
         <div class="modalBody">
           <div class="changelogItem">
+            <h3>v1.4.7</h3>
+            <ul>
+              <li>矢・太矢の12本表記を、それぞれ12本セット商品「矢（12本）」「太矢（12本）」へ統一。</li>
+              <li>GitHub Pagesでの公開に備え、非公式ファンツール表記と権利表示をフッターへ追加。</li>
+            </ul>
             <h3>v1.4.6</h3>
             <ul>
               <li>価格候補・登録済み価格辞書のアイテム名と略称を広げ、価格・カテゴリ・メモをコンパクト化。</li>
@@ -1186,7 +1199,7 @@
       <ul>
         <li>収支履歴は、基本的に1行1項目で <code>::-価格</code> または <code>::-価格*数量</code> と書かれている行を読み取ります。</li>
         <li>数量は <code>*5</code> 形式を推奨します。<code>×5</code> だけの場合、数量として扱えないことがあります。</li>
-        <li><code>弾丸(12)</code> は公式の12発セット商品「弾丸（12発）」として扱います。それ以外の商品の括弧内数字は数量化せず、個数は <code>*数量</code> で指定してください。</li>
+        <li><code>弾丸(12)</code>・<code>矢(12)</code>・<code>太矢(12)</code> は、それぞれ12発／12本セットの商品として扱います。それ以外の商品の括弧内数字は数量化せず、個数は <code>*数量</code> で指定してください。</li>
         <li>1行に複数の価格がある場合、最初の価格だけを読み取ることがあります。</li>
         <li>武器・防具の加工は、本体行の直後に <code>┗　::-価格 加工名 ランク メモ</code> の形で書くと紐づきやすくなります。本体行から離れている加工行は紐づかない場合があります。</li>
         <li>ツール未登録の加工は、<code>加工名 Bランク メモ</code> の順で書くと読み込みやすくなります。</li>
@@ -1365,11 +1378,18 @@
       </div>
     </details>
 
-    <div class="footerCredit">created by でぃんご</div>
+    <div class="footerCredit">
+      <div>created by でぃんご</div>
+      <div class="rightsNotice">
+        本ツールは『ソード・ワールド2.5』の非公式ファンツールです。<br />
+        本作は、「北沢慶／グループSNE」および「株式会社KADOKAWA」が権利を有する『ソード・ワールド2.5』の二次創作です。<br />
+        (C)GroupSNE (C)KADOKAWA ／ <a href="https://www.arclight.co.jp/trpg-rights/" target="_blank" rel="noopener noreferrer">TRPG二次創作活動ガイドライン</a>
+      </div>
+    </div>
   </div>
 
   <script>
-    const VERSION = "v1.4.6";
+    const VERSION = "v1.4.7";
 
     const state = {
       rawJson: null,
@@ -1487,6 +1507,11 @@
       "知力腕輪": "叡智の腕輪", "知力の腕輪": "叡智の腕輪"
     };
     function canonicalizeKnownItemName(value) {
+      const sourceCompact = formatYutoText(value).normalize("NFKC")
+        .replace(/[〈〉《》【】]/g, "").replace(/[　\s]+/g, "")
+        .replace(/\((?:半額(?:買取|購入)?|貰い物|もらい物|自作|戦利品|拾得品|購入品)\)$/g, "");
+      if (/^矢(?:\(12本?\)|12本|1ダース|一ダース)$/.test(sourceCompact)) return "矢（12本）";
+      if (/^太矢(?:\(12本?\)|12本|1ダース|一ダース)$/.test(sourceCompact)) return "太矢（12本）";
       const normalized = normalizeName(value).normalize("NFKC");
       if (!normalized) return "";
       let compact = normalized.replace(/[〈〉《》【】]/g, "").replace(/[　\s]+/g, "");
@@ -1522,13 +1547,19 @@
       if (/^マギスフィア(?:\(小\)|小)$/.test(compact)) return "マギスフィア（小）";
       if (/^保存食(?:\(1週間分?\)|1週間分?|7日分|一週間分?)$/.test(compact)) return "保存食（1週間分）";
       if (/^弾丸(?:\(12発?\)|12発|1ダース|一ダース)$/.test(compact)) return "弾丸（12発）";
+      if (/^矢(?:\(12本?\)|12本|1ダース|一ダース)$/.test(compact)) return "矢（12本）";
+      if (/^太矢(?:\(12本?\)|12本|1ダース|一ダース)$/.test(compact)) return "太矢（12本）";
       return normalized.trim();
     }
     function getKnownItemNameInfo(value) {
       const split = splitAbyssCurseDisplayName(value);
       const baseName = normalizeName(split.name);
-      const name = canonicalizeKnownItemName(baseName);
-      return { name, alias: name && baseName && name !== baseName ? baseName : "", prefixes: split.prefixes };
+      const sourceName = formatYutoText(split.name).trim();
+      const sourceCompact = sourceName.normalize("NFKC").replace(/[　\s]+/g, "");
+      const isArrowBundle = /^(?:矢|太矢)(?:\(12本?\)|12本|1ダース|一ダース)$/.test(sourceCompact);
+      const canonicalSource = isArrowBundle ? sourceName : baseName;
+      const name = canonicalizeKnownItemName(canonicalSource);
+      return { name, alias: name && canonicalSource && name !== canonicalSource ? canonicalSource : "", prefixes: split.prefixes };
     }
     function getItemLookupKeys(value) {
       const formatted = formatYutoText(value);
