@@ -1,18 +1,36 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.1.14
-  date: 2026-06-07
+  version: v1.4.6
+  date: 2026-06-29
   versioning: previous v26 is treated as 0.26
   notes:
     - GitHub Pages 向けに不要な再読込・サンプル系ボタンを削除
-    - v1.1.14：カラー選択時の見出し可読性を改善
+    - v1.4.6：価格候補・登録済み価格辞書の列幅を、名称と略称を広く、価格・カテゴリ・メモをコンパクトに調整
+    - v1.4.5：主要編集欄を常時展開へ戻し、収支サマリーをPC1段・狭幅2段のカード表示へ調整
+    - v1.4.4：収支サマリーとスマホ表示を省スペース化し、使い方モーダルを追加
+    - v1.4.3：管理欄へ件数表示を移動し、価格候補・登録済み辞書の名称と設定欄の開閉表示を改善
+    - v1.4.2：HTML内に残っていた未使用のマテリアルカード価格定数を削除
+    - v1.4.1：学習価格の一括確定と、CSV加工データの参照・手動登録コピーを追加
+    - v1.4.0：確定価格辞書と武器防具強化データの手動編集機能を追加
+    - v1.3.2：価格候補を1回の選択で確実に適用するようイベント順序を修正
+    - v1.3.1：上部UIを整理し、低頻度の辞書・強化設定と履歴・配色をコンパクト化
+    - v1.3.0：ローカルHTTP検証用JSON一覧とページ内確認ダイアログを追加
+    - v1.2.9：入力途中の名称を誤学習しないよう、手動学習を明示操作に変更
+    - v1.2.8：公式表記に合わせた3商品の名称統一を追加
+    - v1.2.7：消耗品・カード・能力増強品などの表記揺れを統一
+    - v1.2.6：通称（正式名称）形式から正式名称を抽出
+    - v1.2.5：学習価格名からアビスカース接頭辞を除外し、既存データも移行
+    - v1.2.4：JSON装備名からアビスカース接頭辞を分離
+    - v1.2.3：CSV未読込時の複数回加工とアビスカース名照合を改善
+    - v1.2.2：カテゴリ候補・アビスカース名照合・学習価格重複チェックを追加
+    - v1.2.1：学習価格管理機能を追加
 -->
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.1.14</title>
+  <title>SW2.5 収支・持ち物エディタ v1.4.6</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -41,14 +59,64 @@
     .container { max-width: 1040px; margin: 0 auto; padding: 8px; }
     .topbar {
       display: flex;
-      align-items: start;
+      align-items: center;
       justify-content: space-between;
       gap: 8px;
       margin-bottom: 8px;
+      padding: 8px 10px;
+      background: var(--panel);
+      border: 1px solid var(--section-border);
+      border-top: 4px solid var(--accent);
+      border-radius: 7px;
     }
-    h1 { margin: 0 0 4px; font-size: 20px; }
-    .lead { color: var(--muted); margin: 0; font-size: 13px; }
-    .version { color: var(--muted); font-size: 10px; margin-top: 2px; }
+    .titleLine { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+    h1 { margin: 0; font-size: 20px; }
+    .lead { color: var(--muted); margin: 2px 0 0; font-size: 12px; }
+    .version {
+      color: var(--accent);
+      font-size: 10px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border: 1px solid var(--section-border);
+      border-radius: 999px;
+      background: var(--section-bg);
+    }
+    .topActions { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+    .headerHelp {
+      padding: 4px 8px;
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .headerMenu { position: relative; flex: 0 0 auto; }
+    .headerMenu > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #fff;
+      color: var(--muted);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .headerMenu > summary::-webkit-details-marker { display: none; }
+    .headerMenu > summary::before { content: "⚙ "; color: var(--accent); }
+    .headerMenuPanel {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 4px);
+      z-index: 9000;
+      width: 150px;
+      padding: 5px;
+      background: #fff;
+      border: 1px solid var(--section-border);
+      border-radius: 6px;
+      box-shadow: 0 5px 16px rgba(0,0,0,.16);
+    }
+    .headerMenuPanel button { width: 100%; text-align: left; border: 0; }
+    .headerMenuPanel button:hover { background: var(--section-bg); }
     .card {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -64,6 +132,35 @@
       margin-bottom: 8px;
       display: none;
     }
+    .calcWarning {
+      display: none;
+      margin-top: 6px;
+      padding: 7px 9px;
+      border: 1px solid var(--warn-line);
+      border-radius: 8px;
+      background: var(--warn-bg);
+      color: var(--text);
+      font-weight: 700;
+    }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(12px);
+      z-index: 11000;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(30,30,30,.92);
+      color: #fff;
+      font-weight: 800;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .16s ease, transform .16s ease;
+    }
+    .toast.isShown {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
     .row {
       display: grid;
       grid-template-columns: repeat(12, 1fr);
@@ -78,7 +175,7 @@
     @media (max-width: 880px) {
       .col-6, .col-4, .col-3, .col-2 { grid-column: span 12; }
       .container { padding: 4px; }
-      .topbar { flex-direction: column; align-items: stretch; }
+      .topbar { align-items: center; }
     }
     label {
       display: block;
@@ -275,21 +372,27 @@
     button.small { padding: 2px 5px; font-size: 12px; }
     .toolbar { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 5px; align-items: center; }
     .hint { color: var(--muted); font-size: 11px; margin: 5px 0 0; }
+    .moneySummary {
+      margin-bottom: 8px;
+    }
     .totalBox {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 6px;
+      gap: 4px;
     }
     @media (max-width: 720px) { .totalBox { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-    @media (max-width: 420px) { .totalBox { grid-template-columns: 1fr; } }
     .stat {
-      background: #fafafa;
-      border: 1px solid var(--line);
+      min-width: 0;
+      padding: 6px 7px;
+      border: 1px solid var(--section-border);
       border-radius: 6px;
-      padding: 7px;
+      background: #fafcff;
+      text-align: right;
     }
-    .stat .label { color: var(--muted); font-size: 13px; }
-    .stat .value { font-size: 24px; font-weight: 800; margin-top: 6px; word-break: break-word; }
+    .stat:last-child { background: var(--section-open); }
+    .stat .label { color: var(--muted); font-size: 11px; font-weight: 800; line-height: 1; white-space: nowrap; }
+    .stat .value { margin-top: 3px; overflow: hidden; color: var(--text); font-size: 20px; font-weight: 900; line-height: 1.1; text-overflow: ellipsis; white-space: nowrap; }
+    .moneySummary .calcWarning { margin-top: 5px; }
     .floatingRemaining {
       position: fixed;
       right: 12px;
@@ -361,6 +464,19 @@
     details.section > summary::-webkit-details-marker { display: none; }
     .summaryLeft { display: flex; align-items: center; gap: 6px; min-width: 0; }
     .summaryTitle { overflow-wrap: anywhere; }
+    .summaryCount {
+      display: inline-flex;
+      align-items: center;
+      min-height: 18px;
+      padding: 0 6px;
+      border: 1px solid var(--section-border);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
     .summaryIcon {
       display: inline-flex;
       align-items: center;
@@ -395,6 +511,30 @@
     #accessoryTable { min-width: 900px; }
     #consumableTable { min-width: 760px; }
     #cardTable { min-width: 760px; }
+    #learnedPriceTable { min-width: 900px; }
+    #confirmedPriceTable { min-width: 900px; }
+    #processCsvPreviewTable, #customProcessTable { min-width: 1180px; }
+    .tableScrollBox {
+      max-height: 340px;
+      overflow: auto;
+      margin-top: 5px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+    .tableScrollBox .gridTable { margin: 0; }
+    #learnedPriceTable th:nth-child(1), #learnedPriceTable td:nth-child(1) { width: 36%; }
+    #learnedPriceTable th:nth-child(2), #learnedPriceTable td:nth-child(2) { width: 10%; }
+    #learnedPriceTable th:nth-child(3), #learnedPriceTable td:nth-child(3) { width: 26%; }
+    #learnedPriceTable th:nth-child(4), #learnedPriceTable td:nth-child(4) { width: 10%; }
+    #learnedPriceTable th:nth-child(5), #learnedPriceTable td:nth-child(5) { width: 10%; }
+    #learnedPriceTable th:nth-child(6), #learnedPriceTable td:nth-child(6) { width: 8%; }
+    #confirmedPriceTable th:nth-child(1), #confirmedPriceTable td:nth-child(1) { width: 34%; }
+    #confirmedPriceTable th:nth-child(2), #confirmedPriceTable td:nth-child(2) { width: 10%; }
+    #confirmedPriceTable th:nth-child(3), #confirmedPriceTable td:nth-child(3) { width: 18%; }
+    #confirmedPriceTable th:nth-child(4), #confirmedPriceTable td:nth-child(4) { width: 10%; }
+    #confirmedPriceTable th:nth-child(5), #confirmedPriceTable td:nth-child(5) { width: 10%; }
+    #confirmedPriceTable th:nth-child(6), #confirmedPriceTable td:nth-child(6) { width: 10%; }
+    #confirmedPriceTable th:nth-child(7), #confirmedPriceTable td:nth-child(7) { width: 8%; }
     .gridTable th, .gridTable td {
       border: 1px solid var(--line);
       padding: 3px;
@@ -518,6 +658,55 @@
       border-radius: 12px;
       box-shadow: 0 12px 36px rgba(0,0,0,.28);
     }
+    .modalPanel.confirmPanel { width: min(520px, 100%); }
+    .confirmMessage { margin: 0; line-height: 1.7; white-space: pre-line; }
+    .confirmActions { justify-content: flex-end; padding: 0 12px 12px; }
+    .serverJsonTools {
+      margin-top: 8px;
+      padding: 8px;
+      border: 1px solid var(--section-border);
+      border-radius: 8px;
+      background: var(--section-bg);
+    }
+    .loadCard { padding: 0; overflow: visible; border-radius: 7px; }
+    .loadCardTitle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 9px;
+      border-bottom: 1px solid var(--section-border);
+      background: var(--section-open);
+      border-radius: 6px 6px 0 0;
+      font-weight: 900;
+      color: #1d3557;
+    }
+    .loadCardBody { padding: 8px; }
+    .jsonLoadGrid { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(260px, 1fr); gap: 8px; }
+    .dataSettings { border-top: 1px solid var(--section-border); }
+    .dataSettings > summary {
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 9px;
+      cursor: pointer;
+      background: #fafcff;
+      font-weight: 800;
+      color: var(--muted);
+    }
+    .dataSettings > summary::-webkit-details-marker { display: none; }
+    .dataSettings[open] > summary .summaryIcon::before { content: "−"; }
+    .dataSettings:not([open]) > summary .summaryIcon::before { content: "＋"; }
+    .dataSettings > summary:hover { background: var(--section-bg); }
+    .dataSettingsBody { padding: 8px; border-top: 1px solid var(--section-border); }
+    .dataPanel { padding: 7px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
+    .dataPanelTitle { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 0 0 5px; color: #1d3557; font-size: 13px; }
+    @media (max-width: 700px) {
+      .jsonLoadGrid { grid-template-columns: 1fr; }
+      .dataSettings > summary { align-items: flex-start; }
+    }
     .modalHeader {
       position: sticky;
       top: 0;
@@ -534,6 +723,11 @@
       padding: 12px;
       font-size: 13px;
     }
+    .helpSteps { display: grid; gap: 8px; }
+    .helpStep { padding: 8px 10px; border: 1px solid var(--section-border); border-radius: 7px; background: #fafcff; }
+    .helpStep strong { display: block; margin-bottom: 3px; color: #1d3557; }
+    .helpStep p { margin: 0; }
+    .helpNote { margin: 10px 0 0; padding: 8px 10px; border-left: 4px solid var(--accent); background: #f7faff; }
     .changelogItem {
       border-left: 4px solid var(--accent);
       padding: 6px 0 8px 10px;
@@ -561,14 +755,26 @@
     @media (max-width: 700px) {
       h1 { font-size: 17px; }
       .card, .sectionBody { padding: 4px; }
+      .topbar { padding: 6px 7px; margin-bottom: 5px; }
+      .lead { font-size: 11px; }
+      .headerHelp, .headerMenu > summary { padding: 3px 6px; font-size: 12px; }
+      .moneySummary, details.section { margin-bottom: 5px; }
+      .stat { padding: 5px 6px; }
+      .stat .label { font-size: 10px; }
+      .stat .value { font-size: 18px; }
+      input[type="file"].fileMain { padding: 8px; font-size: 14px; }
+      input[type="file"].fileMain::file-selector-button { padding: 6px 8px; }
       .gridTable {
         width: max-content;
         min-width: 680px;
       }
       #equipmentTable, #accessoryTable { min-width: 900px; }
-      input[type="text"], input[type="number"], textarea, select, button {
+      input[type="text"], input[type="number"], textarea, select {
         font-size: 16px; /* iOS Safari の自動ズーム対策 */
       }
+      button { font-size: 13px; }
+      textarea { min-height: 72px; }
+      #cashbookOutput { min-height: 140px; }
       .toolbar button { flex: 1 1 auto; }
       .sectionBody::after {
         content: "表は左右にスクロールできます";
@@ -583,19 +789,35 @@
         display: none;
       }
     }
+    @media (max-width: 540px) {
+      .topbar { flex-wrap: wrap; }
+      .topbar > div:first-child { flex: 1 1 100%; min-width: 0; }
+      .titleLine { flex-wrap: nowrap; gap: 4px; }
+      h1 { font-size: 16px; white-space: nowrap; }
+      .lead { display: none; }
+      .topActions { margin-left: auto; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="topbar">
       <div>
-        <h1>SW2.5 収支・持ち物エディタ</h1>
+        <div class="titleLine">
+          <h1>SW2.5 収支・持ち物エディタ</h1>
+          <span class="version">v1.4.6</span>
+        </div>
         <p class="lead">ゆとシートJSONを読み込み、収支欄テキストと持ち物リストを生成します。</p>
-        <div class="version">version: v1.1.14</div>
       </div>
-      <div class="toolbar" style="margin-top:0;">
-        <button id="changelogBtn" type="button">更新履歴</button>
-        <button id="themeBtn" type="button">カラー選択</button>
+      <div class="topActions">
+        <button id="helpBtn" type="button" class="headerHelp">？ 使い方</button>
+        <details class="headerMenu">
+          <summary>設定</summary>
+          <div class="headerMenuPanel">
+            <button id="themeBtn" type="button" class="small">カラー選択</button>
+            <button id="changelogBtn" type="button" class="small">更新履歴</button>
+          </div>
+        </details>
       </div>
     </div>
 
@@ -605,6 +827,24 @@
       <div class="floatingLabel">残り</div>
       <div class="floatingValue" id="floatingRemainingBudget">0 G</div>
     </div>
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="helpModal" class="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modalPanel">
+        <div class="modalHeader">
+          <span id="helpTitle">はじめての使い方</span>
+          <button id="closeHelpBtn" type="button" class="small">閉じる</button>
+        </div>
+        <div class="modalBody">
+          <div class="helpSteps">
+            <div class="helpStep"><strong>1．キャラクターJSONを読み込む</strong><p>ゆとシートから出力したJSONファイルを、画面上部の「JSONファイル」で選択します。</p></div>
+            <div class="helpStep"><strong>2．価格と数量を確認する</strong><p>必要に応じて価格CSVを読み込み、各行の価格・数量・加工内容を確認します。価格CSVがない項目は0Gになることがあります。</p></div>
+            <div class="helpStep"><strong>3．価格候補を整理する</strong><p>JSONから収集された価格は「価格候補（整理中）」に入ります。名称や略称を整えた後、まとめて辞書へ登録できます。</p></div>
+            <div class="helpStep"><strong>4．出力をコピーする</strong><p>「出力」を開き、収支履歴テキストまたは所持品テキストをコピーしてゆとシートへ貼り付けます。</p></div>
+          </div>
+          <p class="helpNote">武器・防具、装飾品、消耗品などの編集欄は最初から開いています。スマホでは表を左右にスクロールできます。数量は <code>*3</code> の形式で出力されます。</p>
+        </div>
+      </div>
+    </div>
     <div id="changelogModal" class="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="changelogTitle">
       <div class="modalPanel">
         <div class="modalHeader">
@@ -612,6 +852,158 @@
           <button id="closeChangelogBtn" type="button" class="small">閉じる</button>
         </div>
         <div class="modalBody">
+          <div class="changelogItem">
+            <h3>v1.4.6</h3>
+            <ul>
+              <li>価格候補・登録済み価格辞書のアイテム名と略称を広げ、価格・カテゴリ・メモをコンパクト化。</li>
+              <li>登録済み価格辞書の「候補へ戻す」と「削除」を別列にし、削除列を他の編集表と同じ幅へ統一。</li>
+            </ul>
+            <h3>v1.4.5</h3>
+            <ul>
+              <li>武器・防具、装飾品、消耗品、マテリアルカード、出力をスマホでも初期展開する構成へ復帰。</li>
+              <li>収支4項目をPCでは4列1段、狭い画面では2列2段のコンパクトなカード表示へ調整。</li>
+            </ul>
+            <h3>v1.4.4</h3>
+            <ul>
+              <li>初期所持金・支出・収入・残りの表示を1行のコンパクトなサマリーへ変更。</li>
+              <li>スマホでは主要な編集欄を初期状態で畳み、入力欄・ボタン・出力欄の高さを省スペース化。</li>
+              <li>初見向けの「使い方」ボタンと画面内ガイドを追加。</li>
+            </ul>
+            <h3>v1.4.3</h3>
+            <ul>
+              <li>上部の設定欄から件数表示を外し、価格候補・登録済み価格辞書・加工データの各管理欄へ移動。</li>
+              <li>「学習価格」を「価格候補（整理中）」、「確定価格辞書」を「登録済み価格辞書」へ変更。</li>
+              <li>辞書・強化データ設定にも左側の＋／−表示を追加。</li>
+            </ul>
+            <h3>v1.4.2</h3>
+            <ul>
+              <li>価格CSV未読込時はマテリアルカード価格を0Gとする仕様を維持し、HTML内に残っていた未使用のランク別価格定数を削除。</li>
+            </ul>
+            <h3>v1.4.1</h3>
+            <ul>
+              <li>学習価格を一覧で整理した後、全件まとめて確定辞書へ移せるよう変更。</li>
+              <li>加工データ管理にCSV読込内容のランク別参照表を追加。</li>
+              <li>CSV加工を手動登録欄へコピーし、サプリメント差分などを編集できるよう改善。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.4.0</h3>
+            <ul>
+              <li>学習候補を「確定価格辞書」へ移し、同じ名称・略称を次回以降の自動学習から除外できるよう対応。</li>
+              <li>読込済み価格CSVと確定辞書を統合したCSVの出力に対応。</li>
+              <li>武器・防具の加工名、適用対象、ランク別価格、複数回加工、メモを表形式で追加・編集できる管理欄を追加。</li>
+              <li>加工候補ではCSVより手動定義を優先し、統合CSVの出力にも対応。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.3.2</h3>
+            <ul>
+              <li>価格候補を押した際、入力欄のフォーカス移動より先に名称と価格を適用するよう修正。</li>
+              <li>マウス・タッチ・キーボードのいずれでも、候補を1回選ぶだけで反映されるよう改善。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.3.1</h3>
+            <ul>
+              <li>JSON読込を中心に据え、強化・価格辞書の設定を初期状態で閉じる構成へ整理。</li>
+              <li>更新履歴とカラー選択をヘッダーの小型メニューへ移動。</li>
+              <li>ゆとシートに近い青系の見出し・境界線と、省スペースな配置へ調整。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.3.0</h3>
+            <ul>
+              <li>ローカルHTTPサーバー利用時、同一フォルダ内のJSONを一覧から直接読み込める検証機能を追加。</li>
+              <li>削除・学習確認をブラウザ標準ポップアップからページ内確認ダイアログへ変更。</li>
+              <li>価格候補が適用された際、計算だけでなく価格入力欄の表示も即時更新するよう修正。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.2.9</h3>
+            <ul>
+              <li>名称の入力途中や候補選択時に、短い未確定名を自動学習しないよう変更。</li>
+              <li>現在の入力内容を確認後に保存する「現在の入力価格を学習」ボタンを追加。</li>
+              <li>自動学習の設定をJSON読込時だけに限定し、用途が分かる表記へ変更。</li>
+              <li>同価格・同カテゴリの正式名がある場合、過去に候補選択や手入力で保存された3文字以下の前方一致名を整理。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.2.8</h3>
+            <ul>
+              <li>マギスフィア小・マギスフィア(小)を「マギスフィア（小）」へ統一。</li>
+              <li>保存食1週間・保存食(1週間分)・保存食7日分を「保存食（1週間分）」へ統一。</li>
+              <li>弾丸12発・弾丸(12)・弾丸1ダースを、12発セット商品「弾丸（12発）」へ統一。</li>
+              <li>一般的な括弧内数字は数量として解釈せず、数量には従来どおり <code>*数量</code> を使用。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.2.7</h3>
+            <ul>
+              <li>魔晶石・MCC・消魔の守護石・魔符・マテリアルカードの表記揺れを統一。</li>
+              <li>能力増強の指輪・腕輪、スカウト用ツール、アウェイクポーションの一般的な略称を統一。</li>
+              <li>統一前にユーザーが入力した表記を学習価格データの略称へ自動追加。</li>
+              <li>名前の入力途中に不完全な名称を誤学習しないよう修正。</li>
+              <li>半額・自作・戦利品などの取得価格を標準価格として誤学習しないよう修正。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.2.6</h3>
+            <ul>
+              <li>「通称（正式名称）」形式の装備名は、括弧内を正式名称として読み込むよう対応。</li>
+              <li>括弧内の正式名称にアビスカース接頭辞がある場合、本体名からさらに分離。</li>
+              <li>点数・サイズ・加工メモなどの短い括弧書きは、従来どおり名称の一部として保持。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.2.5</h3>
+            <ul>
+              <li>学習価格データへ保存する際、先頭のアビスカース接頭辞を本体名から除外。</li>
+              <li>保存済みのアビスカース付き誤学習名を読込時に正規化し、同一本体の行へ統合。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.2.4</h3>
+            <ul>
+              <li>JSON装備名の先頭にあるアビスカース接頭辞を、本体名から分離するよう修正。</li>
+              <li>分離した接頭辞に対応する収支履歴の子行は、独立した加工名・加工費として保持。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.2.3</h3>
+            <ul>
+              <li>武器防具強化CSVが未読込でも、オーダーメイドの複数回指定を保持するよう修正。</li>
+              <li>収支履歴に明記された加工数量を、CSVの定義不足で1へ戻さないよう修正。</li>
+              <li>アビスカース接頭辞の照合対象を拡張し、括弧内の正式名も照合できるよう改善。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.2.2</h3>
+            <ul>
+              <li>価格候補のカテゴリを追加し、入力欄ごとの候補判定を拡張。</li>
+              <li>アビスカース接頭辞付きの名称を、元のアイテム名でも価格照合できるよう対応。</li>
+              <li>略称とアビスカース名を考慮して学習価格の重複登録を抑制。</li>
+              <li>学習価格データ管理に重複チェック機能を追加。</li>
+              <li>JSON読込時の学習結果を追加件数・更新件数で表示。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.2.1</h3>
+            <ul>
+              <li>学習価格データの一覧表示を追加。</li>
+              <li>学習したアイテムの略称・価格・カテゴリ・メモを画面上で編集できるよう対応。</li>
+              <li>学習したアイテムを個別削除できるよう対応。</li>
+              <li>JSON読込時に、保存した価格件数を表示するよう修正。</li>
+            </ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.2.0</h3>
+            <ul>
+              <li>入力・読込済み価格をブラウザに自動保存し、次回以降の候補に使えるよう追加。</li>
+              <li>学習価格データの件数表示、CSV出力、削除に対応。</li>
+              <li>ゆとシート上の残金とツール計算の残金がずれる場合、警告を表示。</li>
+              <li>コピー実行時に「コピーしました」を表示。</li>
+            </ul>
+          </div>
           <div class="changelogItem">
             <h3>v1.1.14</h3>
             <ul>
@@ -698,53 +1090,95 @@
         </div>
       </div>
     </div>
+    <div id="confirmModal" class="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+      <div class="modalPanel confirmPanel">
+        <div class="modalHeader"><span id="confirmTitle">確認</span></div>
+        <div class="modalBody"><p id="confirmMessage" class="confirmMessage"></p></div>
+        <div class="toolbar confirmActions">
+          <button id="confirmCancelBtn" type="button" class="small">キャンセル</button>
+          <button id="confirmOkBtn" type="button" class="small danger">実行</button>
+        </div>
+      </div>
+    </div>
 
-    <div class="card">
-      <div class="row">
-        <div class="col-6">
+    <div class="card loadCard">
+      <div class="loadCardTitle"><span>キャラクターデータ読込</span><span class="badge">JSON</span></div>
+      <div class="loadCardBody jsonLoadGrid">
+        <div>
           <label for="jsonFile">JSONファイル</label>
           <input id="jsonFile" class="fileMain" type="file" accept=".json,application/json" />
           <p class="hint">ゆとシートから出力したJSONを選択すると自動で読み込みます。</p>
         </div>
-        <div class="col-3">
-          <label for="processCsvFile">武器防具強化データ</label>
-          <input id="processCsvFile" type="file" accept=".csv,text/csv" />
+        <div id="serverJsonTools" class="serverJsonTools" hidden>
+          <label for="serverJsonSelect">ローカル検証用JSON</label>
+          <select id="serverJsonSelect"><option value="">JSONを選択</option></select>
           <div class="miniActions">
-            <span class="csvStatus" id="processCsvStatus">未読込</span>
-            <a href="./data_sample.csv" download>サンプルDL</a>
+            <button id="loadServerJsonBtn" type="button" class="small">選択したJSONを読込</button>
+            <button id="refreshServerJsonBtn" type="button" class="small">一覧を更新</button>
+            <span id="serverJsonStatus" class="csvStatus">検索前</span>
           </div>
-          <p class="hint">武器や防具の強化に関連するデータです。初回読込後はブラウザに保存されます。</p>
-          <div class="toolbar"><button id="clearProcessCsvBtn" type="button">保存済みデータを削除</button></div>
-        </div>
-        <div class="col-3">
-          <label for="priceCsvFile">アイテム価格データ</label>
-          <input id="priceCsvFile" type="file" accept=".csv,text/csv" />
-          <div class="miniActions">
-            <span class="csvStatus" id="priceCsvStatus">未読込</span>
-            <a href="./price_sample.csv" download>サンプルDL</a>
-          </div>
-          <p class="hint">アイテムの価格に関連するデータです。形式：<code>name,price,aliases,category,note</code>。</p>
-          <details class="miniHelp">
-            <summary>category一覧</summary>
-            <div class="categoryList">
-              <div><strong>武器</strong>：武器・防具等の候補に表示</div>
-              <div><strong>防具</strong>：武器・防具等の候補に表示</div>
-              <div><strong>非金属鎧</strong>：武器・防具等の候補に表示</div>
-              <div><strong>金属鎧</strong>：武器・防具等の候補に表示</div>
-              <div><strong>盾</strong>：武器・防具等の候補に表示</div>
-              <div><strong>装飾品</strong>：装飾品欄の候補に表示</div>
-              <div><strong>消耗品</strong>：消耗品欄の候補に表示</div>
-              <div><strong>マテリアルカード</strong>：マテリアルカード用。通常の消耗品欄には表示しない</div>
-              <div><strong>その他</strong>：その他欄の候補に表示</div>
-            </div>
-            <p class="hint">空欄カテゴリは旧CSV互換のため、3文字以上入力した場合のみ候補表示されます。</p>
-          </details>
-          <div class="toolbar"><button id="clearPriceCsvBtn" type="button">保存済みデータを削除</button></div>
-        </div>
-        <div class="col-12">
-          <p class="hint">サンプルCSVは形式確認用の架空データです。実際に使うデータは各自で作成・読み込みしてください。</p>
         </div>
       </div>
+      <details class="dataSettings" id="dataSettingsSection">
+        <summary>
+          <span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">辞書・強化データ設定</span></span>
+          <span class="summaryHint">クリックで開閉</span>
+        </summary>
+        <div class="dataSettingsBody">
+          <div class="row">
+            <div class="col-6 dataPanel">
+              <h2 class="dataPanelTitle">武器防具強化データ</h2>
+              <label for="processCsvFile">強化CSV</label>
+              <input id="processCsvFile" type="file" accept=".csv,text/csv" />
+              <div class="miniActions"><a href="./data_sample.csv" download>サンプルDL</a></div>
+              <p class="hint">武器や防具の強化に関連するデータです。初回読込後はブラウザに保存されます。</p>
+              <div class="toolbar"><button id="clearProcessCsvBtn" type="button" class="small">保存済みデータを削除</button></div>
+            </div>
+            <div class="col-6 dataPanel">
+              <h2 class="dataPanelTitle"><span>アイテム価格データ</span><span class="csvStatus" id="priceCsvStatus">CSV未読込</span></h2>
+              <label for="priceCsvFile">価格CSV</label>
+              <input id="priceCsvFile" type="file" accept=".csv,text/csv" />
+              <div class="miniActions"><a href="./price_sample.csv" download>サンプルDL</a></div>
+              <label style="display:flex; align-items:center; gap:6px; margin-top:5px;">
+                <input id="autoLearnPriceToggle" type="checkbox" class="checkBig" checked />
+                JSON読込時に価格候補を自動収集
+              </label>
+              <div class="miniActions">
+                <button id="learnCurrentPricesBtn" type="button" class="small">現在の入力価格を候補へ追加</button>
+                <button id="exportLearnedPriceBtn" type="button" class="small">価格候補CSV出力</button>
+                <button id="clearLearnedPriceBtn" type="button" class="small danger">価格候補を削除</button>
+              </div>
+              <p class="hint">形式：<code>name,price,aliases,category,note</code></p>
+              <details class="miniHelp">
+                <summary>category一覧</summary>
+                <div class="categoryList">
+                  <div><strong>武器</strong>：武器・防具等の候補に表示</div>
+                  <div><strong>防具</strong>：武器・防具等の候補に表示</div>
+                  <div><strong>非金属鎧</strong>：武器・防具等の候補に表示</div>
+                  <div><strong>金属鎧</strong>：武器・防具等の候補に表示</div>
+                  <div><strong>盾</strong>：武器・防具等の候補に表示</div>
+                  <div><strong>装飾品</strong>：装飾品欄の候補に表示</div>
+                  <div><strong>消耗品</strong>：消耗品欄の候補に表示</div>
+                  <div><strong>ポーション</strong>：消耗品欄の候補に表示</div>
+                  <div><strong>薬草</strong>：消耗品欄の候補に表示</div>
+                  <div><strong>魔晶石</strong>：消耗品欄の候補に表示</div>
+                  <div><strong>魔符</strong>：消耗品欄の候補に表示</div>
+                  <div><strong>マテリアルカード</strong>：マテリアルカード用</div>
+                  <div><strong>ゴーレム</strong>：その他欄の候補に表示</div>
+                  <div><strong>騎獣</strong>：その他欄の候補に表示</div>
+                  <div><strong>魔神</strong>：その他欄の候補に表示</div>
+                  <div><strong>冒険道具</strong>：その他欄の候補に表示</div>
+                  <div><strong>フレーバー</strong>：その他欄の候補に表示</div>
+                  <div><strong>その他</strong>：その他欄の候補に表示</div>
+                </div>
+                <p class="hint">空欄カテゴリは3文字以上入力した場合のみ候補表示されます。</p>
+              </details>
+              <div class="toolbar"><button id="clearPriceCsvBtn" type="button" class="small">保存済みデータを削除</button></div>
+            </div>
+            <div class="col-12"><p class="hint">サンプルCSVは形式確認用の架空データです。実際のデータは各自で作成・読み込みしてください。</p></div>
+          </div>
+        </div>
+      </details>
     </div>
 
     <details class="readHelp">
@@ -752,6 +1186,7 @@
       <ul>
         <li>収支履歴は、基本的に1行1項目で <code>::-価格</code> または <code>::-価格*数量</code> と書かれている行を読み取ります。</li>
         <li>数量は <code>*5</code> 形式を推奨します。<code>×5</code> だけの場合、数量として扱えないことがあります。</li>
+        <li><code>弾丸(12)</code> は公式の12発セット商品「弾丸（12発）」として扱います。それ以外の商品の括弧内数字は数量化せず、個数は <code>*数量</code> で指定してください。</li>
         <li>1行に複数の価格がある場合、最初の価格だけを読み取ることがあります。</li>
         <li>武器・防具の加工は、本体行の直後に <code>┗　::-価格 加工名 ランク メモ</code> の形で書くと紐づきやすくなります。本体行から離れている加工行は紐づかない場合があります。</li>
         <li>ツール未登録の加工は、<code>加工名 Bランク メモ</code> の順で書くと読み込みやすくなります。</li>
@@ -761,13 +1196,68 @@
       </ul>
     </details>
 
-    <div class="card">
+    <details class="section" id="learnedPriceSection">
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">価格候補（整理中）</span><span class="summaryCount" id="learnedPriceStatus">0件</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <p class="hint">JSONなどから収集した、まだ辞書へ登録していない価格候補です。名称・価格・略称を一覧で整理した後、「整理済みの全件を辞書へ登録」を押してください。価格CSVの既存データは件数が多いため、この表には表示しません。</p>
+        <div class="toolbar">
+          <button id="checkLearnedDuplicatesBtn" type="button" class="small">候補の重複チェック</button>
+          <button id="confirmAllLearnedPricesBtn" type="button" class="small primary">整理済みの全件を辞書へ登録</button>
+        </div>
+        <p id="learnedDuplicateResult" class="hint" role="status" aria-live="polite" style="white-space:pre-line;"></p>
+        <table class="gridTable" id="learnedPriceTable">
+          <thead><tr><th>アイテム名</th><th>価格</th><th>略称</th><th>カテゴリ</th><th>メモ</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
+
+    <details class="section" id="confirmedPriceSection">
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">登録済み価格辞書</span><span class="summaryCount" id="confirmedPriceStatus">0件</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <p class="hint">整理後に辞書へ登録した価格データです。ブラウザに保存され、価格CSVより優先されます。「統合価格CSV出力」で、読込済みCSVと登録済み辞書をまとめて保存できます。</p>
+        <div class="toolbar"><button id="exportMergedPriceBtn" type="button" class="small">統合価格CSV出力</button></div>
+        <table class="gridTable" id="confirmedPriceTable">
+          <thead><tr><th>アイテム名</th><th>価格</th><th>略称</th><th>カテゴリ</th><th>メモ</th><th></th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
+
+    <details class="section" id="customProcessSection">
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">武器・防具の加工データ管理</span><span class="summaryCount" id="processCsvStatus">0件</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="sectionBody">
+        <p class="hint">上段に読込CSVの内容、下段にブラウザ保存する手動登録を表示します。CSVを参考に追加する場合は「手動へコピー」を押してから編集してください。</p>
+        <h3 class="dataPanelTitle">CSV読込データ（参照）</h3>
+        <p class="hint">CSV自体はこの表では変更しません。ランク別価格と適用対象を確認できます。</p>
+        <div class="tableScrollBox">
+          <table class="gridTable" id="processCsvPreviewTable">
+            <thead><tr><th>加工名</th><th>武器</th><th>非金属鎧</th><th>金属鎧</th><th>盾</th><th>B</th><th>A</th><th>S</th><th>SS</th><th>複数回</th><th>上限</th><th>メモ</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <h3 class="dataPanelTitle" style="margin-top:12px;">手動登録データ</h3>
+        <p class="hint">空欄のランクは候補価格を設定しません。「Bを全ランクへ」で同額加工を簡単に入力できます。</p>
+        <div class="toolbar">
+          <button id="addCustomProcessBtn" type="button" class="small">加工を追加</button>
+          <button id="exportMergedProcessBtn" type="button" class="small">統合加工CSV出力</button>
+          <span id="customProcessStatus" class="csvStatus">手動0件</span>
+        </div>
+        <table class="gridTable" id="customProcessTable">
+          <thead><tr><th>加工名</th><th>武器</th><th>非金属鎧</th><th>金属鎧</th><th>盾</th><th>B</th><th>A</th><th>S</th><th>SS</th><th>複数回</th><th>上限</th><th>メモ</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
+
+    <div class="moneySummary">
       <div class="totalBox">
-        <div class="stat"><div class="label">レギュ初期所持金</div><div class="value" id="totalMoney">0 G</div></div>
+        <div class="stat"><div class="label">初期所持金</div><div class="value" id="totalMoney">0 G</div></div>
         <div class="stat"><div class="label">支出</div><div class="value" id="totalCost">0 G</div></div>
         <div class="stat"><div class="label">収入</div><div class="value" id="totalIncome">0 G</div></div>
         <div class="stat"><div class="label">残り</div><div class="value" id="remainingBudget">0 G</div></div>
       </div>
+      <div id="calcWarning" class="calcWarning"></div>
     </div>
 
     <details class="section">
@@ -875,20 +1365,25 @@
       </div>
     </details>
 
-    <div class="footerCredit">created by でぃんご（@dingo_kun）</div>
+    <div class="footerCredit">created by でぃんご</div>
   </div>
 
   <script>
-    const VERSION = "v1.1.14";
+    const VERSION = "v1.4.6";
 
     const state = {
       rawJson: null,
       pricePreset: {},
       pricePresetAliases: {},
       pricePresetItems: [],
+      learnedPriceItems: [],
+      confirmedPriceItems: [],
+      autoLearnPrices: true,
       activeSuggestCategory: "",
       processCsvCount: 0,
       priceCsvCount: 0,
+      processCsvItems: [],
+      customProcessItems: [],
       processMaster: [],
       equipment: [],
       accessories: [],
@@ -898,14 +1393,28 @@
       cashbookEntries: [],
       initialMoney: 0,
       sessionIncome: 0,
+      sheetRemaining: null,
       hasCashbookCardPurchase: false
     };
 
     const EQUIPMENT_TYPES = ["武器", "非金属鎧", "金属鎧", "盾", "その他"];
     const ACCESSORY_PARTS = ["頭", "顔", "耳", "首", "背", "右", "左", "腰", "足", "他"];
     const CARD_COLORS = [["赤","Red"], ["緑","Gre"], ["黒","Bla"], ["白","Whi"], ["金","Gol"]];
-    const CARD_RANKS = [["B", 20], ["A", 200], ["S", 2000], ["SS", 20000]];
+    const CARD_RANKS = ["B", "A", "S", "SS"];
     const PROCESS_RANKS = ["B", "A", "S", "SS"];
+
+    // 辞書照合とJSON装備名の本体・加工分離に使うアビスカース接頭辞。
+    // ルール本文・効果・表構成は収録せず、名称照合に必要な短い語だけを保持する。
+    // 新しい接頭辞はこの配列へ追加する。
+    const ABYSS_CURSE_PREFIXES = [
+      "自傷の", "嘆きの", "優しき", "差別の", "脆弱な", "無謀な",
+      "重い", "難しい", "軟弱な", "病弱な", "過敏な", "陽気な", "たどたどしい",
+      "代弁する", "施しは受けない", "死に近い", "おしゃれな", "マナを吸う",
+      "鈍重な", "定まらない", "錯乱の", "足絡みの", "滑り落ちる",
+      "悪臭放つ", "醜悪な", "唸る", "ふやけた", "古傷の", "まばゆい",
+      "栄光なき", "正直者の", "乗り物酔いの", "碧を厭う", "我慢できない",
+      "つきまとう", "のろまな"
+    ];
 
     function el(id) { return document.getElementById(id); }
     function esc(s) {
@@ -922,6 +1431,123 @@
         .replace(/\d+\s*(個|こ|枚|本|つ)$/g, "")
         .replace(/買い戻し|買い直し|買い足し|購入|買取|割引/g, "")
         .trim();
+    }
+    function normalizeItemKey(s) {
+      let key = normalizeName(s);
+      const prefixes = [...ABYSS_CURSE_PREFIXES].sort((a, b) => b.length - a.length);
+      let changed = true;
+      while (key && changed) {
+        changed = false;
+        for (const prefix of prefixes) {
+          if (key.startsWith(prefix) && key.length > prefix.length) {
+            key = key.slice(prefix.length).trim();
+            changed = true;
+            break;
+          }
+        }
+      }
+      return key;
+    }
+    function splitAbyssCurseDisplayName(value) {
+      const formatted = formatYutoText(value);
+      const decoration = (formatted.match(/^(?:\[[^\]]+\]\s*)+/) || [""])[0];
+      const undecorated = formatted.slice(decoration.length);
+      const officialMatch = undecorated.match(/^.+[（(]([^（）()]+)[）)](?:\[[^\]]+\]\s*)*$/);
+      const officialCandidate = officialMatch ? officialMatch[1].trim() : "";
+      const isMetadata = /\d/.test(officialCandidate)
+        || /^(?:小|中|大|B|A|S|SS|M|L|LL)$/i.test(officialCandidate)
+        || /(加工|強化|効果|価格|相当|専用|予備|予定|メモ|半額|買取|購入|自作|戦利品|貰い物|もらい物|参加賞|無料|拾得)/.test(officialCandidate);
+      const useOfficialCandidate = officialCandidate.length >= 4 && !isMetadata;
+      let name = useOfficialCandidate ? officialCandidate : undecorated;
+      const outputDecoration = useOfficialCandidate ? "" : decoration;
+      const prefixes = [];
+      const sorted = [...ABYSS_CURSE_PREFIXES].sort((a, b) => b.length - a.length);
+      let changed = true;
+      while (name && changed) {
+        changed = false;
+        for (const prefix of sorted) {
+          if (name.startsWith(prefix) && name.length > prefix.length) {
+            prefixes.push(prefix);
+            name = name.slice(prefix.length).trimStart();
+            changed = true;
+            break;
+          }
+        }
+      }
+      return { name: `${outputDecoration}${name}`.trim(), prefixes };
+    }
+    const ABILITY_ITEM_ALIASES = {
+      "器用指輪": "巧みの指輪", "器用の指輪": "巧みの指輪",
+      "敏捷指輪": "俊足の指輪", "敏捷の指輪": "俊足の指輪", "俊敏の指輪": "俊足の指輪",
+      "筋力指輪": "剛力の指輪", "筋力の指輪": "剛力の指輪",
+      "知力指輪": "知性の指輪", "知力の指輪": "知性の指輪",
+      "器用腕輪": "宗匠の腕輪", "器用の腕輪": "宗匠の腕輪",
+      "敏捷腕輪": "疾風の腕輪", "敏捷の腕輪": "疾風の腕輪", "俊敏の腕輪": "疾風の腕輪",
+      "筋力腕輪": "怪力の腕輪", "筋力の腕輪": "怪力の腕輪",
+      "知力腕輪": "叡智の腕輪", "知力の腕輪": "叡智の腕輪"
+    };
+    function canonicalizeKnownItemName(value) {
+      const normalized = normalizeName(value).normalize("NFKC");
+      if (!normalized) return "";
+      let compact = normalized.replace(/[〈〉《》【】]/g, "").replace(/[　\s]+/g, "");
+      compact = compact.replace(/\((?:半額(?:買取|購入)?|貰い物|もらい物|自作|戦利品|拾得品|購入品)\)$/g, "");
+
+      let match = compact.match(/^魔晶石[<(\/_-]?(?:MP)?(\d+)(?:点(?:分)?|分)?[>)]?$/i)
+        || compact.match(/^(\d+)点(?:分)?魔晶石$/);
+      if (match) return `魔晶石(${Number(match[1])}点)`;
+
+      match = compact.match(/^(?:MCC|マナチャージクリスタル)[<(\/_-]?(?:MP)?(\d+)(?:点(?:分)?|分)?[>)]?$/i)
+        || compact.match(/^(\d+)点(?:分)?(?:MCC|マナチャージクリスタル)$/i);
+      if (match) return `マナチャージクリスタル(${Number(match[1])}点)`;
+
+      match = compact.match(/^消魔の守護石[<(\/_-]?(\d+)(?:点)?[>)]?$/)
+        || compact.match(/^(\d+)点消魔の守護石$/);
+      if (match) return `消魔の守護石(${Number(match[1])}点)`;
+
+      match = compact.match(/^(月光|陽光)の?(?:魔符|魔府|護符)\(?\+?(1|2|3|I|II|III)(?:の)?\)?$/i);
+      if (match) {
+        const grades = { I: 1, II: 2, III: 3 };
+        const gradeText = String(match[2]).toUpperCase();
+        return `${match[1]}の魔符(+${grades[gradeText] || Number(gradeText)})`;
+      }
+      match = compact.match(/^(月光|陽光)の?(?:魔符|魔府|護符)$/);
+      if (match) return `${match[1]}の魔符`;
+
+      match = compact.toUpperCase().match(/^(?:マテリアルカード|マテカ)?([赤緑黒白金])(?:色)?(?:カード)?(SS|S|A|B)(?:カード)?(?:ランク)?$/);
+      if (match) return `マテリアルカード${match[1]}${match[2]}`;
+
+      if (ABILITY_ITEM_ALIASES[compact]) return ABILITY_ITEM_ALIASES[compact];
+      if (/^スカウト(?:用)?ツール$/.test(compact)) return "スカウト用ツール";
+      if (/^アウェイクン?ポーション$/.test(compact) || compact === "アウェイク") return "アウェイクポーション";
+      if (/^マギスフィア(?:\(小\)|小)$/.test(compact)) return "マギスフィア（小）";
+      if (/^保存食(?:\(1週間分?\)|1週間分?|7日分|一週間分?)$/.test(compact)) return "保存食（1週間分）";
+      if (/^弾丸(?:\(12発?\)|12発|1ダース|一ダース)$/.test(compact)) return "弾丸（12発）";
+      return normalized.trim();
+    }
+    function getKnownItemNameInfo(value) {
+      const split = splitAbyssCurseDisplayName(value);
+      const baseName = normalizeName(split.name);
+      const name = canonicalizeKnownItemName(baseName);
+      return { name, alias: name && baseName && name !== baseName ? baseName : "", prefixes: split.prefixes };
+    }
+    function getItemLookupKeys(value) {
+      const formatted = formatYutoText(value);
+      const variants = [formatted];
+      for (const match of formatted.matchAll(/[（(]([^（）()]+)[）)]/g)) {
+        const inner = normalizeName(match[1]);
+        if (ABYSS_CURSE_PREFIXES.some(prefix => inner.startsWith(prefix))) variants.push(inner);
+      }
+      return [...new Set(variants.flatMap(item => [
+        normalizeName(item), normalizeItemKey(item), getKnownItemNameInfo(item).name
+      ]).filter(Boolean))];
+    }
+    function getPriceItemLookupKeys(item) {
+      return [...new Set([item && item.name, ...((item && item.aliases) || [])]
+        .flatMap(getItemLookupKeys).filter(Boolean))];
+    }
+    function priceItemMatchesName(item, name) {
+      const wanted = new Set(getItemLookupKeys(name));
+      return getPriceItemLookupKeys(item).some(key => wanted.has(key));
     }
     function toNumber(v, fallback = 0) {
       const raw = String(v ?? "").trim();
@@ -962,6 +1588,7 @@
         state.priceCsvCount = Object.values(state.pricePresetAliases || {})
           .filter((v, idx, arr) => arr.indexOf(v) === idx).length;
         if (save) localStorage.setItem("sw25_price_csv_text", text);
+        pruneLearnedPricesAgainstAuthoritative();
         updateCsvStatuses();
         applyPresetAndCashbookPrices();
         renderAll();
@@ -1009,16 +1636,18 @@
           price = parseMoneyExpression(cols[1]);
           aliasValues = cols.slice(2);
         }
-        canonical = String(canonical || "").trim();
+        const canonicalInfo = getKnownItemNameInfo(String(canonical || "").trim());
+        canonical = canonicalInfo.name;
         if (!canonical) continue;
+        if (canonicalInfo.alias) aliasValues.push(canonicalInfo.alias);
         const aliasList = [...new Set(aliasValues.flatMap(v => String(v || "").split("|"))
           .map(v => v.trim()).filter(Boolean))];
         const names = [canonical, ...aliasList];
         names.forEach(name => {
           prices[name] = price;
-          prices[normalizeName(name)] = price;
+          getItemLookupKeys(name).forEach(key => { prices[key] = price; });
           aliases[name] = canonical;
-          aliases[normalizeName(name)] = canonical;
+          getItemLookupKeys(name).forEach(key => { aliases[key] = canonical; });
         });
         const categoryIndex = hasHeader ? header.findIndex(h => /^category$/i.test(h) || h === "カテゴリ") : -1;
         const noteIndex = hasHeader ? header.findIndex(h => /^note$/i.test(h) || h === "メモ") : -1;
@@ -1045,28 +1674,31 @@
     }
     function resolvePresetName(name) {
       const raw = String(name ?? "").trim();
-      const key = normalizeName(raw);
-      return state.pricePresetAliases[raw] || state.pricePresetAliases[key] || raw;
+      return state.pricePresetAliases[raw] || getItemLookupKeys(raw)
+        .map(key => state.pricePresetAliases[key]).find(Boolean) || raw;
     }
     function getPresetPrice(name) {
       const raw = String(name ?? "").trim();
-      const key = normalizeName(raw);
+      const keys = getItemLookupKeys(raw);
+      const confirmed = (state.confirmedPriceItems || []).find(item => priceItemMatchesName(item, raw));
+      if (confirmed) return toNumber(confirmed.price, 0);
+      const learned = (state.learnedPriceItems || []).find(item => priceItemMatchesName(item, raw));
+      if (learned) return toNumber(learned.price, 0);
       if (Object.prototype.hasOwnProperty.call(state.pricePreset, raw)) return state.pricePreset[raw];
-      if (Object.prototype.hasOwnProperty.call(state.pricePreset, key)) return state.pricePreset[key];
+      const directKey = keys.find(key => Object.prototype.hasOwnProperty.call(state.pricePreset, key));
+      if (directKey) return state.pricePreset[directKey];
       const canonical = resolvePresetName(raw);
-      const ckey = normalizeName(canonical);
       if (Object.prototype.hasOwnProperty.call(state.pricePreset, canonical)) return state.pricePreset[canonical];
-      if (Object.prototype.hasOwnProperty.call(state.pricePreset, ckey)) return state.pricePreset[ckey];
+      const canonicalKey = getItemLookupKeys(canonical)
+        .find(key => Object.prototype.hasOwnProperty.call(state.pricePreset, key));
+      if (canonicalKey) return state.pricePreset[canonicalKey];
       return 0;
     }
     function getPresetPriceForContext(name, context = "") {
       const raw = String(name ?? "").trim();
-      const key = normalizeName(raw);
       const canonical = resolvePresetName(raw);
-      const item = (state.pricePresetItems || []).find(x =>
-        normalizeName(x.name) === normalizeName(canonical) ||
-        normalizeName(x.name) === key ||
-        (x.aliases || []).some(a => normalizeName(a) === key)
+      const item = getAllPriceItems().find(x =>
+        priceItemMatchesName(x, canonical) || priceItemMatchesName(x, raw)
       );
       if (item && !categoryMatchesForSuggest(item.category, context)) return 0;
       return getPresetPrice(name);
@@ -1074,26 +1706,300 @@
     function applyPresetCandidateToRow(row, context = "") {
       const before = String(row.name ?? "").trim();
       if (!before) return;
-      const item = (state.pricePresetItems || []).find(x => normalizeName(x.name) === normalizeName(before));
+      const item = getAllPriceItems().find(x => priceItemMatchesName(x, before));
       if (!item) return;
       if (!categoryMatchesForSuggest(item.category, context)) return;
       if (!row.price && item.price) row.price = item.price;
     }
     function setPresetPrice(name, price) {
-      const key = normalizeName(name);
+      const key = normalizeItemKey(name);
       if (!key) return;
       const canonical = resolvePresetName(name);
-      state.pricePreset[normalizeName(canonical)] = toNumber(price, 0);
+      getItemLookupKeys(canonical).forEach(lookupKey => { state.pricePreset[lookupKey] = toNumber(price, 0); });
       state.pricePreset[canonical] = toNumber(price, 0);
-      state.pricePresetAliases[normalizeName(canonical)] = canonical;
+      getItemLookupKeys(canonical).forEach(lookupKey => { state.pricePresetAliases[lookupKey] = canonical; });
       state.pricePresetAliases[canonical] = canonical;
       renderPresetDatalist();
     }
+    function canonicalizeLearnedPriceName(value) {
+      return getKnownItemNameInfo(value).name;
+    }
+    function removeLikelyPartialLearnedItems(items) {
+      return items.filter((item, index, allItems) => {
+        const name = normalizeName(item.name);
+        const source = String(item.note || "").trim();
+        if (!name || name.length > 3 || !["候補選択", "手入力"].includes(source)) return true;
+        const hasMatchingFullName = allItems.some((other, otherIndex) => {
+          if (otherIndex === index) return false;
+          const otherName = normalizeName(other.name);
+          const samePrice = toNumber(other.price, 0) === toNumber(item.price, 0);
+          const category = String(item.category || "").trim();
+          const otherCategory = String(other.category || "").trim();
+          const compatibleCategory = !category || !otherCategory || category === otherCategory;
+          return samePrice && compatibleCategory && otherName.length > name.length && otherName.startsWith(name);
+        });
+        return !hasMatchingFullName;
+      });
+    }
+    function consolidateLearnedPriceItems(sourceItems) {
+      const out = [];
+      (Array.isArray(sourceItems) ? sourceItems : []).forEach(rawItem => {
+        const nameInfo = getKnownItemNameInfo(rawItem && rawItem.name);
+        const name = nameInfo.name;
+        const price = toNumber(rawItem && rawItem.price, 0);
+        if (!name || price <= 0) return;
+        const rawAliases = Array.isArray(rawItem.aliases)
+          ? rawItem.aliases
+          : String(rawItem.aliases || "").split("|");
+        const candidate = {
+          name,
+          price,
+          aliases: [...new Set([nameInfo.alias, ...rawAliases].map(v => String(v || "").trim()).filter(Boolean))],
+          category: String(rawItem.category || "").trim(),
+          note: String(rawItem.note || "").trim(),
+          updatedAt: rawItem.updatedAt || ""
+        };
+        candidate.aliases = candidate.aliases.filter(alias =>
+          normalizeItemKey(alias) !== normalizeItemKey(candidate.name)
+        );
+        const candidateKeys = new Set(getPriceItemLookupKeys(candidate));
+        const existing = out.find(item => getPriceItemLookupKeys(item).some(key => candidateKeys.has(key)));
+        if (!existing) {
+          out.push(candidate);
+          return;
+        }
+        existing.aliases = [...new Set([...(existing.aliases || []), ...candidate.aliases])]
+          .filter(alias => normalizeItemKey(alias) !== normalizeItemKey(existing.name));
+        if (!existing.category && candidate.category) existing.category = candidate.category;
+        if (String(candidate.updatedAt) >= String(existing.updatedAt)) {
+          existing.price = candidate.price;
+          existing.note = candidate.note;
+          existing.updatedAt = candidate.updatedAt;
+          if (candidate.category) existing.category = candidate.category;
+        }
+      });
+      return removeLikelyPartialLearnedItems(out);
+    }
+    function loadLearnedPrices() {
+      try {
+        const raw = localStorage.getItem("sw25_learned_price_items");
+        state.learnedPriceItems = consolidateLearnedPriceItems(raw ? JSON.parse(raw) : []);
+        localStorage.setItem("sw25_learned_price_items", JSON.stringify(state.learnedPriceItems));
+      } catch {
+        state.learnedPriceItems = [];
+      }
+      updateLearnedPriceStatus();
+    }
+    function loadConfirmedPrices() {
+      try {
+        const raw = localStorage.getItem("sw25_confirmed_price_items");
+        state.confirmedPriceItems = consolidateLearnedPriceItems(raw ? JSON.parse(raw) : []);
+        localStorage.setItem("sw25_confirmed_price_items", JSON.stringify(state.confirmedPriceItems));
+      } catch {
+        state.confirmedPriceItems = [];
+      }
+      pruneLearnedPricesAgainstAuthoritative();
+      updateLearnedPriceStatus();
+    }
+    function saveLearnedPrices() {
+      state.learnedPriceItems = consolidateLearnedPriceItems(state.learnedPriceItems || []);
+      localStorage.setItem("sw25_learned_price_items", JSON.stringify(state.learnedPriceItems));
+      updateLearnedPriceStatus();
+    }
+    function saveConfirmedPrices() {
+      state.confirmedPriceItems = consolidateLearnedPriceItems(state.confirmedPriceItems || []);
+      localStorage.setItem("sw25_confirmed_price_items", JSON.stringify(state.confirmedPriceItems));
+      pruneLearnedPricesAgainstAuthoritative();
+      updateLearnedPriceStatus();
+    }
+    function getAuthoritativePriceItem(name) {
+      const raw = String(name || "").trim();
+      if (!raw) return null;
+      return [...(state.confirmedPriceItems || []), ...(state.pricePresetItems || [])]
+        .find(item => priceItemMatchesName(item, raw)) || null;
+    }
+    function pruneLearnedPricesAgainstAuthoritative() {
+      const before = state.learnedPriceItems || [];
+      state.learnedPriceItems = before.filter(item => !getAuthoritativePriceItem(item.name) &&
+        !(item.aliases || []).some(alias => getAuthoritativePriceItem(alias)));
+      if (state.learnedPriceItems.length !== before.length) {
+        localStorage.setItem("sw25_learned_price_items", JSON.stringify(state.learnedPriceItems));
+      }
+    }
+    function updateLearnedPriceStatus() {
+      const target = el("learnedPriceStatus");
+      if (target) target.textContent = `${(state.learnedPriceItems || []).length}件`;
+      const confirmedTarget = el("confirmedPriceStatus");
+      if (confirmedTarget) confirmedTarget.textContent = `${(state.confirmedPriceItems || []).length}件`;
+    }
+    function getAllPriceItems() {
+      const out = [];
+      const seen = new Set();
+      [...(state.confirmedPriceItems || []), ...(state.learnedPriceItems || []), ...(state.pricePresetItems || [])].forEach(item => {
+        const keys = getPriceItemLookupKeys(item);
+        if (!keys.length || keys.some(key => seen.has(key))) return;
+        keys.forEach(key => seen.add(key));
+        out.push(item);
+      });
+      return out;
+    }
+    function inferLearnCategory(kind, row) {
+      if (kind === "equipment") {
+        if (row && ["武器", "非金属鎧", "金属鎧", "盾"].includes(row.type)) return row.type;
+        return "武器防具等";
+      }
+      if (kind === "accessory") return "装飾品";
+      if (kind === "consumable") return "消耗品";
+      if (kind === "other") return "その他";
+      return "";
+    }
+    function shouldLearnPrice(name, price, force = false) {
+      const n = normalizeName(name);
+      const p = toNumber(price, 0);
+      if ((!state.autoLearnPrices && !force) || !n || p <= 0) return false;
+      if (/^(その他|未入力|不明)$/.test(n)) return false;
+      if (/^マテリアルカード/.test(n)) return false;
+      return true;
+    }
+    function hasNonStandardAcquisitionPrice(name) {
+      return /(半額|割引|自作|戦利品|貰い物|もらい物|参加賞|無料|拾得|\d+\s*%)/.test(String(name || ""));
+    }
+    function learnPrice(name, price, category, source = "自動学習", force = false) {
+      const nameInfo = getKnownItemNameInfo(name);
+      const n = nameInfo.name;
+      const p = toNumber(price, 0);
+      if (!shouldLearnPrice(n, p, force)) return false;
+      if (getAuthoritativePriceItem(n) || (nameInfo.alias && getAuthoritativePriceItem(nameInfo.alias))) return "skipped";
+      const c = String(category || "").trim();
+      const items = state.learnedPriceItems || [];
+      const now = new Date().toISOString().slice(0, 10);
+      const existing = items.find(item => priceItemMatchesName(item, n));
+      if (hasNonStandardAcquisitionPrice(name)) {
+        if (existing && nameInfo.alias && !(existing.aliases || []).includes(nameInfo.alias)) {
+          existing.aliases = [...(existing.aliases || []), nameInfo.alias];
+          state.learnedPriceItems = items;
+          return "updated";
+        }
+        return false;
+      }
+      if (existing) {
+        existing.price = p;
+        existing.updatedAt = now;
+        existing.note = source;
+        if (!existing.category && c) existing.category = c;
+        if (nameInfo.alias && !(existing.aliases || []).includes(nameInfo.alias)) {
+          existing.aliases = [...(existing.aliases || []), nameInfo.alias];
+        }
+      } else {
+        items.push({ name: n, price: p, aliases: nameInfo.alias ? [nameInfo.alias] : [], category: c, note: source, updatedAt: now });
+      }
+      state.learnedPriceItems = items;
+      return existing ? "updated" : "added";
+    }
+    function learnRowPrice(kind, row, source = "自動学習", force = false) {
+      if (!row) return false;
+      const name = source === "手動学習" ? row.name : (row.learnedName || row.name);
+      return learnPrice(name, row.price, inferLearnCategory(kind, row), source, force);
+    }
+    function learnPricesFromCurrentRows(source = "JSON読込", force = false) {
+      const stats = { added: 0, updated: 0, skipped: 0, total: 0 };
+      if (!state.autoLearnPrices && !force) return stats;
+      const record = result => {
+        if (!result) return;
+        if (Object.prototype.hasOwnProperty.call(stats, result)) stats[result]++;
+        if (result === "added" || result === "updated") stats.total++;
+      };
+      state.equipment.forEach(row => record(learnRowPrice("equipment", row, source, force)));
+      state.accessories.forEach(row => record(learnRowPrice("accessory", row, source, force)));
+      state.consumables.forEach(row => record(learnRowPrice("consumable", row, source, force)));
+      state.otherSections.forEach(sec => sec.items.forEach(row => record(learnRowPrice("other", row, source, force))));
+      if (stats.total) saveLearnedPrices();
+      else updateLearnedPriceStatus();
+      return stats;
+    }
+    function exportLearnedPricesCsv() {
+      exportPriceItemsCsv(state.learnedPriceItems || [], "learned_price.csv", "価格候補CSVを出力しました");
+    }
+    function exportPriceItemsCsv(items, filename, message) {
+      const rows = [["name", "price", "aliases", "category", "note"]];
+      (items || []).forEach(item => {
+        rows.push([item.name, item.price, (item.aliases || []).join("|"), item.category || "", item.note || "自動学習"]);
+      });
+      const csv = rows.map(cols => cols.map(v => {
+        const s = String(v ?? "");
+        return /[",\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+      }).join(",")).join("\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast(message);
+    }
+    function exportMergedPriceCsv() {
+      const merged = consolidateLearnedPriceItems([...(state.pricePresetItems || []), ...(state.confirmedPriceItems || [])]);
+      exportPriceItemsCsv(merged, "price_merged.csv", "統合価格CSVを出力しました");
+    }
+    function confirmAllLearnedPrices() {
+      const items = state.learnedPriceItems || [];
+      if (!items.length) return 0;
+      const now = new Date().toISOString().slice(0, 10);
+      state.confirmedPriceItems = consolidateLearnedPriceItems([
+        ...(state.confirmedPriceItems || []),
+        ...items.map(item => ({ ...item, aliases: [...(item.aliases || [])], note: item.note || "確定", updatedAt: now }))
+      ]);
+      const count = items.length;
+      state.learnedPriceItems = [];
+      saveConfirmedPrices();
+      saveLearnedPrices();
+      return count;
+    }
+    function returnConfirmedPriceToLearning(index) {
+      const item = state.confirmedPriceItems[index];
+      if (!item) return false;
+      state.confirmedPriceItems.splice(index, 1);
+      state.learnedPriceItems = consolidateLearnedPriceItems([...(state.learnedPriceItems || []), {
+        ...item,
+        aliases: [...(item.aliases || [])],
+        note: "再確認",
+        updatedAt: new Date().toISOString().slice(0, 10)
+      }]);
+      saveConfirmedPrices();
+      saveLearnedPrices();
+      return true;
+    }
+    function findLearnedPriceDuplicates() {
+      const items = state.learnedPriceItems || [];
+      const pairs = [];
+      for (let i = 0; i < items.length; i++) {
+        const leftKeys = new Set(getPriceItemLookupKeys(items[i]));
+        for (let j = i + 1; j < items.length; j++) {
+          if (getPriceItemLookupKeys(items[j]).some(key => leftKeys.has(key))) {
+            pairs.push([items[i].name, items[j].name]);
+          }
+        }
+      }
+      return pairs;
+    }
+    function showLearnedPriceDuplicateCheck() {
+      const target = el("learnedDuplicateResult");
+      if (!target) return;
+      const pairs = findLearnedPriceDuplicates();
+      target.textContent = pairs.length
+        ? pairs.map(([left, right]) => `重複候補：${left} / ${right}`).join("\n")
+        : "重複候補は見つかりませんでした";
+    }
+
 
     function loadProcessCsvText(text, save = false) {
       try {
-        state.processMaster = parseProcessCsv(text);
-        state.processCsvCount = state.processMaster.length;
+        state.processCsvItems = parseProcessCsv(text);
+        state.processCsvCount = state.processCsvItems.length;
+        rebuildProcessMaster();
         if (save) localStorage.setItem("sw25_process_csv_text", text);
         updateCsvStatuses();
         hideCsvWarning();
@@ -1101,8 +2007,9 @@
         renderAll();
         generateOutputs();
       } catch (err) {
-        state.processMaster = [];
+        state.processCsvItems = [];
         state.processCsvCount = 0;
+        rebuildProcessMaster();
         updateCsvStatuses();
         showCsvWarning("武器防具強化データの読込に失敗しました。CSV形式を確認してください。");
       }
@@ -1119,10 +2026,10 @@
       const processStatus = el("processCsvStatus");
       const priceStatus = el("priceCsvStatus");
       if (processStatus) {
-        processStatus.textContent = state.processCsvCount ? `読込済み（${state.processCsvCount}件）` : "未読込";
+        processStatus.textContent = `${state.processMaster.length}件`;
       }
       if (priceStatus) {
-        priceStatus.textContent = state.priceCsvCount ? `読込済み（${state.priceCsvCount}件）` : "未読込";
+        priceStatus.textContent = state.priceCsvCount ? `CSV ${state.priceCsvCount}件` : "CSV未読込";
       }
     }
     function splitCsvLine(line) {
@@ -1165,6 +2072,122 @@
         };
       }).filter(r => r.name);
     }
+    function blankCustomProcessItem() {
+      return {
+        name: "", weapon: true, nonMetalArmor: false, metalArmor: false, shield: false,
+        prices: { B: "", A: "", S: "", SS: "" }, multiCountable: false, maxCount: 1, note: ""
+      };
+    }
+    function normalizeCustomProcessItem(raw) {
+      const item = raw || {};
+      return {
+        name: String(item.name || "").trim(),
+        weapon: Boolean(item.weapon),
+        nonMetalArmor: Boolean(item.nonMetalArmor),
+        metalArmor: Boolean(item.metalArmor),
+        shield: Boolean(item.shield),
+        prices: Object.fromEntries(PROCESS_RANKS.map(rank => [rank, item.prices && item.prices[rank] !== undefined ? String(item.prices[rank]) : ""])),
+        multiCountable: Boolean(item.multiCountable),
+        maxCount: Math.max(1, toNumber(item.maxCount, 1)),
+        note: String(item.note || "").trim()
+      };
+    }
+    function customProcessToDefinitions(item) {
+      const normalized = normalizeCustomProcessItem(item);
+      if (!normalized.name) return [];
+      return PROCESS_RANKS.filter(rank => String(normalized.prices[rank]).trim() !== "").map(rank => ({
+        category: "手動登録",
+        name: normalized.name,
+        rank,
+        price: toNumber(normalized.prices[rank], 0),
+        weapon: normalized.weapon,
+        armor: normalized.nonMetalArmor || normalized.metalArmor || normalized.shield,
+        nonMetalArmor: normalized.nonMetalArmor,
+        metalArmor: normalized.metalArmor,
+        shield: normalized.shield,
+        multiCountable: normalized.multiCountable,
+        maxCount: normalized.multiCountable ? normalized.maxCount : 1,
+        note: normalized.note
+      }));
+    }
+    function groupProcessDefinitions(definitions) {
+      const grouped = new Map();
+      (definitions || []).forEach(def => {
+        if (!def || !def.name) return;
+        if (!grouped.has(def.name)) {
+          grouped.set(def.name, {
+            name: def.name, weapon: false, nonMetalArmor: false, metalArmor: false, shield: false,
+            prices: { B: "", A: "", S: "", SS: "" }, multiCountable: false, maxCount: 1, note: ""
+          });
+        }
+        const item = grouped.get(def.name);
+        item.weapon ||= Boolean(def.weapon);
+        item.nonMetalArmor ||= Boolean(def.nonMetalArmor);
+        item.metalArmor ||= Boolean(def.metalArmor);
+        item.shield ||= Boolean(def.shield);
+        if (PROCESS_RANKS.includes(def.rank)) item.prices[def.rank] = String(toNumber(def.price, 0));
+        item.multiCountable ||= Boolean(def.multiCountable);
+        item.maxCount = Math.max(item.maxCount, toNumber(def.maxCount, 1));
+        if (!item.note && def.note) item.note = def.note;
+      });
+      return [...grouped.values()];
+    }
+    function copyProcessCsvToCustom(name) {
+      const source = groupProcessDefinitions(state.processCsvItems || []).find(item => item.name === name);
+      if (!source) return false;
+      const copy = normalizeCustomProcessItem(source);
+      const existingIndex = (state.customProcessItems || []).findIndex(item => item.name === name);
+      if (existingIndex >= 0) state.customProcessItems[existingIndex] = copy;
+      else state.customProcessItems.push(copy);
+      saveCustomProcessItems();
+      return true;
+    }
+    function rebuildProcessMaster() {
+      const merged = new Map();
+      (state.processCsvItems || []).forEach(def => merged.set(`${def.name}\u0000${def.rank}`, def));
+      (state.customProcessItems || []).flatMap(customProcessToDefinitions)
+        .forEach(def => merged.set(`${def.name}\u0000${def.rank}`, def));
+      state.processMaster = [...merged.values()];
+      updateCsvStatuses();
+      const status = el("customProcessStatus");
+      if (status) status.textContent = `手動${(state.customProcessItems || []).length}件`;
+    }
+    function loadCustomProcessItems() {
+      try {
+        const raw = localStorage.getItem("sw25_custom_process_items");
+        state.customProcessItems = (raw ? JSON.parse(raw) : []).map(normalizeCustomProcessItem);
+      } catch {
+        state.customProcessItems = [];
+      }
+      rebuildProcessMaster();
+    }
+    function saveCustomProcessItems() {
+      state.customProcessItems = (state.customProcessItems || []).map(normalizeCustomProcessItem);
+      localStorage.setItem("sw25_custom_process_items", JSON.stringify(state.customProcessItems));
+      rebuildProcessMaster();
+    }
+    function exportMergedProcessCsv() {
+      const headers = ["category", "name", "rank", "price", "weapon", "armor", "nonMetalArmor", "metalArmor", "shield", "multiCountable", "maxCount", "note"];
+      const rows = [headers, ...(state.processMaster || []).map(def => [
+        def.category || "", def.name, def.rank, def.price,
+        def.weapon ? 1 : 0, def.armor ? 1 : 0, def.nonMetalArmor ? 1 : 0,
+        def.metalArmor ? 1 : 0, def.shield ? 1 : 0, def.multiCountable ? 1 : 0,
+        def.maxCount || 1, def.note || ""
+      ])];
+      const csv = rows.map(cols => cols.map(v => {
+        const s = String(v ?? "");
+        return /[",\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+      }).join(",")).join("\n");
+      const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "data_merged.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast("統合加工CSVを出力しました");
+    }
     function isWeaponType(type) { return type === "武器"; }
     function getAvailableProcessDefinitions(type) {
       return state.processMaster.filter(def => {
@@ -1176,6 +2199,8 @@
       });
     }
     const FALLBACK_PROCESS_NAMES = ["アビス強化", "オーダーメイド", "魔法の武器化", "妖精の武器化", "銀製", "防弾加工", "宿木加工", "宿り木加工", "その他"];
+    // CSVがなくても収支履歴の明示数量を正しく扱うための最低限定義。
+    const FALLBACK_MULTI_COUNTABLE_PROCESSES = { "オーダーメイド": 3 };
     function getDistinctProcessNames(type) {
       const names = [...new Set([...getAvailableProcessDefinitions(type).map(d => d.name), ...FALLBACK_PROCESS_NAMES])];
       if (!names.includes("その他")) names.push("その他");
@@ -1193,12 +2218,14 @@
     }
     function isMultiCountableProcess(name) {
       if (!name || name === "その他") return false;
+      if (Object.prototype.hasOwnProperty.call(FALLBACK_MULTI_COUNTABLE_PROCESSES, name)) return true;
       const row = state.processMaster.find(def => def.name === name);
       return Boolean(row && row.multiCountable);
     }
     function getMaxProcessCount(name) {
       const row = state.processMaster.find(def => def.name === name && def.multiCountable);
-      return row ? Math.max(1, row.maxCount) : 1;
+      if (row) return Math.max(1, row.maxCount);
+      return FALLBACK_MULTI_COUNTABLE_PROCESSES[name] || 1;
     }
 
     function blankEquipment() { return { type: "その他", name: "", price: 0, count: 1, note: "", processes: [] }; }
@@ -1270,24 +2297,24 @@
       return { raw: line, sign, name, cleanName: normalizeName(name), price: unitPrice, count, after, section: "", parentName: "" };
     }
     function findCashbookPrice(name) {
-      const key = normalizeName(name);
-      if (!key) return 0;
+      const keys = getItemLookupKeys(name);
+      if (!keys.length) return 0;
+      const keySet = new Set(keys);
       const candidates = state.cashbookEntries.filter(e => e.sign < 0);
       const main = candidates.filter(e => !e.raw.startsWith("┗"));
       const child = candidates.filter(e => e.raw.startsWith("┗"));
-      let exact = main.find(e => normalizeName(e.name) === key);
+      const exactMatch = entry => getItemLookupKeys(entry.name).some(key => keySet.has(key));
+      const partialMatch = entry => {
+        const entryKeys = getItemLookupKeys(entry.name);
+        return keys.some(key => entryKeys.some(entryKey => key.includes(entryKey) || entryKey.includes(key)));
+      };
+      let exact = main.find(exactMatch);
       if (exact) return exact.price;
-      exact = child.find(e => normalizeName(e.name) === key);
+      exact = child.find(exactMatch);
       if (exact) return exact.price;
-      exact = main.find(e => {
-        const n = normalizeName(e.name);
-        return n && (key.includes(n) || n.includes(key));
-      });
+      exact = main.find(partialMatch);
       if (exact) return exact.price;
-      exact = child.find(e => {
-        const n = normalizeName(e.name);
-        return n && (key.includes(n) || n.includes(key));
-      });
+      exact = child.find(partialMatch);
       return exact ? exact.price : 0;
     }
     function isCardEntry(entry) {
@@ -1308,10 +2335,87 @@
       return parseMoneyExpression(data.history0Money || data.moneyTotal || data.money || 0);
     }
 
+    function loadJsonText(text, sourceLabel = "JSON") {
+      try {
+        state.rawJson = JSON.parse(text);
+        parseJsonToState(state.rawJson);
+        const status = el("serverJsonStatus");
+        if (status) status.textContent = `${sourceLabel} 読込済み`;
+        return true;
+      } catch (err) {
+        const status = el("serverJsonStatus");
+        if (status) status.textContent = "読込失敗";
+        showToast("JSONの読み込みに失敗しました");
+        return false;
+      }
+    }
+
+    function isLocalHttpServer() {
+      return ["127.0.0.1", "localhost"].includes(location.hostname) && /^https?:$/.test(location.protocol);
+    }
+    async function refreshServerJsonList() {
+      const tools = el("serverJsonTools");
+      const select = el("serverJsonSelect");
+      const status = el("serverJsonStatus");
+      if (!tools || !select || !status || !isLocalHttpServer()) return;
+      tools.hidden = false;
+      status.textContent = "検索中";
+      try {
+        const basePath = new URL("./", location.href).pathname;
+        let jsonFiles = [];
+        const manifestResponse = await fetch("./local-json-files.json", { cache: "no-store" });
+        if (manifestResponse.ok) {
+          const names = await manifestResponse.json();
+          jsonFiles = (Array.isArray(names) ? names : []).map(name => {
+            const url = new URL(String(name || ""), new URL("./", location.href));
+            return { url, name: decodeURIComponent(url.pathname.split("/").pop() || "") };
+          });
+        } else {
+          const response = await fetch("./", { cache: "no-store" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const directoryDocument = new DOMParser().parseFromString(await response.text(), "text/html");
+          jsonFiles = [...directoryDocument.querySelectorAll("a[href]")].map(anchor => {
+            const url = new URL(anchor.getAttribute("href"), location.href);
+            return { url, name: decodeURIComponent(url.pathname.split("/").pop() || "") };
+          });
+        }
+        jsonFiles = jsonFiles
+          .filter(item => item.url.origin === location.origin && item.url.pathname.startsWith(basePath) && /\.json$/i.test(item.url.pathname))
+          .filter(item => item.name !== "local-json-files.json")
+          .sort((a, b) => a.name.localeCompare(b.name, "ja"));
+        select.innerHTML = `<option value="">JSONを選択（${jsonFiles.length}件）</option>` + jsonFiles
+          .map(item => `<option value="${esc(item.url.href)}">${esc(item.name)}</option>`).join("");
+        status.textContent = `${jsonFiles.length}件`;
+      } catch (err) {
+        select.innerHTML = '<option value="">JSONを取得できません</option>';
+        status.textContent = "一覧取得失敗";
+      }
+    }
+    async function loadSelectedServerJson() {
+      const select = el("serverJsonSelect");
+      const status = el("serverJsonStatus");
+      if (!select || !select.value) {
+        showToast("読み込むJSONを選択してください");
+        return;
+      }
+      try {
+        const url = new URL(select.value, location.href);
+        if (url.origin !== location.origin || !/\.json$/i.test(url.pathname)) throw new Error("invalid JSON URL");
+        if (status) status.textContent = "読込中";
+        const response = await fetch(url.href, { cache: "no-store" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        loadJsonText(await response.text(), decodeURIComponent(url.pathname.split("/").pop() || "JSON"));
+      } catch (err) {
+        if (status) status.textContent = "読込失敗";
+        showToast("サーバー上のJSONを読み込めませんでした");
+      }
+    }
+
     function parseJsonToState(data) {
       state.rawJson = data;
       state.initialMoney = extractInitialBudget(data);
       state.sessionIncome = parseSessionIncome(data);
+      state.sheetRemaining = data.moneyTotal !== undefined || data.money !== undefined ? parseMoneyExpression(data.moneyTotal || data.money || 0) : null;
       state.cashbookEntries = parseCashbookEntries(data.cashbook || "");
       state.hasCashbookCardPurchase = state.cashbookEntries.some(e => e.sign < 0 && isCardEntry(e));
 
@@ -1333,22 +2437,25 @@
       if (!state.otherSections.length) state.otherSections.push(blankOtherSection("その他", true));
 
       applyPresetAndCashbookPrices();
+      const learnedStats = learnPricesFromCurrentRows("JSON読込");
       renderAll();
       generateOutputs();
+      if (learnedStats.total) showToast(`価格候補：追加${learnedStats.added}件、更新${learnedStats.updated}件`);
+      else if (state.autoLearnPrices) showToast("新しく保存した価格はありません");
     }
 
     function parseEquipment(data) {
       const rows = [];
       for (let i = 1; i <= 40; i++) {
-        const name = formatYutoText(data[`weapon${i}Name`] || data[`weapon${i}_Name`] || "");
-        if (!name) continue;
-        rows.push({ type: "武器", name, price: 0, count: 1, note: formatYutoText(data[`weapon${i}Note`] || ""), processes: [] });
+        const nameInfo = getKnownItemNameInfo(data[`weapon${i}Name`] || data[`weapon${i}_Name`] || "");
+        if (!nameInfo.name) continue;
+        rows.push({ type: "武器", name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, abyssCursePrefixes: nameInfo.prefixes, price: 0, count: 1, note: formatYutoText(data[`weapon${i}Note`] || ""), processes: [] });
       }
       for (let i = 1; i <= 40; i++) {
-        const name = formatYutoText(data[`armour${i}Name`] || data[`armor${i}Name`] || "");
-        if (!name) continue;
+        const nameInfo = getKnownItemNameInfo(data[`armour${i}Name`] || data[`armor${i}Name`] || "");
+        if (!nameInfo.name) continue;
         const category = data[`armour${i}Category`] || data[`armor${i}Category`] || "その他";
-        rows.push({ type: mapArmourCategory(category), name, price: 0, count: 1, note: formatYutoText(data[`armour${i}Note`] || data[`armor${i}Note`] || ""), processes: [] });
+        rows.push({ type: mapArmourCategory(category), name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, abyssCursePrefixes: nameInfo.prefixes, price: 0, count: 1, note: formatYutoText(data[`armour${i}Note`] || data[`armor${i}Note`] || ""), processes: [] });
       }
       // 収支履歴の加工行を可能な範囲で紐づける
       rows.forEach(row => {
@@ -1359,7 +2466,13 @@
           if (!parent) return;
           const matched = rowKey.includes(parent) || parent.includes(rowKey) || rowKey.replace(/[（）()]/g, "").includes(parent.replace(/[（）()]/g, "")) || parent.replace(/[（）()]/g, "").includes(rowKey.replace(/[（）()]/g, ""));
           if (!matched) return;
-          row.processes.push(parseProcessFromEntry(entry, row.type));
+          const process = parseProcessFromEntry(entry, row.type);
+          const cursePrefix = (row.abyssCursePrefixes || []).find(prefix => {
+            const stem = prefix.replace(/[なの]$/, "");
+            return processTextContainsName(entry.after, prefix) || (stem && processTextContainsName(entry.after, stem));
+          });
+          if (cursePrefix && process.name === "その他") process.customName = cursePrefix;
+          row.processes.push(process);
         });
       });
       return rows;
@@ -1411,9 +2524,9 @@
         ["右", "HandR"], ["左", "HandL"], ["腰", "Waist"], ["足", "Leg"], ["他", "Other"]
       ];
       for (const [part, code] of defs) {
-        const name = formatYutoText(data[`accessory${code}Name`] || "");
+        const nameInfo = getKnownItemNameInfo(data[`accessory${code}Name`] || "");
         const note = formatYutoText(data[`accessory${code}Note`] || "");
-        rows.push({ part, parentPart: "", child: false, hasExtraSlot: data[`accessory${code}Add`] === "1", name, price: 0, count: 1, note });
+        rows.push({ part, parentPart: "", child: false, hasExtraSlot: data[`accessory${code}Add`] === "1", name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, price: 0, count: 1, note });
         const extraKeys = [
           `accessory${code}_Name`,
           `accessory${code}__Name`,
@@ -1422,7 +2535,8 @@
         extraKeys.forEach((key, idx) => {
           if (!data[key]) return;
           const noteKey = key.replace(/Name$/, "Note");
-          rows.push({ part: "┗", parentPart: part, child: true, hasExtraSlot: false, name: formatYutoText(data[key]), price: 0, count: 1, note: formatYutoText(data[noteKey] || "") });
+          const extraNameInfo = getKnownItemNameInfo(data[key]);
+          rows.push({ part: "┗", parentPart: part, child: true, hasExtraSlot: false, name: extraNameInfo.name, learnedName: extraNameInfo.alias || extraNameInfo.name, price: 0, count: 1, note: formatYutoText(data[noteKey] || "") });
         });
       }
       return rows;
@@ -1433,7 +2547,8 @@
       state.cashbookEntries.forEach(entry => {
         if (entry.sign >= 0) return;
         if (!entry.section.includes("消耗品")) return;
-        rows.push({ name: entry.name, price: entry.price, count: entry.count, includeItemList: true, note: "" });
+        const nameInfo = getKnownItemNameInfo(entry.name);
+        rows.push({ name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, price: entry.price, count: entry.count, includeItemList: true, note: "" });
       });
       return rows;
     }
@@ -1443,7 +2558,7 @@
     function parseCards(data) {
       const rows = [];
       for (const [jp, code] of CARD_COLORS) {
-        for (const [rank, defaultPrice] of CARD_RANKS) {
+        for (const rank of CARD_RANKS) {
           const key = `card${code}${rank}`;
           const count = toNumber(data[key], 0);
           if (!count) continue;
@@ -1463,7 +2578,8 @@
         const baseSection = entry.section || "未分類";
         const title = baseSection.startsWith("その他") ? baseSection : `その他_${baseSection}`;
         if (!bySection.has(title)) bySection.set(title, []);
-        bySection.get(title).push({ name: entry.name, price: entry.price, count: entry.count, includeItemList: false, note: "" });
+        const nameInfo = getKnownItemNameInfo(entry.name);
+        bySection.get(title).push({ name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, price: entry.price, count: entry.count, includeItemList: false, note: "" });
       });
       return [...bySection.entries()].map(([title, items]) => ({ title, items, open: false, memoOutput: false }));
     }
@@ -1474,7 +2590,8 @@
         row.processes.forEach(proc => {
           if (!proc.price) proc.price = getProcessPrice(proc.name, proc.rank);
           if (!proc.note) proc.note = getProcessNote(proc.name, proc.rank);
-          if (!isMultiCountableProcess(proc.name)) proc.count = 1;
+          // 収支履歴の *N はユーザーが明示した値。CSVの有無や定義不足で上書きしない。
+          proc.count = Math.max(1, toNumber(proc.count, 1));
         });
       });
       state.accessories.forEach(row => {
@@ -1497,12 +2614,132 @@
       return `<input type="checkbox" class="checkBig" ${checked ? "checked" : ""} data-action="${action}" ${data}>`;
     }
 
+    function renderLearnedPriceTable() {
+      const table = el("learnedPriceTable");
+      if (!table) return;
+      const tbody = table.querySelector("tbody");
+      tbody.innerHTML = "";
+      const items = state.learnedPriceItems || [];
+      if (!items.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="6" class="hint">価格候補はまだありません。JSONを読み込むか、「現在の入力価格を候補へ追加」を押すと保存されます。</td>`;
+        tbody.appendChild(tr);
+        return;
+      }
+      items.forEach((item, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          td("アイテム名", inputHtml(item.name, "learnedField", `data-i="${i}" data-key="name"`)) +
+          td("価格", inputHtml(item.price, "learnedField", `data-i="${i}" data-key="price"`, "number")) +
+          td("略称", inputHtml((item.aliases || []).join("|"), "learnedField", `data-i="${i}" data-key="aliases"`)) +
+          td("カテゴリ", inputHtml(item.category || "", "learnedField", `data-i="${i}" data-key="category"`)) +
+          td("メモ", inputHtml(item.note || "", "learnedField", `data-i="${i}" data-key="note"`)) +
+          td("", `<button class="small danger deleteBtn" type="button" data-action="removeLearnedPrice" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
+        tbody.appendChild(tr);
+      });
+    }
+    function renderConfirmedPriceTable() {
+      const table = el("confirmedPriceTable");
+      if (!table) return;
+      const tbody = table.querySelector("tbody");
+      tbody.innerHTML = "";
+      const items = state.confirmedPriceItems || [];
+      if (!items.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="7" class="hint">登録済み価格辞書はまだありません。価格候補を整えて「整理済みの全件を辞書へ登録」を押してください。</td>`;
+        tbody.appendChild(tr);
+        return;
+      }
+      items.forEach((item, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          td("アイテム名", inputHtml(item.name, "confirmedField", `data-i="${i}" data-key="name"`)) +
+          td("価格", inputHtml(item.price, "confirmedField", `data-i="${i}" data-key="price"`, "number")) +
+          td("略称", inputHtml((item.aliases || []).join("|"), "confirmedField", `data-i="${i}" data-key="aliases"`)) +
+          td("カテゴリ", inputHtml(item.category || "", "confirmedField", `data-i="${i}" data-key="category"`)) +
+          td("メモ", inputHtml(item.note || "", "confirmedField", `data-i="${i}" data-key="note"`)) +
+          td("", `<button class="small" type="button" data-action="returnConfirmedPrice" data-i="${i}">候補へ戻す</button>`, "mobileNoLabel deleteCell") +
+          td("", `<button class="small danger deleteBtn" type="button" data-action="removeConfirmedPrice" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
+        tbody.appendChild(tr);
+      });
+    }
+    function renderProcessCsvPreviewTable() {
+      const table = el("processCsvPreviewTable");
+      if (!table) return;
+      const tbody = table.querySelector("tbody");
+      tbody.innerHTML = "";
+      const items = groupProcessDefinitions(state.processCsvItems || []);
+      if (!items.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="13" class="hint">加工CSVは未読込です。上部の「辞書・強化データ設定」から読み込んでください。</td>`;
+        tbody.appendChild(tr);
+        return;
+      }
+      const mark = value => value ? "✓" : "";
+      const price = value => String(value ?? "").trim() === "" ? "—" : `${esc(value)} G`;
+      items.forEach(item => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          td("加工名", `<strong>${esc(item.name)}</strong>`) +
+          td("武器", mark(item.weapon)) +
+          td("非金属鎧", mark(item.nonMetalArmor)) +
+          td("金属鎧", mark(item.metalArmor)) +
+          td("盾", mark(item.shield)) +
+          td("B", price(item.prices.B)) +
+          td("A", price(item.prices.A)) +
+          td("S", price(item.prices.S)) +
+          td("SS", price(item.prices.SS)) +
+          td("複数回", mark(item.multiCountable)) +
+          td("上限", item.multiCountable ? esc(item.maxCount) : "—") +
+          td("メモ", esc(item.note || "")) +
+          td("", `<button class="small" type="button" data-action="copyCsvProcessToCustom" data-name="${esc(item.name)}">手動へコピー</button>`, "mobileNoLabel deleteCell");
+        tbody.appendChild(tr);
+      });
+    }
+    function renderCustomProcessTable() {
+      const table = el("customProcessTable");
+      if (!table) return;
+      const tbody = table.querySelector("tbody");
+      tbody.innerHTML = "";
+      const items = state.customProcessItems || [];
+      if (!items.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="13" class="hint">手動登録した加工はまだありません。「加工を追加」から登録できます。</td>`;
+        tbody.appendChild(tr);
+        return;
+      }
+      items.forEach((item, i) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML =
+          td("加工名", inputHtml(item.name, "customProcessField", `data-i="${i}" data-key="name"`)) +
+          td("武器", checkboxHtml(item.weapon, "customProcessField", `data-i="${i}" data-key="weapon"`)) +
+          td("非金属鎧", checkboxHtml(item.nonMetalArmor, "customProcessField", `data-i="${i}" data-key="nonMetalArmor"`)) +
+          td("金属鎧", checkboxHtml(item.metalArmor, "customProcessField", `data-i="${i}" data-key="metalArmor"`)) +
+          td("盾", checkboxHtml(item.shield, "customProcessField", `data-i="${i}" data-key="shield"`)) +
+          td("B", inputHtml(item.prices.B, "customProcessField", `data-i="${i}" data-key="priceB"`, "number")) +
+          td("A", inputHtml(item.prices.A, "customProcessField", `data-i="${i}" data-key="priceA"`, "number")) +
+          td("S", inputHtml(item.prices.S, "customProcessField", `data-i="${i}" data-key="priceS"`, "number")) +
+          td("SS", inputHtml(item.prices.SS, "customProcessField", `data-i="${i}" data-key="priceSS"`, "number")) +
+          td("複数回", checkboxHtml(item.multiCountable, "customProcessField", `data-i="${i}" data-key="multiCountable"`)) +
+          td("上限", inputHtml(item.maxCount, "customProcessField", `data-i="${i}" data-key="maxCount" min="1"`, "number")) +
+          td("メモ", inputHtml(item.note, "customProcessField", `data-i="${i}" data-key="note"`)) +
+          td("", `<div class="miniActions"><button class="small" type="button" data-action="copyCustomProcessPrice" data-i="${i}">Bを全ランクへ</button><button class="small danger deleteBtn" type="button" data-action="removeCustomProcess" data-i="${i}">削除</button></div>`, "mobileNoLabel deleteCell");
+        tbody.appendChild(tr);
+      });
+      const status = el("customProcessStatus");
+      if (status) status.textContent = `手動${items.length}件`;
+    }
+
     function renderAll() {
       renderEquipmentTable();
       renderAccessoryTable();
       renderConsumableTable();
       renderCardTable();
       renderOtherSections();
+      renderLearnedPriceTable();
+      renderConfirmedPriceTable();
+      renderProcessCsvPreviewTable();
+      renderCustomProcessTable();
       updateTotals();
     }
 
@@ -1582,7 +2819,7 @@
         tr.innerHTML =
           td("所持品に含める", `<div class="center">${checkboxHtml(row.includeItemList, "cardField", `data-i="${i}" data-key="includeItemList"`)}</div>`) +
           td("色", selectHtml(CARD_COLORS.map(v => v[0]), row.color, "cardField", `data-i="${i}" data-key="color"`)) +
-          td("ランク", selectHtml(CARD_RANKS.map(v => v[0]), row.rank, "cardRank", `data-i="${i}"`)) +
+          td("ランク", selectHtml(CARD_RANKS, row.rank, "cardRank", `data-i="${i}"`)) +
           td("価格", inputHtml(row.price, "cardField", `data-i="${i}" data-key="price"`, "number")) +
           td("数量", inputHtml(row.count, "cardField", `data-i="${i}" data-key="count" min="1"`, "number")) +
           td("メモ", inputHtml(row.note || "", "cardField", `data-i="${i}" data-key="note"`)) +
@@ -1654,6 +2891,17 @@
       el("remainingBudget").textContent = moneyFormat(remaining);
       const floating = el("floatingRemainingBudget");
       if (floating) floating.textContent = moneyFormat(remaining);
+      const warn = el("calcWarning");
+      if (warn) {
+        if (state.sheetRemaining !== null && Number.isFinite(state.sheetRemaining) && Math.round(remaining) !== Math.round(state.sheetRemaining)) {
+          const diff = remaining - state.sheetRemaining;
+          warn.style.display = "block";
+          warn.textContent = `警告：ゆとシート上の残り（${moneyFormat(state.sheetRemaining)}）とツール計算の残り（${moneyFormat(remaining)}）が一致していません。差額：${moneyFormat(diff)}`;
+        } else {
+          warn.style.display = "none";
+          warn.textContent = "";
+        }
+      }
       updateFloatingRemainingVisibility();
     }
     function updateFloatingRemainingVisibility() {
@@ -1757,29 +3005,30 @@
     }
     function categoryMatchesForSuggest(itemCategory, context) {
       const c = String(itemCategory || "").trim();
-      if (context === "other") return !c.includes("マテリアルカード");
       if (!context) return true;
       if (!c) return true; // 空欄カテゴリは getPresetSuggestions 側で3文字以上に制限する
       if (context === "equipment") {
         return ["武器", "防具", "武器防具", "武器・防具", "武器防具等", "装備", "非金属鎧", "金属鎧", "盾"].some(x => c.includes(x));
       }
       if (context === "accessory") return c.includes("装飾品");
-      if (context === "consumable") return c.includes("消耗品");
+      if (context === "consumable") return ["消耗品", "ポーション", "薬草", "魔晶石", "魔符"].some(x => c.includes(x));
+      if (context === "other") return ["ゴーレム", "騎獣", "魔神", "冒険道具", "フレーバー", "その他"].some(x => c.includes(x));
       return true;
     }
     function getPresetSuggestions(query, context = "") {
-      const q = normalizeName(query);
-      if (!q || q.length < 1) return [];
+      const queryKeys = getItemLookupKeys(query);
+      if (!queryKeys.length) return [];
+      const queryLength = Math.min(...queryKeys.map(key => key.length));
       const results = [];
       const seen = new Set();
-      for (const item of state.pricePresetItems || []) {
+      for (const item of getAllPriceItems()) {
         const category = String(item.category || "").trim();
-        if (!category && q.length < 3) continue;
+        if (!category && queryLength < 3) continue;
         if (!categoryMatchesForSuggest(category, context)) continue;
-        const names = [item.name, ...(item.aliases || [])];
-        const matched = names.some(name => normalizeName(name).includes(q));
+        const matched = getPriceItemLookupKeys(item)
+          .some(itemKey => queryKeys.some(queryKey => itemKey.includes(queryKey)));
         if (!matched) continue;
-        const key = normalizeName(item.name);
+        const key = normalizeItemKey(item.name);
         if (seen.has(key)) continue;
         seen.add(key);
         results.push(item);
@@ -1844,7 +3093,25 @@
       generateOutputs();
     }
 
-    function handleField(target) {
+    function commitRowItemName(row, target) {
+      const enteredName = String(row.name || "").trim();
+      const nameInfo = getKnownItemNameInfo(enteredName);
+      row.name = nameInfo.name;
+      row.learnedName = nameInfo.alias || nameInfo.name;
+      if (target) target.value = row.name;
+      return enteredName;
+    }
+    function syncVisibleRowPrice(target, row) {
+      if (!target || !row) return;
+      const action = target.dataset.action;
+      const i = target.dataset.i;
+      const s = target.dataset.s;
+      let selector = `[data-action="${action}"][data-key="price"][data-i="${i}"]`;
+      if (s !== undefined) selector += `[data-s="${s}"]`;
+      const priceInput = document.querySelector(selector);
+      if (priceInput) priceInput.value = toNumber(row.price, 0);
+    }
+    function handleField(target, commit = false) {
       const action = target.dataset.action;
       const i = Number(target.dataset.i);
       const s = Number(target.dataset.s);
@@ -1852,6 +3119,58 @@
       const key = target.dataset.key;
       const value = target.type === "checkbox" ? target.checked : target.value;
       const numeric = target.type === "number";
+
+      if (action === "learnedField") {
+        const item = state.learnedPriceItems[i];
+        if (!item) return;
+        if (key === "aliases") {
+          item.aliases = String(value || "").split("|").map(v => v.trim()).filter(Boolean);
+        } else if (key === "price") {
+          item.price = toNumber(value, 0);
+        } else {
+          item[key] = String(value || "").trim();
+        }
+        item.name = canonicalizeLearnedPriceName(item.name);
+        item.updatedAt = new Date().toISOString().slice(0, 10);
+        state.learnedPriceItems = (state.learnedPriceItems || []).filter(x => normalizeName(x.name) && toNumber(x.price, 0) > 0);
+        saveLearnedPrices();
+        generateOutputs();
+        return;
+      }
+      if (action === "confirmedField") {
+        const item = state.confirmedPriceItems[i];
+        if (!item) return;
+        if (key === "aliases") {
+          item.aliases = String(value || "").split("|").map(v => v.trim()).filter(Boolean);
+        } else if (key === "price") {
+          item.price = toNumber(value, 0);
+        } else {
+          item[key] = String(value || "").trim();
+        }
+        item.name = canonicalizeLearnedPriceName(item.name);
+        item.updatedAt = new Date().toISOString().slice(0, 10);
+        state.confirmedPriceItems = (state.confirmedPriceItems || []).filter(x => normalizeName(x.name) && toNumber(x.price, 0) > 0);
+        saveConfirmedPrices();
+        generateOutputs();
+        return;
+      }
+      if (action === "customProcessField") {
+        const item = state.customProcessItems[i];
+        if (!item) return;
+        if (/^price(B|A|S|SS)$/.test(key)) {
+          const rank = key.slice(5);
+          item.prices[rank] = String(value ?? "").trim();
+        } else if (["weapon", "nonMetalArmor", "metalArmor", "shield", "multiCountable"].includes(key)) {
+          item[key] = Boolean(value);
+        } else if (key === "maxCount") {
+          item.maxCount = Math.max(1, toNumber(value, 1));
+        } else {
+          item[key] = String(value || "").trim();
+        }
+        saveCustomProcessItems();
+        generateOutputs();
+        return;
+      }
 
       if (action === "equipType") {
         const row = state.equipment[i];
@@ -1870,8 +3189,16 @@
       }
       if (action === "equipField") {
         state.equipment[i][key] = numeric ? toNumber(value, key === "count" ? 1 : 0) : value;
-        if (key === "name") applyPresetCandidateToRow(state.equipment[i], "equipment");
-        if (key === "price" || key === "name") setPresetPrice(state.equipment[i].name, state.equipment[i].price);
+        if (key === "name") {
+          applyPresetCandidateToRow(state.equipment[i], "equipment");
+          syncVisibleRowPrice(target, state.equipment[i]);
+        }
+        if (key === "name" && commit) {
+          commitRowItemName(state.equipment[i], target);
+          setPresetPrice(state.equipment[i].name, state.equipment[i].price);
+        } else if (key === "price") {
+          setPresetPrice(state.equipment[i].name, state.equipment[i].price);
+        }
       }
       if (action === "processName") {
         const proc = state.equipment[i].processes[p];
@@ -1896,8 +3223,16 @@
 
       if (action === "accessoryField") {
         state.accessories[i][key] = numeric ? toNumber(value, key === "count" ? 1 : 0) : value;
-        if (key === "name") applyPresetCandidateToRow(state.accessories[i], "accessory");
-        if (key === "price" || key === "name") setPresetPrice(state.accessories[i].name, state.accessories[i].price);
+        if (key === "name") {
+          applyPresetCandidateToRow(state.accessories[i], "accessory");
+          syncVisibleRowPrice(target, state.accessories[i]);
+        }
+        if (key === "name" && commit) {
+          commitRowItemName(state.accessories[i], target);
+          setPresetPrice(state.accessories[i].name, state.accessories[i].price);
+        } else if (key === "price") {
+          setPresetPrice(state.accessories[i].name, state.accessories[i].price);
+        }
       }
       if (action === "extraSlot") {
         const row = state.accessories[i];
@@ -1917,8 +3252,16 @@
       }
       if (action === "consumableField") {
         state.consumables[i][key] = numeric ? toNumber(value, key === "count" ? 1 : 0) : value;
-        if (key === "name") applyPresetCandidateToRow(state.consumables[i], "consumable");
-        if (key === "price" || key === "name") setPresetPrice(state.consumables[i].name, state.consumables[i].price);
+        if (key === "name") {
+          applyPresetCandidateToRow(state.consumables[i], "consumable");
+          syncVisibleRowPrice(target, state.consumables[i]);
+        }
+        if (key === "name" && commit) {
+          commitRowItemName(state.consumables[i], target);
+          setPresetPrice(state.consumables[i].name, state.consumables[i].price);
+        } else if (key === "price") {
+          setPresetPrice(state.consumables[i].name, state.consumables[i].price);
+        }
       }
       if (action === "cardRank") {
         state.cards[i].rank = value;
@@ -1931,8 +3274,16 @@
       }
       if (action === "otherField") {
         state.otherSections[s].items[i][key] = numeric ? toNumber(value, key === "count" ? 1 : 0) : value;
-        if (key === "name") applyPresetCandidateToRow(state.otherSections[s].items[i], "other");
-        if (key === "price" || key === "name") setPresetPrice(state.otherSections[s].items[i].name, state.otherSections[s].items[i].price);
+        if (key === "name") {
+          applyPresetCandidateToRow(state.otherSections[s].items[i], "other");
+          syncVisibleRowPrice(target, state.otherSections[s].items[i]);
+        }
+        if (key === "name" && commit) {
+          commitRowItemName(state.otherSections[s].items[i], target);
+          setPresetPrice(state.otherSections[s].items[i].name, state.otherSections[s].items[i].price);
+        } else if (key === "price") {
+          setPresetPrice(state.otherSections[s].items[i].name, state.otherSections[s].items[i].price);
+        }
       }
       if (action === "otherMemoOutput") {
         state.otherSections[s].memoOutput = Boolean(value);
@@ -1943,13 +3294,13 @@
 
     document.addEventListener("input", e => {
       if (e.target && e.target.dataset && e.target.dataset.action) {
-        handleField(e.target);
+        handleField(e.target, false);
         if (e.target.dataset.suggest === "price") showSuggestBox(e.target);
       }
     });
     document.addEventListener("change", e => {
       if (e.target && e.target.dataset && e.target.dataset.action) {
-        handleField(e.target);
+        handleField(e.target, true);
         if (e.target.dataset.suggest === "price") setTimeout(() => hideSuggestBox(), 120);
       }
     });
@@ -1961,12 +3312,25 @@
     window.addEventListener("scroll", () => { hideSuggestBox(); updateFloatingRemainingVisibility(); }, true);
     window.addEventListener("resize", () => { hideSuggestBox(); updateFloatingRemainingVisibility(); });
 
+    function applySuggestionElement(suggestion) {
+      if (!suggestion) return false;
+      const box = el("suggestBox");
+      const targetId = box && box.dataset.targetId;
+      const input = targetId ? document.getElementById(targetId) : null;
+      if (!input) return false;
+      applySuggestionToInput(input, suggestion.dataset.name, suggestion.dataset.price);
+      return true;
+    }
+    document.addEventListener("pointerdown", e => {
+      const suggestion = e.target.closest && e.target.closest(".suggestItem");
+      if (!suggestion) return;
+      e.preventDefault();
+      applySuggestionElement(suggestion);
+    });
     document.addEventListener("click", e => {
       const suggestion = e.target.closest(".suggestItem");
       if (suggestion) {
-        const box = el("suggestBox");
-        const input = box && box.dataset.targetId ? document.getElementById(box.dataset.targetId) : null;
-        applySuggestionToInput(input, suggestion.dataset.name, suggestion.dataset.price);
+        applySuggestionElement(suggestion);
         return;
       }
       if (!e.target.closest("#suggestBox") && !(e.target.dataset && e.target.dataset.suggest === "price")) {
@@ -1988,6 +3352,32 @@
       if (action === "removeOtherItem") state.otherSections[s].items.splice(i, 1);
       if (action === "addOtherSection") state.otherSections.push(blankOtherSection(`その他_${state.otherSections.length + 1}`, true));
       if (action === "removeOtherSection") state.otherSections.splice(s, 1);
+      if (action === "removeLearnedPrice") {
+        const removed = state.learnedPriceItems.splice(i, 1);
+        saveLearnedPrices();
+        if (removed.length) showToast("価格候補を削除しました");
+      }
+      if (action === "returnConfirmedPrice" && returnConfirmedPriceToLearning(i)) showToast("価格候補へ戻しました");
+      if (action === "removeConfirmedPrice") {
+        const removed = state.confirmedPriceItems.splice(i, 1);
+        saveConfirmedPrices();
+        if (removed.length) showToast("登録済み価格を削除しました");
+      }
+      if (action === "copyCustomProcessPrice") {
+        const item = state.customProcessItems[i];
+        if (item) {
+          PROCESS_RANKS.forEach(rank => { item.prices[rank] = item.prices.B; });
+          saveCustomProcessItems();
+        }
+      }
+      if (action === "removeCustomProcess") {
+        state.customProcessItems.splice(i, 1);
+        saveCustomProcessItems();
+        showToast("手動加工データを削除しました");
+      }
+      if (action === "copyCsvProcessToCustom" && copyProcessCsvToCustom(t.dataset.name)) {
+        showToast(`${t.dataset.name}を手動登録へコピーしました`);
+      }
       renderAll(); generateOutputs();
     });
 
@@ -1995,6 +3385,13 @@
     el("addAccessoryBtn").addEventListener("click", () => { state.accessories.push(blankAccessory("他")); renderAll(); generateOutputs(); });
     el("addConsumableBtn").addEventListener("click", () => { state.consumables.push(blankConsumable()); renderAll(); generateOutputs(); });
     el("addCardBtn").addEventListener("click", () => { const row = blankCard(); row.excludeCost = state.hasCashbookCardPurchase; state.cards.push(row); renderAll(); generateOutputs(); });
+    el("addCustomProcessBtn").addEventListener("click", () => {
+      state.customProcessItems.push(blankCustomProcessItem());
+      saveCustomProcessItems();
+      renderAll();
+      showToast("加工データ行を追加しました");
+    });
+    el("exportMergedProcessBtn").addEventListener("click", exportMergedProcessCsv);
     el("copyCashbookBtn").addEventListener("click", () => copyFrom("cashbookOutput"));
     el("copyItemListBtn").addEventListener("click", () => copyFrom("itemListOutput"));
     el("equipmentMemoOutput").addEventListener("change", generateOutputs);
@@ -2014,16 +3411,19 @@
       const text = await file.text();
       loadPriceCsvText(text, true);
     });
-    el("clearProcessCsvBtn").addEventListener("click", () => {
+    el("clearProcessCsvBtn").addEventListener("click", async () => {
+      const ok = await showConfirm("保存済み武器防具強化データを削除します。\n現在画面に入力済みの加工は消えません。", { confirmText: "削除" });
+      if (!ok) return;
       localStorage.removeItem("sw25_process_csv_text");
-      state.processMaster = [];
+      state.processCsvItems = [];
       state.processCsvCount = 0;
+      rebuildProcessMaster();
       updateCsvStatuses();
       renderAll();
       generateOutputs();
     });
-    el("clearPriceCsvBtn").addEventListener("click", () => {
-      const ok = confirm("保存済みアイテム価格データを削除します。現在画面に入力済みの価格は消えません。よろしいですか？");
+    el("clearPriceCsvBtn").addEventListener("click", async () => {
+      const ok = await showConfirm("保存済みアイテム価格データを削除します。\n現在画面に入力済みの価格は消えません。", { confirmText: "削除" });
       if (!ok) return;
       localStorage.removeItem("sw25_price_csv_text");
       state.pricePreset = {};
@@ -2038,15 +3438,33 @@
     el("jsonFile").addEventListener("change", async (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
-      try {
-        const text = await file.text();
-        state.rawJson = JSON.parse(text);
-        parseJsonToState(state.rawJson);
-      } catch (err) {
-        alert("JSONの読み込みに失敗しました。");
-      }
+      loadJsonText(await file.text(), file.name);
     });
+    el("loadServerJsonBtn").addEventListener("click", loadSelectedServerJson);
+    el("refreshServerJsonBtn").addEventListener("click", refreshServerJsonList);
+
+    let confirmResolver = null;
+    function closeConfirm(result) {
+      const modal = el("confirmModal");
+      if (modal) modal.classList.remove("isOpen");
+      const resolver = confirmResolver;
+      confirmResolver = null;
+      if (resolver) resolver(Boolean(result));
+    }
+    function showConfirm(message, options = {}) {
+      if (confirmResolver) closeConfirm(false);
+      const modal = el("confirmModal");
+      const okButton = el("confirmOkBtn");
+      el("confirmMessage").textContent = String(message || "実行しますか？");
+      okButton.textContent = options.confirmText || "実行";
+      okButton.classList.toggle("danger", options.danger !== false);
+      modal.classList.add("isOpen");
+      setTimeout(() => okButton.focus(), 0);
+      return new Promise(resolve => { confirmResolver = resolve; });
+    }
     function openChangelog() {
+      const headerMenu = document.querySelector(".headerMenu");
+      if (headerMenu) headerMenu.removeAttribute("open");
       const modal = el("changelogModal");
       if (modal) modal.classList.add("isOpen");
     }
@@ -2054,16 +3472,84 @@
       const modal = el("changelogModal");
       if (modal) modal.classList.remove("isOpen");
     }
+    function openHelp() {
+      const headerMenu = document.querySelector(".headerMenu");
+      if (headerMenu) headerMenu.removeAttribute("open");
+      const modal = el("helpModal");
+      if (modal) modal.classList.add("isOpen");
+    }
+    function closeHelp() {
+      const modal = el("helpModal");
+      if (modal) modal.classList.remove("isOpen");
+    }
+    el("helpBtn").addEventListener("click", openHelp);
+    el("closeHelpBtn").addEventListener("click", closeHelp);
+    el("helpModal").addEventListener("click", e => {
+      if (e.target === el("helpModal")) closeHelp();
+    });
     el("changelogBtn").addEventListener("click", openChangelog);
     el("closeChangelogBtn").addEventListener("click", closeChangelog);
     el("changelogModal").addEventListener("click", e => {
       if (e.target === el("changelogModal")) closeChangelog();
     });
+    el("confirmCancelBtn").addEventListener("click", () => closeConfirm(false));
+    el("confirmOkBtn").addEventListener("click", () => closeConfirm(true));
+    el("confirmModal").addEventListener("click", e => {
+      if (e.target === el("confirmModal")) closeConfirm(false);
+    });
     document.addEventListener("keydown", e => {
-      if (e.key === "Escape") closeChangelog();
+      if (e.key === "Escape") {
+        closeHelp();
+        closeChangelog();
+        if (el("confirmModal").classList.contains("isOpen")) closeConfirm(false);
+      }
+    });
+
+    el("autoLearnPriceToggle").addEventListener("change", e => {
+      state.autoLearnPrices = e.target.checked;
+      localStorage.setItem("sw25_auto_learn_prices", state.autoLearnPrices ? "1" : "0");
+    });
+    el("learnCurrentPricesBtn").addEventListener("click", async () => {
+      const ok = await showConfirm("現在の入力欄にあるアイテム名と価格を、整理中の価格候補へ追加します。\n名称の入力が完了していることを確認してください。", { confirmText: "候補へ追加", danger: false });
+      if (!ok) return;
+      const stats = learnPricesFromCurrentRows("手動学習", true);
+      if (stats.total) {
+        renderAll();
+        showToast(`価格候補：追加${stats.added}件、更新${stats.updated}件`);
+      } else {
+        showToast("候補へ追加できる名前と価格の組み合わせがありませんでした");
+      }
+    });
+    el("exportLearnedPriceBtn").addEventListener("click", exportLearnedPricesCsv);
+    el("exportMergedPriceBtn").addEventListener("click", exportMergedPriceCsv);
+    el("checkLearnedDuplicatesBtn").addEventListener("click", showLearnedPriceDuplicateCheck);
+    el("confirmAllLearnedPricesBtn").addEventListener("click", async () => {
+      const count = (state.learnedPriceItems || []).length;
+      if (!count) {
+        showToast("辞書へ登録する価格候補がありません");
+        return;
+      }
+      const ok = await showConfirm(`整理済みの価格候補 ${count}件を登録済み価格辞書へ移します。\n名称・価格・略称の確認は完了していますか？`, { confirmText: "全件を登録", danger: false });
+      if (!ok) return;
+      const moved = confirmAllLearnedPrices();
+      renderAll();
+      generateOutputs();
+      showToast(`${moved}件を登録済み価格辞書へ移しました`);
+    });
+    el("clearLearnedPriceBtn").addEventListener("click", async () => {
+      const ok = await showConfirm("整理中の価格候補をすべて削除します。\nアイテム価格データCSVと現在の入力欄は消えません。", { confirmText: "削除" });
+      if (!ok) return;
+      state.learnedPriceItems = [];
+      localStorage.removeItem("sw25_learned_price_items");
+      updateLearnedPriceStatus();
+      renderAll();
+      generateOutputs();
+      showToast("価格候補を削除しました");
     });
 
     el("themeBtn").addEventListener("click", () => {
+      const headerMenu = document.querySelector(".headerMenu");
+      if (headerMenu) headerMenu.removeAttribute("open");
       const current = localStorage.getItem("sw25_theme_color") || "#eaf2ff";
       const input = document.createElement("input");
       input.type = "color";
@@ -2095,6 +3581,15 @@
       document.documentElement.style.setProperty("--section-border", borderColor);
       if (save) localStorage.setItem("sw25_theme_color", color);
     }
+    let toastTimer = null;
+    function showToast(message) {
+      const toast = el("toast");
+      if (!toast) return;
+      toast.textContent = message;
+      toast.classList.add("isShown");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("isShown"), 1600);
+    }
     async function copyFrom(id) {
       const text = el(id).value;
       try { await navigator.clipboard.writeText(text); }
@@ -2102,13 +3597,21 @@
         el(id).select();
         document.execCommand("copy");
       }
+      showToast("コピーしました");
     }
 
     (async function init() {
       const savedColor = localStorage.getItem("sw25_theme_color");
       if (savedColor) applyThemeColor(savedColor, false);
+      const savedAutoLearn = localStorage.getItem("sw25_auto_learn_prices");
+      state.autoLearnPrices = savedAutoLearn !== "0";
+      const autoLearnToggle = el("autoLearnPriceToggle");
+      if (autoLearnToggle) autoLearnToggle.checked = state.autoLearnPrices;
+      loadLearnedPrices();
+      loadConfirmedPrices();
       const savedProcessCsv = localStorage.getItem("sw25_process_csv_text");
       if (savedProcessCsv) loadProcessCsvText(savedProcessCsv, false);
+      loadCustomProcessItems();
       const savedPriceCsv = localStorage.getItem("sw25_price_csv_text");
       if (savedPriceCsv) loadPriceCsvText(savedPriceCsv, false);
       state.equipment = [blankEquipment()];
@@ -2119,6 +3622,7 @@
       updateCsvStatuses();
       renderAll();
       generateOutputs();
+      refreshServerJsonList();
     })();
   </script>
 </body>
