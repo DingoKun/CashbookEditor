@@ -1,11 +1,11 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.5.21
+  version: v1.5.22
   date: 2026-10-18
   versioning: previous v26 is treated as 0.26
   notes:
-    - v1.5.21：大分類・小分類、カテゴリ順、CSV列数検証と既存列ずれの確認修復を追加
+    - v1.5.22：入力時の全件整理を廃止し、名称照合・重複整理・管理表の再描画を軽量化
     - v1.5.19：編集した収支を安全確認後に初期選択し、JSONへの反映漏れを案内
     - v1.5.18：装備情報と取引履歴の表示を分離し、履歴の一括開閉・見出し変更を追加
     - v1.5.17：追加計上しない装備の0表示を履歴参照へ変更し、色の凡例を追加
@@ -30,7 +30,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.5.21</title>
+  <title>SW2.5 収支・持ち物エディタ v1.5.22</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -915,7 +915,7 @@
       <div>
         <div class="titleLine">
           <h1>SW2.5 収支・持ち物エディタ</h1>
-          <span class="version">v1.5.21</span>
+          <span class="version">v1.5.22</span>
         </div>
         <p class="lead">ゆとシートのURLから読み込み、収支・持ち物を整理してテキストやJSONで出力します。</p>
       </div>
@@ -994,12 +994,12 @@
         </div>
         <div class="modalBody">
           <div class="changelogItem">
+            <h3>v1.5.22</h3>
+            <ul><li>入力ごとの辞書全件整理を廃止し、名称照合・重複整理・未変更の管理表描画を軽量化。名前・価格を消して入力し直す途中で行を削除しないよう修正。</li></ul>
             <h3>v1.5.21</h3>
             <ul><li>辞書・候補に大分類と自由入力の小分類を追加。指定順の分類表示・絞り込み、旧カテゴリ互換、CSVの列ずれ防止・確認修復に対応。</li></ul>
             <h3>v1.5.20</h3>
             <ul><li>辞書・加工の入口を統合。価格CSVを登録済み辞書へ統合し、同名の価格違い確認・検索・カテゴリ分類・価格順の並べ替えに対応。</li></ul>
-            <h3>v1.5.19</h3>
-            <ul><li>装備価格・数量・加工費などの編集を含め、記録保持を確認できる収支変更はJSON出力で初期選択。自動整形・競合などはOFFを維持し、未選択の収支は反映しない旨を表示。</li></ul>
             <p class="hint">過去の詳細な更新履歴はリポジトリ内の <code>CHANGELOG.md</code> に移動しました。</p>
           </div>
         </div>
@@ -1378,7 +1378,7 @@
   </div>
 
   <script>
-    const VERSION = "v1.5.21";
+    const VERSION = "v1.5.22";
     const SETTINGS_EXPORT_KIND = "sw25-cashbook-editor-settings";
     const SETTINGS_EXPORT_FORMAT_VERSION = 1;
     const ACCESSORY_CODES = { "頭": "Head", "顔": "Face", "耳": "Ear", "首": "Neck", "背": "Back", "右": "HandR", "左": "HandL", "腰": "Waist", "足": "Leg", "他": "Other" };
@@ -1669,20 +1669,38 @@
       const name = canonicalizeKnownItemName(canonicalSource);
       return { name, alias: name && canonicalSource && name !== canonicalSource ? canonicalSource : "", prefixes: split.prefixes };
     }
+    // 同じ辞書名の正規化を入力ごと・比較ごとに繰り返さない。
+    // 個々の品のキャッシュは名前/略称の変更を検知し、文字列キャッシュは上限付き。
+    const itemLookupKeyCache = new Map();
+    const priceItemLookupKeyCache = new WeakMap();
     function getItemLookupKeys(value) {
+      const raw = String(value ?? "");
+      if (itemLookupKeyCache.has(raw)) return itemLookupKeyCache.get(raw);
       const formatted = formatYutoText(value);
       const variants = [formatted];
       for (const match of formatted.matchAll(/[（(]([^（）()]+)[）)]/g)) {
         const inner = normalizeName(match[1]);
         if (ABYSS_CURSE_PREFIXES.some(prefix => inner.startsWith(prefix))) variants.push(inner);
       }
-      return [...new Set(variants.flatMap(item => [
+      const keys = Object.freeze([...new Set(variants.flatMap(item => [
         normalizeName(item), normalizeItemKey(item), getKnownItemNameInfo(item).name
-      ]).filter(Boolean))];
+      ]).filter(Boolean))]);
+      if (itemLookupKeyCache.size >= 8192) itemLookupKeyCache.delete(itemLookupKeyCache.keys().next().value);
+      itemLookupKeyCache.set(raw, keys);
+      return keys;
     }
     function getPriceItemLookupKeys(item) {
-      return [...new Set([item && item.name, ...((item && item.aliases) || [])]
-        .flatMap(getItemLookupKeys).filter(Boolean))];
+      if (!item) return [];
+      const signature = JSON.stringify([item.name, item.aliases || []]);
+      const cached = priceItemLookupKeyCache.get(item);
+      if (cached && cached.signature === signature) return cached.keys;
+      const keys = Object.freeze([...new Set([item.name, ...(item.aliases || [])].flatMap(getItemLookupKeys).filter(Boolean))]);
+      priceItemLookupKeyCache.set(item, { signature, keys });
+      return keys;
+    }
+    function findPriceItemByName(items, name, alternative = "") {
+      const wanted = new Set([...getItemLookupKeys(name), ...getItemLookupKeys(alternative)]);
+      return (items || []).find(item => getPriceItemLookupKeys(item).some(key => wanted.has(key))) || null;
     }
     function priceItemMatchesName(item, name) {
       const wanted = new Set(getItemLookupKeys(name));
@@ -1764,6 +1782,7 @@
       const prices = Object.create(null), aliases = Object.create(null);
       state.pricePresetItems = state.confirmedPriceItems || [];
       state.pricePresetItems.forEach(item => [item.name, ...(item.aliases || [])].forEach(name => {
+        if (!String(name || "").trim()) return;
         [name, ...getItemLookupKeys(name)].forEach(key => { prices[key] = item.price; aliases[key] = item.name; });
       }));
       state.pricePreset = prices; state.pricePresetAliases = aliases;
@@ -1905,9 +1924,9 @@
     function getPresetPrice(name) {
       const raw = String(name ?? "").trim();
       const keys = getItemLookupKeys(raw);
-      const confirmed = (state.confirmedPriceItems || []).find(item => priceItemMatchesName(item, raw));
+      const confirmed = findPriceItemByName(state.confirmedPriceItems, raw);
       if (confirmed) return toNumber(confirmed.price, 0);
-      const learned = (state.learnedPriceItems || []).find(item => priceItemMatchesName(item, raw));
+      const learned = findPriceItemByName(state.learnedPriceItems, raw);
       if (learned) return toNumber(learned.price, 0);
       if (Object.prototype.hasOwnProperty.call(state.pricePreset, raw)) return state.pricePreset[raw];
       const directKey = keys.find(key => Object.prototype.hasOwnProperty.call(state.pricePreset, key));
@@ -1922,9 +1941,7 @@
     function getPresetPriceForContext(name, context = "") {
       const raw = String(name ?? "").trim();
       const canonical = resolvePresetName(raw);
-      const item = getAllPriceItems().find(x =>
-        priceItemMatchesName(x, canonical) || priceItemMatchesName(x, raw)
-      );
+      const item = findPriceItemByName(getAllPriceItems(), canonical, raw);
       if (item && !categoryMatchesForSuggest(item.category, context)) return 0;
       return getPresetPrice(name);
     }
@@ -1932,7 +1949,7 @@
       if (row.historyCovered || row.isTransaction || row.stockOnly) return;
       const before = String(row.name ?? "").trim();
       if (!before) return;
-      const item = getAllPriceItems().find(x => priceItemMatchesName(x, before));
+      const item = findPriceItemByName(getAllPriceItems(), before);
       if (!item) return;
       if (!categoryMatchesForSuggest(item.category, context)) return;
       if (!row.price && item.price) row.price = item.price;
@@ -1969,6 +1986,10 @@
     }
     function consolidateLearnedPriceItems(sourceItems, { allowZero = false } = {}) {
       const out = [];
+      const lookup = new Map();
+      const indexKeys = (item, i) => getPriceItemLookupKeys(item).forEach(key => {
+        if (!lookup.has(key) || i < lookup.get(key)) lookup.set(key, i);
+      });
       (Array.isArray(sourceItems) ? sourceItems : []).forEach(rawItem => {
         const nameInfo = getKnownItemNameInfo(rawItem && rawItem.name);
         const name = nameInfo.name;
@@ -1988,9 +2009,11 @@
         candidate.aliases = candidate.aliases.filter(alias =>
           normalizeItemKey(alias) !== normalizeItemKey(candidate.name)
         );
-        const candidateKeys = new Set(getPriceItemLookupKeys(candidate));
-        const existing = out.find(item => getPriceItemLookupKeys(item).some(key => candidateKeys.has(key)));
+        const matches = getPriceItemLookupKeys(candidate).map(key => lookup.get(key)).filter(i => i !== undefined);
+        const existingIndex = matches.length ? Math.min(...matches) : -1;
+        const existing = out[existingIndex];
         if (!existing) {
+          indexKeys(candidate, out.length);
           out.push(candidate);
           return;
         }
@@ -2003,6 +2026,7 @@
           existing.updatedAt = candidate.updatedAt;
           if (candidate.category) existing.category = candidate.category;
         }
+        indexKeys(existing, existingIndex);
       });
       return removeLikelyPartialLearnedItems(out);
     }
@@ -2040,30 +2064,45 @@
       pruneLearnedPricesAgainstAuthoritative();
       updateLearnedPriceStatus();
     }
+    function saveInlinePriceEdit(confirmed, key, commit) {
+      // 入力中に全件統合・並べ替え・空行削除を行うと、遅延と行番号ずれが起きる。
+      // ここでは編集した配列をそのまま保存。全件整理は読込・統合・一括登録時に行う。
+      const items = confirmed ? state.confirmedPriceItems : state.learnedPriceItems;
+      localStorage.setItem(confirmed ? "sw25_confirmed_price_items" : "sw25_learned_price_items", JSON.stringify(items));
+      if (confirmed && commit && ["name", "aliases", "price"].includes(key)) {
+        rebuildPricePresetCache();
+        const count = state.learnedPriceItems.length;
+        pruneLearnedPricesAgainstAuthoritative();
+        if (count !== state.learnedPriceItems.length) renderLearnedPriceTable();
+      }
+      updateLearnedPriceStatus();
+    }
     function getAuthoritativePriceItem(name) {
       const raw = String(name || "").trim();
       if (!raw) return null;
-      return (state.confirmedPriceItems || [])
-        .find(item => priceItemMatchesName(item, raw)) || null;
+      return findPriceItemByName(state.confirmedPriceItems, raw);
     }
     function pruneLearnedPricesAgainstAuthoritative() {
       const before = state.learnedPriceItems || [];
-      state.learnedPriceItems = before.filter(item => !getAuthoritativePriceItem(item.name) &&
-        !(item.aliases || []).some(alias => getAuthoritativePriceItem(alias)));
+      const knownKeys = new Set((state.confirmedPriceItems || []).flatMap(getPriceItemLookupKeys));
+      state.learnedPriceItems = before.filter(item => !getPriceItemLookupKeys(item).some(key => knownKeys.has(key)));
       if (state.learnedPriceItems.length !== before.length) {
         localStorage.setItem("sw25_learned_price_items", JSON.stringify(state.learnedPriceItems));
       }
     }
     function updateLearnedPriceStatus() {
       const target = el("learnedPriceStatus");
-      if (target) target.textContent = `${(state.learnedPriceItems || []).length}件`;
+      const learnedText = `${(state.learnedPriceItems || []).length}件`;
+      if (target && target.textContent !== learnedText) target.textContent = learnedText;
       const confirmedTarget = el("confirmedPriceStatus");
-      if (confirmedTarget) confirmedTarget.textContent = `${(state.confirmedPriceItems || []).length}件`;
+      const confirmedText = `${(state.confirmedPriceItems || []).length}件`;
+      if (confirmedTarget && confirmedTarget.textContent !== confirmedText) confirmedTarget.textContent = confirmedText;
     }
     function getAllPriceItems() {
       const out = [];
       const seen = new Set();
       [...(state.confirmedPriceItems || []), ...(state.learnedPriceItems || [])].forEach(item => {
+        if (!String(item.name || "").trim()) return; // 名前の入力し直し途中の行は候補に出さない
         const keys = getPriceItemLookupKeys(item);
         if (!keys.length || keys.some(key => seen.has(key))) return;
         keys.forEach(key => seen.add(key));
@@ -2846,7 +2885,7 @@
       return ["武器", "武器・防具", "武器防具", "鎧と両手", "装備", "装飾品"].some(x => String(section || "").includes(x));
     }
     function getKnownPriceItemCategoryForName(name) {
-      const item = getAllPriceItems().find(x => priceItemMatchesName(x, name));
+      const item = findPriceItemByName(getAllPriceItems(), name);
       return item ? String(item.category || "").trim() : "";
     }
     function isConsumableLikeName(name) {
@@ -3840,7 +3879,10 @@
       return `<input type="checkbox" class="checkBig" ${checked ? "checked" : ""} data-action="${action}" ${data}>`;
     }
 
-    function renderLearnedPriceTable() {
+    function renderLearnedPriceTable(force = true) {
+      const snapshot = JSON.stringify(state.learnedPriceItems || []);
+      if (force === false && renderLearnedPriceTable.lastSnapshot === snapshot) return;
+      renderLearnedPriceTable.lastSnapshot = snapshot;
       renderPriceCategoryGuide();
       const table = el("learnedPriceTable");
       if (!table) return;
@@ -3866,7 +3908,11 @@
         tbody.appendChild(tr);
       });
     }
-    function renderConfirmedPriceTable() {
+    function renderConfirmedPriceTable(force = true) {
+      const snapshot = JSON.stringify([state.confirmedPriceItems || [], el("dictionarySearch").value,
+        el("dictionaryMajorCategory").value, el("dictionaryCategory").value, el("dictionarySort").value]);
+      if (force === false && renderConfirmedPriceTable.lastSnapshot === snapshot) return;
+      renderConfirmedPriceTable.lastSnapshot = snapshot;
       renderPriceCategoryGuide();
       const table = el("confirmedPriceTable");
       if (!table) return;
@@ -3999,8 +4045,8 @@
       renderConsumableTable();
       renderCardTable();
       renderOtherSections();
-      renderLearnedPriceTable();
-      renderConfirmedPriceTable();
+      renderLearnedPriceTable(false);
+      renderConfirmedPriceTable(false);
       renderProcessCsvPreviewTable();
       renderCustomProcessTable();
       updateTotals();
@@ -4604,6 +4650,7 @@
       if (!box) return;
       box.style.display = "none";
       box.innerHTML = "";
+      delete box._suggestionHtml;
       delete box.dataset.targetId;
     }
     function showSuggestBox(input) {
@@ -4616,9 +4663,11 @@
         hideSuggestBox();
         return;
       }
+      // 位置の読取はDOM更新より先に行い、候補描画直後の強制レイアウトを避ける。
+      const rect = input.getBoundingClientRect();
       if (!input.id) input.id = `suggestTarget_${Math.random().toString(36).slice(2)}`;
       box.dataset.targetId = input.id;
-      box.innerHTML = suggestions.map(item => {
+      const html = suggestions.map(item => {
         const aliasText = (item.aliases || []).length ? ` / 略称: ${esc(item.aliases.join("・"))}` : "";
         const categoryText = item.category ? ` / ${esc(item.category)}` : "";
         return `<button type="button" class="suggestItem" data-name="${esc(item.name)}" data-price="${esc(item.price)}">
@@ -4626,7 +4675,7 @@
           <span class="suggestMeta">${esc(item.price)}G${categoryText}${aliasText}</span>
         </button>`;
       }).join("");
-      const rect = input.getBoundingClientRect();
+      if (box._suggestionHtml !== html) { box.innerHTML = html; box._suggestionHtml = html; }
       box.style.left = `${Math.max(4, rect.left)}px`;
       box.style.top = `${rect.bottom + 4}px`;
       box.style.width = `${Math.max(220, rect.width)}px`;
@@ -4729,11 +4778,9 @@
         } else {
           item[key] = String(value || "").trim();
         }
-        item.name = canonicalizeLearnedPriceName(item.name);
+        if (key === "name" && commit) item.name = canonicalizeLearnedPriceName(item.name);
         item.updatedAt = new Date().toISOString().slice(0, 10);
-        state.learnedPriceItems = (state.learnedPriceItems || []).filter(x => normalizeName(x.name) && toNumber(x.price, 0) > 0);
-        saveLearnedPrices();
-        generateOutputs();
+        saveInlinePriceEdit(false, key, commit);
         return;
       }
       if (action === "confirmedField") {
@@ -4748,11 +4795,9 @@
         } else {
           item[key] = String(value || "").trim();
         }
-        item.name = canonicalizeLearnedPriceName(item.name);
+        if (key === "name" && commit) item.name = canonicalizeLearnedPriceName(item.name);
         item.updatedAt = new Date().toISOString().slice(0, 10);
-        state.confirmedPriceItems = (state.confirmedPriceItems || []).filter(x => normalizeName(x.name) && toNumber(x.price, 0) >= 0);
-        saveConfirmedPrices();
-        generateOutputs();
+        saveInlinePriceEdit(true, key, commit);
         return;
       }
       if (action === "customProcessField") {
