@@ -1,10 +1,11 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.5.19
+  version: v1.5.21
   date: 2026-10-18
   versioning: previous v26 is treated as 0.26
   notes:
+    - v1.5.21：大分類・小分類、カテゴリ順、CSV列数検証と既存列ずれの確認修復を追加
     - v1.5.19：編集した収支を安全確認後に初期選択し、JSONへの反映漏れを案内
     - v1.5.18：装備情報と取引履歴の表示を分離し、履歴の一括開閉・見出し変更を追加
     - v1.5.17：追加計上しない装備の0表示を履歴参照へ変更し、色の凡例を追加
@@ -29,7 +30,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.5.19</title>
+  <title>SW2.5 収支・持ち物エディタ v1.5.21</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -231,7 +232,7 @@
       margin-bottom: 2px;
       font-weight: 700;
     }
-    input[type="text"], input[type="number"], input[type="url"], textarea, select {
+    input[type="text"], input[type="search"], input[type="number"], input[type="url"], textarea, select {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 4px;
@@ -803,6 +804,14 @@
     .dataSettings:not([open]) > summary .summaryIcon::before { content: "＋"; }
     .dataSettings > summary:hover { background: var(--section-bg); }
     .dataSettingsBody { padding: 8px; border-top: 1px solid var(--section-border); }
+    .dictionaryFilters { display: flex; flex-wrap: wrap; gap: 6px; align-items: end; margin: 8px 0; }
+    .dictionaryFilters label { flex: 1 1 150px; min-width: 0; margin: 0; }
+    .dictionaryCategory td { background: var(--section-open); font-weight: bold; }
+    .categoryEditor { display: grid; gap: 3px; min-width: 0; }
+    .categoryEditor select, .categoryEditor input { width: 100%; min-width: 0; }
+    .categoryList ul { margin: 4px 0; padding-left: 1.3em; }
+    #priceDictionaryNewItems { white-space: pre-wrap; }
+    #priceDictionaryImportRows table { min-width: 600px; }
     .dataPanel { padding: 7px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
     .dataPanelTitle { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 0 0 5px; color: #1d3557; font-size: 13px; }
     @media (max-width: 700px) {
@@ -845,7 +854,7 @@
     }
     .changelogItem li { margin: 2px 0; }
 
-    input[type="text"], input[type="number"], select {
+    input[type="text"], input[type="search"], input[type="number"], select {
       min-height: 24px;
     }
     button, input, select, textarea {
@@ -868,7 +877,7 @@
         min-width: 680px;
       }
       #equipmentTable, #accessoryTable { min-width: 900px; }
-      input[type="text"], input[type="number"], input[type="url"], textarea, select {
+      input[type="text"], input[type="search"], input[type="number"], input[type="url"], textarea, select {
         font-size: 16px; /* iOS Safari の自動ズーム対策 */
       }
       button { font-size: 13px; }
@@ -906,7 +915,7 @@
       <div>
         <div class="titleLine">
           <h1>SW2.5 収支・持ち物エディタ</h1>
-          <span class="version">v1.5.19</span>
+          <span class="version">v1.5.21</span>
         </div>
         <p class="lead">ゆとシートのURLから読み込み、収支・持ち物を整理してテキストやJSONで出力します。</p>
       </div>
@@ -939,7 +948,7 @@
         <div class="modalBody">
           <div class="helpSteps">
             <div class="helpStep"><strong>1．キャラクターURLから読み込む</strong><p>ゆとシートの閲覧URLを画面上部に貼り付け、「URLから読込」を押します。保存済みのデータを取得するので、ゆとシート側の編集は先に保存してください。読み込めない場合は「JSONファイルから読み込む（補助）」を開いてファイルを選択します。</p></div>
-            <div class="helpStep"><strong>2．収支と装備を確認する</strong><p>履歴があれば実際の取引を基準に計算し、装備の定価を重ねて支出にしません。新たな購入費だけ、価格横の「別途計上」を選びます。履歴がない場合は価格×数量で購入費を計算します。価格・加工CSVは「辞書・強化データ設定」から読み込めます。</p></div>
+            <div class="helpStep"><strong>2．収支と装備を確認する</strong><p>履歴があれば実際の取引を基準に計算し、装備の定価を重ねて支出にしません。新たな購入費だけ、価格横の「別途計上」を選びます。履歴がない場合は価格×数量で購入費を計算します。価格・加工CSVは「辞書・加工データ管理」の価格辞書・加工データ欄から読み込めます。</p></div>
             <div class="helpStep"><strong>3．所持数・購入履歴を整理する</strong><p>履歴があるシートでは、消耗品・カードの現在所持数と過去の購入数を分けます。カードの購入額は「購入・売却履歴」で編集し、新しい購入は「購入を記録」で追加します。読込時の現在数は支出に加えません。</p></div>
             <div class="helpStep"><strong>4．変更を確認して出力する</strong><p>テキストをコピーしてゆとシートへ貼り付けるか、「キャラクターJSON出力・変更確認」で反映する項目を選んでJSONを保存します。未チェックの項目は元の記載を保持します。出力したJSONはゆとシート側で取り込み、確認して保存してください。</p></div>
           </div>
@@ -954,7 +963,7 @@
           </details>
           <p class="helpNote">ゆとシートへの自動保存はしません。スマホでは表を左右にスクロールできます。数量は <code>*3</code> の形式で出力されます。</p>
           <details><summary>価格候補・辞書・設定の保存</summary>
-            <p>「価格候補（整理中）」で名称・略称・価格を整え、「整理済みの全件を辞書へ登録」を押すと登録済み価格辞書へ移せます。収入や既存の取引額は通常価格として自動収集しません。</p>
+            <p>「辞書・加工データ管理」内の「価格候補（整理中）」で整え、全件を価格辞書へ登録できます。価格CSVも確認後に同じ辞書へ統合します。同名・異価格は既存維持かCSVの価格採用を選び、それ以外の重複は既存を維持します。辞書は検索・カテゴリ絞り込み・カテゴリ内の価格順で整理できます。</p>
             <p>価格CSV・加工CSV・価格辞書などの設定はこのブラウザに保存されます。別端末へ移すときは「設定」→「設定バックアップ」を使います。キャラクターJSONや作業中の編集内容は設定バックアップには含みません。</p>
           </details>
           <details><summary>JSON出力時の確認と原文の保持</summary>
@@ -985,12 +994,12 @@
         </div>
         <div class="modalBody">
           <div class="changelogItem">
+            <h3>v1.5.21</h3>
+            <ul><li>辞書・候補に大分類と自由入力の小分類を追加。指定順の分類表示・絞り込み、旧カテゴリ互換、CSVの列ずれ防止・確認修復に対応。</li></ul>
+            <h3>v1.5.20</h3>
+            <ul><li>辞書・加工の入口を統合。価格CSVを登録済み辞書へ統合し、同名の価格違い確認・検索・カテゴリ分類・価格順の並べ替えに対応。</li></ul>
             <h3>v1.5.19</h3>
             <ul><li>装備価格・数量・加工費などの編集を含め、記録保持を確認できる収支変更はJSON出力で初期選択。自動整形・競合などはOFFを維持し、未選択の収支は反映しない旨を表示。</li></ul>
-            <h3>v1.5.18</h3>
-            <ul><li>装備情報と取引履歴の見出しを区別し、相互移動・履歴の一括開閉・見出し変更を追加。読込済み履歴は原則閉じ、要確認の枠は開いて表示。</li></ul>
-            <h3>v1.5.17</h3>
-            <ul><li>追加計上しない装備は「0」ではなく「履歴参照」と表示。灰色と薄赤の意味を分離し、色・価格表示の凡例を追加。</li></ul>
             <p class="hint">過去の詳細な更新履歴はリポジトリ内の <code>CHANGELOG.md</code> に移動しました。</p>
           </div>
         </div>
@@ -1007,12 +1016,12 @@
           <div class="helpSteps">
             <div class="helpStep">
               <strong>個人バックアップ</strong>
-              <p>別端末への移行向けです。読み込み済みの価格CSV・加工CSV本文も含めます。公式由来データを含む可能性があるため、公開配布には使わないでください。</p>
+              <p>別端末への移行向けです。CSVから統合した価格も辞書に含み、保存済み加工CSV本文も含めます。公開配布には使わないでください。</p>
               <button id="exportPersonalSettingsBtn" type="button" class="small primary">個人バックアップJSON出力</button>
             </div>
             <div class="helpStep">
               <strong>共有用バックアップ</strong>
-              <p>CSV本文を含めず、整理した辞書・加工データを書き出します。データ自体の公開・再配布の可否は別途確認してください。</p>
+              <p>CSV本文は含みませんが、CSVから辞書へ統合した価格も書き出されます。データ自体の公開・再配布の可否は別途確認してください。</p>
               <button id="exportSharedSettingsBtn" type="button" class="small">共有用JSON出力</button>
             </div>
             <div class="helpStep">
@@ -1027,6 +1036,19 @@
             </div>
           </div>
           <p id="settingsBackupStatus" class="hint" role="status" aria-live="polite" style="white-space:pre-line;"></p>
+        </div>
+      </div>
+    </div>
+    <div id="priceDictionaryImportModal" class="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="priceDictionaryImportTitle">
+      <div class="modalPanel">
+        <div class="modalHeader"><span id="priceDictionaryImportTitle">価格CSVを辞書へ統合</span><button id="cancelPriceDictionaryImportBtn" type="button" class="small">取消</button></div>
+        <div class="modalBody">
+          <p id="priceDictionaryImportSummary"></p>
+          <p class="hint">新しい品は登録済み価格辞書へ追加します。同名の価格違いは初期状態で現在の価格を維持し、選んだ場合だけ価格を更新します。略称・表記ゆれによる一致は重複としてスキップし、既存の略称・カテゴリ・メモは変更しません。</p>
+          <div id="priceDictionaryImportRows" class="tableScrollBox"></div>
+          <details><summary>追加する品の一覧</summary><div id="priceDictionaryNewItems" class="hint"></div></details>
+          <p id="priceDictionaryImportError" class="hint" role="alert"></p>
+          <button id="applyPriceDictionaryImportBtn" type="button" class="primary">確認した内容で統合</button>
         </div>
       </div>
     </div>
@@ -1094,71 +1116,6 @@
           </div>
         </details>
       </div>
-      <details class="dataSettings" id="dataSettingsSection">
-        <summary>
-          <span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">辞書・強化データ設定</span></span>
-          <span class="summaryHint">クリックで開閉</span>
-        </summary>
-        <div class="dataSettingsBody">
-          <div class="row">
-            <div class="col-6 dataPanel">
-              <h2 class="dataPanelTitle">武器防具強化データ</h2>
-              <label for="processCsvFile">強化CSV</label>
-              <input id="processCsvFile" type="file" accept=".csv,text/csv" />
-              <div class="miniActions"><button id="downloadProcessTemplateBtn" type="button" class="small">加工CSVひな形DL</button></div>
-              <details class="miniHelp"><summary>ひな形の記入・受け渡し</summary>
-                <p class="hint">列名だけのCSVです。2行目から入力するか、下の「武器・防具の加工データ管理」で登録して「統合加工CSV出力」を使えます。受け取る側は「強化CSV」で読み込みます。</p>
-                <p class="hint"><code>name</code>：加工名、<code>rank</code>：ランク、<code>price</code>：費用。<code>weapon</code>／<code>armor</code>／<code>nonMetalArmor</code>／<code>metalArmor</code>／<code>shield</code> は適用対象を1・対象外を0にします。防具には <code>armor=1</code> と該当する防具種別を指定します。</p>
-                <p class="hint">ランクごとに1行。ランク共通の費用は対象ランクに同額を記入します。<code>multiCountable</code>：複数回可なら1、<code>maxCount</code>：回数上限、<code>note</code>：メモ。名称・価格・効果本文のサンプルは含めません。</p>
-                <p class="hint">他者との受け渡しは、公開・再配布してよいデータに限ってください。CSV形式への変換が転載の許可になるわけではありません。</p>
-              </details>
-              <p class="hint">武器や防具の強化に関連するデータです。初回読込後はブラウザに保存されます。</p>
-              <div class="toolbar"><button id="clearProcessCsvBtn" type="button" class="small">保存済みデータを削除</button></div>
-            </div>
-            <div class="col-6 dataPanel">
-              <h2 class="dataPanelTitle"><span>アイテム価格データ</span><span class="csvStatus" id="priceCsvStatus">CSV未読込</span></h2>
-              <label for="priceCsvFile">価格CSV</label>
-              <input id="priceCsvFile" type="file" accept=".csv,text/csv" />
-              <label style="display:flex; align-items:center; gap:6px; margin-top:5px;">
-                <input id="autoLearnPriceToggle" type="checkbox" class="checkBig" checked />
-                キャラクター読込時に価格候補を自動収集
-              </label>
-              <div class="miniActions">
-                <button id="learnCurrentPricesBtn" type="button" class="small">現在の入力価格を候補へ追加</button>
-                <button id="exportLearnedPriceBtn" type="button" class="small">価格候補CSV出力</button>
-                <button id="clearLearnedPriceBtn" type="button" class="small danger">価格候補を削除</button>
-              </div>
-              <p class="hint">形式：<code>name,price,aliases,category,note</code></p>
-              <details class="miniHelp">
-                <summary>category一覧</summary>
-                <div class="categoryList">
-                  <div><strong>武器</strong>：武器・防具等の候補に表示</div>
-                  <div><strong>防具</strong>：武器・防具等の候補に表示</div>
-                  <div><strong>非金属鎧</strong>：武器・防具等の候補に表示</div>
-                  <div><strong>金属鎧</strong>：武器・防具等の候補に表示</div>
-                  <div><strong>盾</strong>：武器・防具等の候補に表示</div>
-                  <div><strong>装飾品</strong>：装飾品欄の候補に表示</div>
-                  <div><strong>消耗品</strong>：消耗品欄の候補に表示</div>
-                  <div><strong>ポーション</strong>：消耗品欄の候補に表示</div>
-                  <div><strong>薬草</strong>：消耗品欄の候補に表示</div>
-                  <div><strong>魔晶石</strong>：消耗品欄の候補に表示</div>
-                  <div><strong>魔符</strong>：消耗品欄の候補に表示</div>
-                  <div><strong>マテリアルカード</strong>：マテリアルカード用</div>
-                  <div><strong>ゴーレム</strong>：その他欄の候補に表示</div>
-                  <div><strong>騎獣</strong>：その他欄の候補に表示</div>
-                  <div><strong>魔神</strong>：その他欄の候補に表示</div>
-                  <div><strong>冒険道具</strong>：その他欄の候補に表示</div>
-                  <div><strong>フレーバー</strong>：その他欄の候補に表示</div>
-                  <div><strong>その他</strong>：その他欄の候補に表示</div>
-                </div>
-                <p class="hint">空欄カテゴリは3文字以上入力した場合のみ候補表示されます。</p>
-              </details>
-              <div class="toolbar"><button id="clearPriceCsvBtn" type="button" class="small">保存済みデータを削除</button></div>
-            </div>
-            <div class="col-12"><p class="hint">加工CSVひな形は列名のみです。価格・加工情報は各自で用意してください。</p></div>
-          </div>
-        </div>
-      </details>
     </div>
 
     <details class="readHelp">
@@ -1176,18 +1133,26 @@
       </ul>
     </details>
 
+    <details class="dataSettings" id="dataSettingsSection">
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">辞書・加工データ管理</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <div class="dataSettingsBody">
+        <div class="toolbar"><button id="dictionaryBackupBtn" type="button" class="small">設定バックアップ・端末移行</button></div>
     <details class="section" id="learnedPriceSection">
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">価格候補（整理中）</span><span class="summaryCount" id="learnedPriceStatus">0件</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="sectionBody">
-        <p class="hint">JSONなどから収集した、まだ辞書へ登録していない価格候補です。名称・価格・略称を一覧で整理した後、「整理済みの全件を辞書へ登録」を押してください。価格CSVの既存データは件数が多いため、この表には表示しません。</p>
+        <p class="hint">JSONなどから収集した、まだ辞書へ登録していない価格候補です。名称・価格・略称を一覧で整理した後、「整理済みの全件を辞書へ登録」を押してください。登録済みの価格は、この候補表には重複表示しません。</p>
+        <label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;"><input id="autoLearnPriceToggle" type="checkbox" class="checkBig" checked> キャラクター読込時に価格候補を自動収集</label>
+        <div class="toolbar"><button id="learnCurrentPricesBtn" type="button" class="small">現在の入力価格を候補へ追加</button><button id="exportLearnedPriceBtn" type="button" class="small">価格候補CSV出力</button></div>
         <div class="toolbar">
           <button id="checkLearnedDuplicatesBtn" type="button" class="small">候補の重複チェック</button>
+          <button id="repairLearnedCategoriesBtn" type="button" class="small">カテゴリの列ずれ確認</button>
           <button id="selectAllLearnedPricesBtn" type="button" class="small">全候補を選択</button>
           <button id="deleteSelectedLearnedPricesBtn" type="button" class="small danger">選択した候補を削除</button>
           <button id="deleteAllLearnedPricesBtn" type="button" class="small danger">全候補を削除</button>
           <button id="confirmAllLearnedPricesBtn" type="button" class="small primary">整理済みの全件を辞書へ登録</button>
         </div>
         <p id="learnedDuplicateResult" class="hint" role="status" aria-live="polite" style="white-space:pre-line;"></p>
+        <p id="learnedCategoryRepairResult" class="hint" role="status"></p>
         <table class="gridTable" id="learnedPriceTable">
           <thead><tr><th>選択</th><th>アイテム名</th><th>価格</th><th>略称</th><th>カテゴリ</th><th>メモ</th><th></th></tr></thead>
           <tbody></tbody>
@@ -1198,8 +1163,26 @@
     <details class="section" id="confirmedPriceSection">
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">登録済み価格辞書</span><span class="summaryCount" id="confirmedPriceStatus">0件</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="sectionBody">
-        <p class="hint">整理後に辞書へ登録した価格データです。ブラウザに保存され、価格CSVより優先されます。「統合価格CSV出力」で、読込済みCSVと登録済み辞書をまとめて保存できます。</p>
-        <div class="toolbar"><button id="exportMergedPriceBtn" type="button" class="small">統合価格CSV出力</button></div>
+        <p class="hint">価格CSVもここへ統合してブラウザに保存します。既存と重複する品は維持し、同じ名前で価格が違う品だけ採用する価格を確認します。</p>
+        <div class="toolbar"><label for="priceCsvFile">価格CSVを辞書へ統合</label><input id="priceCsvFile" type="file" accept=".csv,text/csv"><button id="exportMergedPriceBtn" type="button" class="small">価格辞書CSV出力（全件）</button></div>
+        <p id="priceDictionaryImportStatus" class="hint" role="status"></p>
+        <button id="retryLegacyPriceImportBtn" type="button" class="small" hidden>以前の価格CSVを統合する</button>
+        <div class="dictionaryFilters">
+          <label>検索<input id="dictionarySearch" type="search" placeholder="名前・略称・メモ"></label>
+          <label>大分類<select id="dictionaryMajorCategory"><option value="">すべて</option></select></label>
+          <label>小分類<select id="dictionaryCategory"><option value="">すべて</option></select></label>
+          <label>カテゴリ内の並び<select id="dictionarySort"><option value="priceAsc">価格が安い順</option><option value="priceDesc">価格が高い順</option><option value="name">名前順</option></select></label>
+          <button id="refreshDictionaryViewBtn" type="button" class="small">表示を更新</button>
+        </div>
+        <p id="dictionaryViewStatus" class="hint" role="status"></p>
+        <p class="hint">編集後は「表示を更新」で分類・並び順を再適用します。小分類は自由入力。CSVのcategory列は「武器-ソード」など1列で保存します。略称が複数ある場合は <code>|</code> で区切ります。</p>
+        <button id="repairConfirmedCategoriesBtn" type="button" class="small">カテゴリの列ずれ確認</button>
+        <p id="confirmedCategoryRepairResult" class="hint" role="status"></p>
+        <details class="miniHelp">
+                <summary>分類と表示順・候補欄の説明</summary>
+                <div class="categoryList" id="priceCategoryGuide"></div>
+                <p class="hint">旧カテゴリも対応する大分類にまとめて表示します。装飾品の装備枠は自動分類しません。分類だけでは購入・消費・所持数を変更しません。空欄カテゴリは3文字以上の検索時だけ候補表示します。</p>
+              </details>
         <table class="gridTable" id="confirmedPriceTable">
           <thead><tr><th>アイテム名</th><th>価格</th><th>略称</th><th>カテゴリ</th><th>メモ</th><th></th><th></th></tr></thead>
           <tbody></tbody>
@@ -1210,6 +1193,17 @@
     <details class="section" id="customProcessSection">
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">武器・防具の加工データ管理</span><span class="summaryCount" id="processCsvStatus">0件</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="sectionBody">
+        <label for="processCsvFile">強化CSV</label>
+              <input id="processCsvFile" type="file" accept=".csv,text/csv" />
+              <div class="miniActions"><button id="downloadProcessTemplateBtn" type="button" class="small">加工CSVひな形DL</button></div>
+              <details class="miniHelp"><summary>ひな形の記入・受け渡し</summary>
+                <p class="hint">列名だけのCSVです。2行目から入力するか、下の「武器・防具の加工データ管理」で登録して「統合加工CSV出力」を使えます。受け取る側は「強化CSV」で読み込みます。</p>
+                <p class="hint"><code>name</code>：加工名、<code>rank</code>：ランク、<code>price</code>：費用。<code>weapon</code>／<code>armor</code>／<code>nonMetalArmor</code>／<code>metalArmor</code>／<code>shield</code> は適用対象を1・対象外を0にします。防具には <code>armor=1</code> と該当する防具種別を指定します。</p>
+                <p class="hint">ランクごとに1行。ランク共通の費用は対象ランクに同額を記入します。<code>multiCountable</code>：複数回可なら1、<code>maxCount</code>：回数上限、<code>note</code>：メモ。名称・価格・効果本文のサンプルは含めません。</p>
+                <p class="hint">他者との受け渡しは、公開・再配布してよいデータに限ってください。CSV形式への変換が転載の許可になるわけではありません。</p>
+              </details>
+              <p class="hint">武器や防具の強化に関連するデータです。初回読込後はブラウザに保存されます。</p>
+              <div class="toolbar"><button id="clearProcessCsvBtn" type="button" class="small">保存済みデータを削除</button></div>
         <p class="hint">上段に読込CSVの内容、下段にブラウザ保存する手動登録を表示します。CSVを参考に追加する場合は「手動へコピー」を押してから編集してください。</p>
         <h3 class="dataPanelTitle">CSV読込データ（参照）</h3>
         <p class="hint">CSV自体はこの表では変更しません。ランク別価格と適用対象を確認できます。</p>
@@ -1231,6 +1225,9 @@
           <thead><tr><th>加工名</th><th>武器</th><th>非金属鎧</th><th>金属鎧</th><th>盾</th><th>B</th><th>A</th><th>S</th><th>SS</th><th>複数回</th><th>上限</th><th>メモ</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
+      </div>
+    </details>
+
       </div>
     </details>
 
@@ -1381,7 +1378,7 @@
   </div>
 
   <script>
-    const VERSION = "v1.5.19";
+    const VERSION = "v1.5.21";
     const SETTINGS_EXPORT_KIND = "sw25-cashbook-editor-settings";
     const SETTINGS_EXPORT_FORMAT_VERSION = 1;
     const ACCESSORY_CODES = { "頭": "Head", "顔": "Face", "耳": "Ear", "首": "Neck", "背": "Back", "右": "HandR", "左": "HandL", "腰": "Waist", "足": "Leg", "他": "Other" };
@@ -1434,11 +1431,77 @@
     // よく編集する場所：
     // - アビスカース接頭辞：ABYSS_CURSE_PREFIXES
     // - まとめ買い・略称・表記ゆれ：ITEM_ALIAS_RULES
+    // - 大分類・小分類と表示順：PRICE_CATEGORY_GROUPS / PRICE_CATEGORY_ALIASES
     // - 価格CSV未読込時の加工名候補：FALLBACK_PROCESS_NAMES / FALLBACK_MULTI_COUNTABLE_PROCESSES
     //
     // GitHub Pagesで公開するHTMLには、公式の価格表・効果説明・ルール本文・画像の転記は入れず、
     // 名称照合に必要な短い語や、ユーザー入力の表記ゆれ補正だけを置く方針です。
 
+    // 分類候補と表示順。商品名・価格・効果の一覧は保持しない。
+    // children末尾に小分類を追加できる。未指定・自由入力も使用可能。
+    // contextは候補を表示する入力欄で、購入・消費・所持数の判定ではない。
+    const PRICE_CATEGORY_GROUPS = [
+      { name: "武器", children: ["ソード", "アックス", "スピア", "メイス", "スタッフ", "フレイル", "ウォーハンマー", "格闘", "投擲", "ボウ", "クロスボウ", "ガン", "矢弾"], context: "equipment" },
+      { name: "防具", children: ["非金属鎧", "金属鎧", "盾"], context: "equipment" },
+      { name: "その他", children: ["冒険道具", "冒険者技能用アイテム", "ゴーレム関連", "騎獣関連", "魔神関連", "フレーバー"], context: "other" },
+      { name: "消耗品", children: ["薬草", "ポーション", "魔晶石", "魔符", "マテリアルカード"], context: "consumable" },
+      { name: "装飾品", children: [], context: "accessory" }
+    ];
+    const PRICE_CATEGORY_ALIASES = {
+      "ゴーレム": "その他-ゴーレム関連", "ゴーレムアイテム": "その他-ゴーレム関連",
+      "騎獣": "その他-騎獣関連", "魔神": "その他-魔神関連"
+    };
+    function getPriceCategoryInfo(category) {
+      const raw = String(category || "").trim();
+      let key = Object.hasOwn(PRICE_CATEGORY_ALIASES, raw) ? PRICE_CATEGORY_ALIASES[raw] : raw;
+      for (const group of PRICE_CATEGORY_GROUPS) {
+        if (group.children.includes(key)) key = group.name + "-" + key;
+      }
+      const groupIndex = PRICE_CATEGORY_GROUPS.findIndex(group => key === group.name || key.startsWith(group.name + "-"));
+      if (groupIndex < 0) return { major: "", minor: raw, key: raw, label: raw || "カテゴリ未設定", groupIndex: PRICE_CATEGORY_GROUPS.length, childIndex: 0 };
+      const group = PRICE_CATEGORY_GROUPS[groupIndex];
+      let minor = key === group.name ? "" : key.slice(group.name.length + 1).trim();
+      const alias = Object.hasOwn(PRICE_CATEGORY_ALIASES, minor) ? PRICE_CATEGORY_ALIASES[minor] : "";
+      if (alias && alias.startsWith(group.name + "-")) minor = alias.slice(group.name.length + 1);
+      key = group.name + (minor ? "-" + minor : "");
+      const child = group.children.indexOf(minor);
+      return { major: group.name, minor, key, label: group.name + (minor ? " / " + minor : ""), groupIndex,
+        childIndex: child < 0 ? group.children.length + (minor ? 0 : 1) : child };
+    }
+    function comparePriceCategories(a, b) {
+      const x = getPriceCategoryInfo(a), y = getPriceCategoryInfo(b);
+      return x.groupIndex - y.groupIndex || x.childIndex - y.childIndex ||
+        (x.key ? (y.key ? x.key.localeCompare(y.key, "ja") : -1) : (y.key ? 1 : 0));
+    }
+    function categoryEditorHtml(category, action, i) {
+      const info = getPriceCategoryInfo(category);
+      return '<div class="categoryEditor"><select data-action="' + action + '" data-i="' + i + '" data-key="categoryMajor" aria-label="大分類">' +
+        '<option value="">未指定・自由入力</option>' + PRICE_CATEGORY_GROUPS.map(group => '<option value="' + group.name + '"' + (info.major === group.name ? ' selected' : '') + '>' + group.name + '</option>').join("") +
+        '</select><input type="text" value="' + esc(info.minor) + '" data-action="' + action + '" data-i="' + i + '" data-key="category" list="priceCategoryChildren' + info.groupIndex + '" aria-label="小分類・自由入力" placeholder="小分類（任意）"></div>';
+    }
+    function updatePriceCategoryField(item, target) {
+      const editor = target.closest(".categoryEditor");
+      const major = editor.querySelector("select").value;
+      const input = editor.querySelector("input");
+      if (target.dataset.key === "categoryMajor") {
+        if (getPriceCategoryInfo(item.category).major !== major) input.value = "";
+        const groupIndex = PRICE_CATEGORY_GROUPS.findIndex(group => group.name === major);
+        input.setAttribute("list", "priceCategoryChildren" + (groupIndex < 0 ? PRICE_CATEGORY_GROUPS.length : groupIndex));
+      }
+      const minor = input.value.trim();
+      item.category = major ? major + (minor ? "-" + minor : "") : minor;
+    }
+    function renderPriceCategoryGuide() {
+      el("priceCategoryGuide").innerHTML = PRICE_CATEGORY_GROUPS.map((group, i) => '<div><strong>' + esc(group.name) + '</strong><ul>' +
+        (group.children.length ? group.children : ["小分類は任意・装備枠は未分類"]).map(name => '<li>' + esc(name) + '</li>').join("") + '</ul></div>').join("");
+      document.querySelectorAll('[data-price-category-list]').forEach(node => node.remove());
+      const items = [...(state.learnedPriceItems || []), ...(state.confirmedPriceItems || [])];
+      [...PRICE_CATEGORY_GROUPS, { name: "", children: [] }].forEach((group, i) => {
+        const names = [...new Set([...group.children, ...items.map(item => getPriceCategoryInfo(item.category)).filter(info => info.major === group.name).map(info => info.minor)].filter(Boolean))];
+        const list = document.createElement("datalist"); list.id = "priceCategoryChildren" + i; list.dataset.priceCategoryList = "1";
+        list.innerHTML = names.map(name => '<option value="' + esc(name) + '"></option>').join(""); document.body.appendChild(list);
+      });
+    }
     // 辞書照合とJSON装備名の本体・加工分離に使うアビスカース接頭辞。
     // ルール本文・効果・表構成は収録せず、名称照合に必要な短い語だけを保持する。
     // 新しい接頭辞はこの配列へ追加する。
@@ -1658,87 +1721,173 @@
       s = s.replace(/\{\{(.*?)\}\}/g, "$1");                     // 透明
       return s.trim();
     }
-    function loadPriceCsvText(text, save = false) {
-      try {
-        state.pricePreset = parsePriceCsv(text);
-        state.priceCsvCount = Object.values(state.pricePresetAliases || {})
-          .filter((v, idx, arr) => arr.indexOf(v) === idx).length;
-        if (save) localStorage.setItem("sw25_price_csv_text", text);
-        pruneLearnedPricesAgainstAuthoritative();
-        updateCsvStatuses();
-        applyPresetAndCashbookPrices();
-        renderAll();
-        generateOutputs();
-      } catch (err) {
-        state.pricePreset = {};
-        state.pricePresetAliases = {};
-        state.priceCsvCount = 0;
-        updateCsvStatuses();
-        showCsvWarning("アイテム価格データの読込に失敗しました。CSV形式を確認してください。");
+    // 価格CSVは参照層にせず、確認後に登録済み価格辞書へ統合する。
+    // pricePreset系は旧コード互換の検索キャッシュであり、独立した保存データではない。
+    function parsePriceCsvItems(text) {
+      const records = [], row = []; let value = "", quoted = false;
+      const source = String(text).replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
+      for (let i = 0; i < source.length; i++) {
+        const ch = source[i];
+        if (ch === '"') {
+          if (quoted && source[i + 1] === '"') { value += '"'; i++; }
+          else quoted = !quoted;
+        } else if (!quoted && (ch === "," || ch === "\n")) {
+          row.push(value); value = "";
+          if (ch === "\n") { if (row.some(v => v.trim())) records.push([...row]); row.length = 0; }
+        } else value += ch;
       }
+      if (quoted) throw new Error("CSVの引用符が閉じられていません。");
+      row.push(value); if (row.some(v => v.trim())) records.push(row);
+      if (!records.length) return [];
+      const header = records[0].map(v => v.trim().toLowerCase());
+      const nameIndex = header.findIndex(v => v === "name" || v === "アイテム名");
+      const priceIndex = header.findIndex(v => v === "price" || v === "価格");
+      const hasHeader = nameIndex >= 0 && priceIndex >= 0;
+      if ((nameIndex >= 0 || priceIndex >= 0) && !hasHeader) throw new Error("nameとpriceの両方の列が必要です。");
+      return records.slice(hasHeader ? 1 : 0).map((cols, i) => {
+        if (hasHeader && cols.length !== header.length) throw new Error("レコード" + (i + 2) + "の列数が見出し（" + header.length + "列）と一致しません（" + cols.length + "列）。複数の略称は | で区切り、メモ等にカンマを含む場合は引用符で囲んでください。");
+        const sourceName = String(cols[hasHeader ? nameIndex : 0] || "").trim();
+        if (!sourceName) return null;
+        const money = String(cols[hasHeader ? priceIndex : 1] ?? "").normalize("NFKC").trim().replace(/(?:ガメル|G)$/i, "").replace(/,/g, "").trim();
+        if (!/^\+?\d+(?:\.\d+)?$/.test(money) || !Number.isFinite(Number(money))) throw new Error("レコード" + (i + (hasHeader ? 2 : 1)) + "の価格は0以上の数値で入力してください。");
+        const info = getKnownItemNameInfo(sourceName);
+        const aliasValues = hasHeader ? cols.filter((v, j) => /^(?:aliases|alias\d*|略称)$/.test(header[j] || "")) : cols.slice(2);
+        const aliases = [...new Set([info.alias, sourceName !== info.name ? sourceName : "", ...aliasValues.flatMap(v => String(v).split("|"))].map(v => String(v || "").trim()).filter(v => v && v !== info.name))];
+        const categoryIndex = hasHeader ? header.findIndex(v => v === "category" || v === "カテゴリ") : -1;
+        const noteIndex = hasHeader ? header.findIndex(v => v === "note" || v === "メモ") : -1;
+        return { sourceName, name: info.name, price: Number(money), aliases,
+          category: categoryIndex < 0 ? "" : String(cols[categoryIndex] || "").trim(),
+          note: noteIndex < 0 ? "" : String(cols[noteIndex] || "").trim(), updatedAt: getTodayText() };
+      }).filter(Boolean);
     }
-    function parsePriceCsv(text) {
-      const prices = {};
-      const aliases = {};
-      const items = [];
-      const lines = String(text).split(/\r?\n/).map(v => v.trim()).filter(Boolean);
-      if (!lines.length) {
-        state.pricePresetAliases = {};
-        state.pricePresetItems = [];
-        renderPresetDatalist();
-        return {};
-      }
-      const first = splitCsvLine(lines[0]).map(v => v.trim());
-      const hasHeader = first.some(v => /^name$/i.test(v)) && first.some(v => /^price$/i.test(v));
-      const startIndex = hasHeader ? 1 : 0;
-      const header = hasHeader ? first : [];
-      for (let i = startIndex; i < lines.length; i++) {
-        const cols = splitCsvLine(lines[i]).map(v => v.trim());
-        if (cols.length < 2) continue;
-        let canonical = "";
-        let price = 0;
-        let aliasValues = [];
-        if (hasHeader) {
-          const row = {};
-          header.forEach((key, idx) => row[key] = cols[idx] || "");
-          canonical = row.name || row.Name || "";
-          price = parseMoneyExpression(row.price || row.Price || "0");
-          header.forEach((key, idx) => {
-            if ((/^alias\d*$/i.test(key) || key === "略称") && !/^aliases$/i.test(key)) aliasValues.push(cols[idx] || "");
-          });
-          if (row.aliases) aliasValues.push(...String(row.aliases).split("|"));
-        } else {
-          canonical = cols[0];
-          price = parseMoneyExpression(cols[1]);
-          aliasValues = cols.slice(2);
+    function rebuildPricePresetCache() {
+      const prices = Object.create(null), aliases = Object.create(null);
+      state.pricePresetItems = state.confirmedPriceItems || [];
+      state.pricePresetItems.forEach(item => [item.name, ...(item.aliases || [])].forEach(name => {
+        [name, ...getItemLookupKeys(name)].forEach(key => { prices[key] = item.price; aliases[key] = item.name; });
+      }));
+      state.pricePreset = prices; state.pricePresetAliases = aliases;
+      state.priceCsvCount = state.pricePresetItems.length;
+    }
+    function buildPriceDictionaryPlan(items, source = "価格CSV") {
+      const proposed = clonePlain(state.confirmedPriceItems || []), conflicts = [];
+      const exactNames = new Map(), lookup = new Map();
+      const indexItem = (item, i) => {
+        if (!exactNames.has(item.name)) exactNames.set(item.name, i);
+        getPriceItemLookupKeys(item).forEach(key => { if (!lookup.has(key)) lookup.set(key, i); });
+      };
+      proposed.forEach(indexItem);
+      let added = 0, skipped = 0;
+      items.forEach(raw => {
+        const { sourceName, ...item } = raw;
+        const keys = new Set(getPriceItemLookupKeys(item));
+        const matches = [...keys].map(key => lookup.get(key)).filter(i => i !== undefined);
+        const index = exactNames.get(sourceName || item.name) ?? (matches.length ? Math.min(...matches) : -1);
+        if (index < 0) { indexItem(item, proposed.length); proposed.push(item); added++; return; }
+        const current = proposed[index];
+        if (current.name === (sourceName || item.name) && toNumber(current.price) !== toNumber(item.price)) {
+          conflicts.push({ index, name: current.name, currentPrice: current.price, incomingPrice: item.price });
+        } else skipped++;
+      });
+      return { proposed, conflicts, added, skipped, source, snapshot: JSON.stringify(state.confirmedPriceItems || []), savedSnapshot: localStorage.getItem("sw25_confirmed_price_items") };
+    }
+    function commitPriceDictionaryPlan(plan, selections = new Set(), persist = true) {
+      if (plan.snapshot !== JSON.stringify(state.confirmedPriceItems || [])) throw new Error("確認中に辞書が変更されました。CSVを選び直してください。");
+      if (persist && plan.savedSnapshot !== localStorage.getItem("sw25_confirmed_price_items")) throw new Error("別のタブで辞書が変更されました。再読込してからCSVを選び直してください。");
+      const selectedTargets = new Set();
+      plan.conflicts.forEach((conflict, i) => {
+        if (!selections.has(i)) return;
+        if (selectedTargets.has(conflict.index)) throw new Error("同じ品のCSV価格を複数選択しています。採用する価格は品ごとに1つだけ選んでください。");
+        selectedTargets.add(conflict.index);
+      });
+      const items = clonePlain(plan.proposed);
+      plan.conflicts.forEach((conflict, i) => {
+        if (selections.has(i)) { items[conflict.index].price = conflict.incomingPrice; items[conflict.index].updatedAt = getTodayText(); }
+      });
+      if (persist) {
+        if (plan.legacyText && !localStorage.getItem("sw25_price_migration_backup")) {
+          localStorage.setItem("sw25_price_migration_backup", JSON.stringify({ confirmedPriceItems: state.confirmedPriceItems, priceCsvText: plan.legacyText }));
         }
-        const canonicalInfo = getKnownItemNameInfo(String(canonical || "").trim());
-        canonical = canonicalInfo.name;
-        if (!canonical) continue;
-        if (canonicalInfo.alias) aliasValues.push(canonicalInfo.alias);
-        const aliasList = [...new Set(aliasValues.flatMap(v => String(v || "").split("|"))
-          .map(v => v.trim()).filter(Boolean))];
-        const names = [canonical, ...aliasList];
-        names.forEach(name => {
-          prices[name] = price;
-          getItemLookupKeys(name).forEach(key => { prices[key] = price; });
-          aliases[name] = canonical;
-          getItemLookupKeys(name).forEach(key => { aliases[key] = canonical; });
-        });
-        const categoryIndex = hasHeader ? header.findIndex(h => /^category$/i.test(h) || h === "カテゴリ") : -1;
-        const noteIndex = hasHeader ? header.findIndex(h => /^note$/i.test(h) || h === "メモ") : -1;
-        items.push({
-          name: canonical,
-          price,
-          aliases: aliasList,
-          category: categoryIndex >= 0 ? (cols[categoryIndex] || "").trim() : "",
-          note: noteIndex >= 0 ? (cols[noteIndex] || "").trim() : ""
-        });
+        // 保存成功後にだけ状態を更新し、旧CSVの保存キーを解除する。
+        localStorage.setItem("sw25_confirmed_price_items", JSON.stringify(items));
+        if (plan.legacyText && localStorage.getItem("sw25_price_csv_text") === plan.legacyText) localStorage.removeItem("sw25_price_csv_text");
       }
-      state.pricePresetAliases = aliases;
-      state.pricePresetItems = items;
-      renderPresetDatalist();
-      return prices;
+      state.confirmedPriceItems = items; rebuildPricePresetCache();
+      pruneLearnedPricesAgainstAuthoritative(); updateLearnedPriceStatus();
+      applyPresetAndCashbookPrices(); renderAll(); generateOutputs();
+      return { added: plan.added, updated: selections.size, skipped: plan.skipped + plan.conflicts.length - selections.size };
+    }
+    function loadPriceCsvText(text, save = false) {
+      // 内部・旧設定JSON用。通常のファイル読込は確認画面を経由する。
+      const plan = buildPriceDictionaryPlan(parsePriceCsvItems(text));
+      return commitPriceDictionaryPlan(plan, new Set(), save);
+    }
+    function getCategoryRepairCandidates(items) {
+      return items.flatMap((item, i) => {
+        const category = String(item.category || "").trim(), note = String(item.note || "").trim();
+        const next = getPriceCategoryInfo(note);
+        // 列ずれの構造だけを検出。商品一覧をHTMLに持たず、名前/略称とカテゴリ欄の照合を使う。
+        if (!category || getPriceCategoryInfo(category).major || !next.major) return [];
+        const keys = new Set(getPriceItemLookupKeys(item));
+        const aliasKeys = [...getItemLookupKeys(category), ...getItemLookupKeys(getKnownItemNameInfo(category).name)];
+        if (!aliasKeys.some(key => keys.has(key))) return [];
+        return [{ i, name: item.name, from: category, to: next.key }];
+      });
+    }
+    async function repairPriceCategories(scope) {
+      const learned = scope === "learned", key = learned ? "learnedPriceItems" : "confirmedPriceItems";
+      const storageKey = learned ? "sw25_learned_price_items" : "sw25_confirmed_price_items";
+      const result = el(learned ? "learnedCategoryRepairResult" : "confirmedCategoryRepairResult");
+      const snapshot = JSON.stringify(state[key] || []), saved = localStorage.getItem(storageKey);
+      const candidates = getCategoryRepairCandidates(state[key] || []);
+      if (!candidates.length) { result.textContent = "列ずれが疑われるカテゴリは見つかりませんでした。"; return; }
+      const message = candidates.map(item => item.name + "：" + item.from + " → " + item.to).join("\n");
+      const ok = await showConfirm("CSVの列ずれが疑われる" + candidates.length + "件です。内容を確認してください。\n" + message + "\n\n実行すると元のカテゴリ文字列を略称へ追加し、カテゴリを上記に修正します。価格・名前・メモは変更しません。修正前の控えも保存します。", { confirmText: "確認した分類に修復", danger: false });
+      if (!ok) { result.textContent = "修復せずに閉じました。"; return; }
+      try {
+        if (snapshot !== JSON.stringify(state[key] || []) || saved !== localStorage.getItem(storageKey)) throw new Error("確認中にデータが変更されました。再読込して確認し直してください。");
+        const items = clonePlain(state[key]);
+        candidates.forEach(change => {
+          const item = items[change.i]; item.category = change.to;
+          item.aliases = [...new Set([...(item.aliases || []), change.from])]; item.updatedAt = getTodayText();
+        });
+        localStorage.setItem("sw25_category_repair_backup", JSON.stringify({ scope, items: state[key], savedAt: new Date().toISOString() }));
+        localStorage.setItem(storageKey, JSON.stringify(items));
+        state[key] = items;
+        if (!learned) rebuildPricePresetCache();
+        renderLearnedPriceTable(); renderConfirmedPriceTable();
+        result.textContent = candidates.length + "件のカテゴリを修復しました（名前・価格・メモは維持）。";
+      } catch (err) { result.textContent = "修復できませんでした：" + err.message; }
+    }
+    let priceDictionaryImportDraft = null;
+    function previewPriceDictionaryCsv(text, source = "価格CSV", legacy = false) {
+      try {
+        const plan = buildPriceDictionaryPlan(parsePriceCsvItems(text), source);
+        if (legacy) plan.legacyText = text;
+        priceDictionaryImportDraft = plan;
+        const originalCount = (state.confirmedPriceItems || []).length;
+        el("priceDictionaryNewItems").textContent = plan.proposed.slice(originalCount).map(item => item.name + "：" + item.price + " G（" + (item.category || "カテゴリ未設定") + "）").join("\n") || "追加する品はありません。";
+        el("priceDictionaryImportSummary").textContent = source + "：追加" + plan.added + "件、同名の価格違い" + plan.conflicts.length + "件、重複スキップ" + plan.skipped + "件";
+        el("priceDictionaryImportRows").innerHTML = plan.conflicts.length
+          ? '<table class="gridTable"><thead><tr><th>アイテム名</th><th>現在の価格</th><th>CSVの価格</th><th>採用する価格</th></tr></thead><tbody>' + plan.conflicts.map((item, i) =>
+            '<tr><td>' + esc(item.name) + '</td><td>' + esc(item.currentPrice) + ' G</td><td>' + esc(item.incomingPrice) + ' G</td><td><select data-price-conflict="' + i + '" aria-label="' + esc(item.name) + 'の採用価格"><option value="keep">現在の価格を維持</option><option value="incoming">CSVの価格を採用</option></select></td></tr>').join("") + '</tbody></table>'
+          : '<p class="hint">同名で価格が違う品はありません。</p>';
+        el("priceDictionaryImportError").textContent = "";
+        el("priceDictionaryImportModal").classList.add("isOpen");
+      } catch (err) { closePriceDictionaryImport(); el("priceDictionaryImportStatus").textContent = "読み込めませんでした：" + err.message; }
+    }
+    function closePriceDictionaryImport() {
+      priceDictionaryImportDraft = null; el("priceDictionaryImportModal").classList.remove("isOpen");
+    }
+    function applyPriceDictionaryImport() {
+      const plan = priceDictionaryImportDraft; if (!plan) return;
+      const selections = new Set([...el("priceDictionaryImportRows").querySelectorAll("[data-price-conflict]")].filter(input => input.value === "incoming").map(input => Number(input.dataset.priceConflict)));
+      try {
+        const stats = commitPriceDictionaryPlan(plan, selections);
+        el("priceDictionaryImportStatus").textContent = "辞書へ統合しました：追加" + stats.added + "件、価格更新" + stats.updated + "件、既存維持" + stats.skipped + "件";
+        el("retryLegacyPriceImportBtn").hidden = !localStorage.getItem("sw25_price_csv_text");
+        closePriceDictionaryImport();
+      } catch (err) { el("priceDictionaryImportError").textContent = "統合できませんでした：" + err.message; }
     }
     function renderPresetDatalist() {
       // v23以降はブラウザ標準datalistではなく、1文字以上入力時だけ出す独自候補を使う。
@@ -1812,19 +1961,19 @@
           const samePrice = toNumber(other.price, 0) === toNumber(item.price, 0);
           const category = String(item.category || "").trim();
           const otherCategory = String(other.category || "").trim();
-          const compatibleCategory = !category || !otherCategory || category === otherCategory;
+          const compatibleCategory = !category || !otherCategory || getPriceCategoryInfo(category).key === getPriceCategoryInfo(otherCategory).key;
           return samePrice && compatibleCategory && otherName.length > name.length && otherName.startsWith(name);
         });
         return !hasMatchingFullName;
       });
     }
-    function consolidateLearnedPriceItems(sourceItems) {
+    function consolidateLearnedPriceItems(sourceItems, { allowZero = false } = {}) {
       const out = [];
       (Array.isArray(sourceItems) ? sourceItems : []).forEach(rawItem => {
         const nameInfo = getKnownItemNameInfo(rawItem && rawItem.name);
         const name = nameInfo.name;
         const price = toNumber(rawItem && rawItem.price, 0);
-        if (!name || price <= 0) return;
+        if (!name || (allowZero ? price < 0 : price <= 0)) return;
         const rawAliases = Array.isArray(rawItem.aliases)
           ? rawItem.aliases
           : String(rawItem.aliases || "").split("|");
@@ -1870,11 +2019,12 @@
     function loadConfirmedPrices() {
       try {
         const raw = localStorage.getItem("sw25_confirmed_price_items");
-        state.confirmedPriceItems = consolidateLearnedPriceItems(raw ? JSON.parse(raw) : []);
+        state.confirmedPriceItems = consolidateLearnedPriceItems(raw ? JSON.parse(raw) : [], { allowZero: true });
         localStorage.setItem("sw25_confirmed_price_items", JSON.stringify(state.confirmedPriceItems));
       } catch {
         state.confirmedPriceItems = [];
       }
+      rebuildPricePresetCache();
       pruneLearnedPricesAgainstAuthoritative();
       updateLearnedPriceStatus();
     }
@@ -1884,15 +2034,16 @@
       updateLearnedPriceStatus();
     }
     function saveConfirmedPrices() {
-      state.confirmedPriceItems = consolidateLearnedPriceItems(state.confirmedPriceItems || []);
+      state.confirmedPriceItems = consolidateLearnedPriceItems(state.confirmedPriceItems || [], { allowZero: true });
       localStorage.setItem("sw25_confirmed_price_items", JSON.stringify(state.confirmedPriceItems));
+      rebuildPricePresetCache();
       pruneLearnedPricesAgainstAuthoritative();
       updateLearnedPriceStatus();
     }
     function getAuthoritativePriceItem(name) {
       const raw = String(name || "").trim();
       if (!raw) return null;
-      return [...(state.confirmedPriceItems || []), ...(state.pricePresetItems || [])]
+      return (state.confirmedPriceItems || [])
         .find(item => priceItemMatchesName(item, raw)) || null;
     }
     function pruneLearnedPricesAgainstAuthoritative() {
@@ -1912,7 +2063,7 @@
     function getAllPriceItems() {
       const out = [];
       const seen = new Set();
-      [...(state.confirmedPriceItems || []), ...(state.learnedPriceItems || []), ...(state.pricePresetItems || [])].forEach(item => {
+      [...(state.confirmedPriceItems || []), ...(state.learnedPriceItems || [])].forEach(item => {
         const keys = getPriceItemLookupKeys(item);
         if (!keys.length || keys.some(key => seen.has(key))) return;
         keys.forEach(key => seen.add(key));
@@ -2002,7 +2153,7 @@
     function exportPriceItemsCsv(items, filename, message) {
       const rows = [["name", "price", "aliases", "category", "note"]];
       (items || []).forEach(item => {
-        rows.push([item.name, item.price, (item.aliases || []).join("|"), item.category || "", item.note || "自動学習"]);
+        rows.push([item.name, item.price, (item.aliases || []).join("|"), item.category || "", item.note || ""]);
       });
       const csv = rows.map(cols => cols.map(v => {
         const s = String(v ?? "");
@@ -2020,8 +2171,7 @@
       showToast(message);
     }
     function exportMergedPriceCsv() {
-      const merged = consolidateLearnedPriceItems([...(state.pricePresetItems || []), ...(state.confirmedPriceItems || [])]);
-      exportPriceItemsCsv(merged, "price_merged.csv", "統合価格CSVを出力しました");
+      exportPriceItemsCsv(state.confirmedPriceItems || [], "price_merged.csv", "価格辞書CSVを出力しました");
     }
     function confirmAllLearnedPrices() {
       const items = state.learnedPriceItems || [];
@@ -2030,7 +2180,7 @@
       state.confirmedPriceItems = consolidateLearnedPriceItems([
         ...(state.confirmedPriceItems || []),
         ...items.map(item => ({ ...item, aliases: [...(item.aliases || [])], note: item.note || "確定", updatedAt: now }))
-      ]);
+      ], { allowZero: true });
       const count = items.length;
       state.learnedPriceItems = [];
       saveConfirmedPrices();
@@ -2040,6 +2190,7 @@
     function returnConfirmedPriceToLearning(index) {
       const item = state.confirmedPriceItems[index];
       if (!item) return false;
+      if (toNumber(item.price, 0) === 0) { showToast("0Gの品は候補へ戻さず、この辞書内で編集してください。"); return false; }
       state.confirmedPriceItems.splice(index, 1);
       state.learnedPriceItems = consolidateLearnedPriceItems([...(state.learnedPriceItems || []), {
         ...item,
@@ -2098,7 +2249,7 @@
         showToast("削除する価格候補を選択してください");
         return;
       }
-      const ok = await showConfirm(`選択した価格候補 ${indexes.length}件を削除します。\n登録済み価格辞書、価格CSV、現在の入力欄は消えません。`, { confirmText: "選択削除" });
+      const ok = await showConfirm(`選択した価格候補 ${indexes.length}件を削除します。\n登録済み価格辞書、現在の入力欄は消えません。`, { confirmText: "選択削除" });
       if (!ok) return;
       const deleted = deleteLearnedPricesByIndexes(indexes);
       showToast(`${deleted}件の価格候補を削除しました`);
@@ -2109,7 +2260,7 @@
         showToast("削除する価格候補がありません");
         return;
       }
-      const ok = await showConfirm(`整理中の価格候補 ${count}件をすべて削除します。\n登録済み価格辞書、価格CSV、現在の入力欄は消えません。`, { confirmText: "全削除" });
+      const ok = await showConfirm(`整理中の価格候補 ${count}件をすべて削除します。\n登録済み価格辞書、現在の入力欄は消えません。`, { confirmText: "全削除" });
       if (!ok) return;
       state.learnedPriceItems = [];
       localStorage.removeItem("sw25_learned_price_items");
@@ -2151,12 +2302,8 @@
     }
     function updateCsvStatuses() {
       const processStatus = el("processCsvStatus");
-      const priceStatus = el("priceCsvStatus");
       if (processStatus) {
         processStatus.textContent = `${state.processMaster.length}件`;
-      }
-      if (priceStatus) {
-        priceStatus.textContent = state.priceCsvCount ? `CSV ${state.priceCsvCount}件` : "CSV未読込";
       }
     }
     function splitCsvLine(line) {
@@ -2358,7 +2505,7 @@
         profile,
         note: includeCsv
           ? "個人バックアップ用。読み込み済みCSV本文を含むため、公開配布には使わないでください。"
-          : "共有用。CSV本文は含みません。辞書・加工データの公開・再配布の可否は別途確認してください。",
+          : "共有用。CSVから統合した価格も含みます。辞書・加工データの公開・再配布の可否は別途確認してください。",
         data
       };
     }
@@ -2411,11 +2558,13 @@
     }
     function applyImportedSettings(payload, options = {}) {
       const data = normalizeSettingsPayload(payload);
+      // 旧形式にCSV本文がある場合も、壊れたCSVで設定を部分更新しない。
+      if (typeof data.csvTexts.priceCsvText === "string" && data.csvTexts.priceCsvText) parsePriceCsvItems(data.csvTexts.priceCsvText);
       const replace = Boolean(options.replace);
       state.confirmedPriceItems = consolidateLearnedPriceItems([
         ...(replace ? [] : state.confirmedPriceItems || []),
         ...data.confirmedPriceItems
-      ]);
+      ], { allowZero: true });
       state.learnedPriceItems = consolidateLearnedPriceItems([
         ...(replace ? [] : state.learnedPriceItems || []),
         ...data.learnedPriceItems
@@ -2423,6 +2572,7 @@
       state.customProcessItems = mergeCustomProcessItems(state.customProcessItems || [], data.customProcessItems, replace);
 
       localStorage.setItem("sw25_confirmed_price_items", JSON.stringify(state.confirmedPriceItems));
+      rebuildPricePresetCache();
       localStorage.setItem("sw25_learned_price_items", JSON.stringify(state.learnedPriceItems));
       localStorage.setItem("sw25_custom_process_items", JSON.stringify(state.customProcessItems));
 
@@ -2436,9 +2586,8 @@
 
       let priceCsvImported = false;
       let processCsvImported = false;
-      const hasCurrentPriceCsv = Boolean(localStorage.getItem("sw25_price_csv_text"));
       const hasCurrentProcessCsv = Boolean(localStorage.getItem("sw25_process_csv_text"));
-      if (typeof data.csvTexts.priceCsvText === "string" && data.csvTexts.priceCsvText && (replace || !hasCurrentPriceCsv)) {
+      if (typeof data.csvTexts.priceCsvText === "string" && data.csvTexts.priceCsvText) {
         loadPriceCsvText(data.csvTexts.priceCsvText, true);
         priceCsvImported = true;
       }
@@ -2495,7 +2644,9 @@
         { confirmText: replace ? "置き換えて読込" : "追加・統合", danger: replace }
       );
       if (!ok) return;
-      const stats = applyImportedSettings(payload, { replace });
+      let stats;
+      try { stats = applyImportedSettings(payload, { replace }); }
+      catch (err) { setSettingsBackupStatus("読み込みできませんでした：" + err.message); return; }
       const csvNote = [
         stats.priceCsvImported ? "価格CSV本文を反映" : "",
         stats.processCsvImported ? "加工CSV本文を反映" : ""
@@ -2703,6 +2854,8 @@
       const canonical = getKnownItemNameInfo(name).name || raw;
       const compact = canonical.normalize("NFKC").replace(/[〈〉《》【】]/g, "").replace(/[　\s]+/g, "");
       const category = getKnownPriceItemCategoryForName(canonical) || getKnownPriceItemCategoryForName(raw);
+      const categoryInfo = getPriceCategoryInfo(category);
+      if (categoryInfo.major === "武器" && categoryInfo.minor === "矢弾") return true;
       if (category && ["消耗品", "ポーション", "薬草", "魔晶石", "魔符"].some(x => category.includes(x))) return true;
       if (isItemAliasGroup(canonical, "まとめ買い") || isItemAliasGroup(raw, "まとめ買い")) return true;
       return [
@@ -3688,6 +3841,7 @@
     }
 
     function renderLearnedPriceTable() {
+      renderPriceCategoryGuide();
       const table = el("learnedPriceTable");
       if (!table) return;
       const tbody = table.querySelector("tbody");
@@ -3706,13 +3860,14 @@
           td("アイテム名", inputHtml(item.name, "learnedField", `data-i="${i}" data-key="name"`)) +
           td("価格", inputHtml(item.price, "learnedField", `data-i="${i}" data-key="price"`, "number")) +
           td("略称", inputHtml((item.aliases || []).join("|"), "learnedField", `data-i="${i}" data-key="aliases"`)) +
-          td("カテゴリ", inputHtml(item.category || "", "learnedField", `data-i="${i}" data-key="category"`)) +
+          td("カテゴリ", categoryEditorHtml(item.category, "learnedField", i)) +
           td("メモ", inputHtml(item.note || "", "learnedField", `data-i="${i}" data-key="note"`)) +
           td("", `<button class="small danger deleteBtn" type="button" data-action="removeLearnedPrice" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
         tbody.appendChild(tr);
       });
     }
     function renderConfirmedPriceTable() {
+      renderPriceCategoryGuide();
       const table = el("confirmedPriceTable");
       if (!table) return;
       const tbody = table.querySelector("tbody");
@@ -3720,19 +3875,48 @@
       const items = state.confirmedPriceItems || [];
       if (!items.length) {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td colspan="7" class="hint">登録済み価格辞書はまだありません。価格候補を整えて「整理済みの全件を辞書へ登録」を押してください。</td>`;
+        tr.innerHTML = `<td colspan="7" class="hint">価格CSVを統合するか、価格候補を整理して辞書へ登録してください。</td>`;
         tbody.appendChild(tr);
-        return;
       }
-      items.forEach((item, i) => {
+      const categorySelect = el("dictionaryCategory");
+      const chosen = categorySelect.value;
+      const majorSelect = el("dictionaryMajorCategory"), major = majorSelect.value;
+      majorSelect.innerHTML = '<option value="">すべて</option>' + PRICE_CATEGORY_GROUPS.map(group => '<option value="' + group.name + '">' + group.name + '</option>').join("") + '<option value="custom">自由カテゴリ・未設定</option>';
+      majorSelect.value = major;
+      const categories = [...new Set(items.map(item => getPriceCategoryInfo(item.category)).filter(info => !major || (major === "custom" ? !info.major : info.major === major)).map(info => info.key))].sort(comparePriceCategories);
+      categorySelect.innerHTML = '<option value="">すべて</option>' + categories.map(category => {
+        const info = getPriceCategoryInfo(category);
+        return '<option value="' + esc(JSON.stringify(category)) + '">' + esc(major && info.major ? (info.minor || "種類未指定") : info.label) + '</option>';
+      }).join("");
+      if (categories.some(category => JSON.stringify(category) === chosen)) categorySelect.value = chosen;
+      const category = categorySelect.value ? JSON.parse(categorySelect.value) : null;
+      const query = el("dictionarySearch").value.normalize("NFKC").toLowerCase().trim();
+      const sort = el("dictionarySort").value;
+      const rows = items.map((item, i) => ({ item, i })).filter(({ item }) =>
+        (!major || (major === "custom" ? !getPriceCategoryInfo(item.category).major : getPriceCategoryInfo(item.category).major === major)) &&
+        (category === null || getPriceCategoryInfo(item.category).key === category) &&
+        (!query || [item.name, ...(item.aliases || []), item.note || ""].some(value => String(value).normalize("NFKC").toLowerCase().includes(query)))
+      ).sort((a, b) => comparePriceCategories(a.item.category, b.item.category) ||
+        (sort === "name" ? 0 : (toNumber(a.item.price) - toNumber(b.item.price)) * (sort === "priceDesc" ? -1 : 1)) ||
+        a.item.name.localeCompare(b.item.name, "ja") || a.i - b.i);
+      el("dictionaryViewStatus").textContent = "表示" + rows.length + "件／登録" + items.length + "件（大分類・小分類別）";
+      if (items.length && !rows.length) tbody.innerHTML = '<tr><td colspan="7" class="hint">条件に一致するアイテムはありません。</td></tr>';
+      let lastCategory = null;
+      rows.forEach(({ item, i }) => {
+        const info = getPriceCategoryInfo(item.category);
+        if (lastCategory !== info.key) {
+          const heading = document.createElement("tr"); heading.className = "dictionaryCategory";
+          heading.innerHTML = '<td colspan="7">' + esc(info.label) + '</td>';
+          tbody.appendChild(heading); lastCategory = info.key;
+        }
         const tr = document.createElement("tr");
         tr.innerHTML =
           td("アイテム名", inputHtml(item.name, "confirmedField", `data-i="${i}" data-key="name"`)) +
           td("価格", inputHtml(item.price, "confirmedField", `data-i="${i}" data-key="price"`, "number")) +
           td("略称", inputHtml((item.aliases || []).join("|"), "confirmedField", `data-i="${i}" data-key="aliases"`)) +
-          td("カテゴリ", inputHtml(item.category || "", "confirmedField", `data-i="${i}" data-key="category"`)) +
+          td("カテゴリ", categoryEditorHtml(item.category, "confirmedField", i)) +
           td("メモ", inputHtml(item.note || "", "confirmedField", `data-i="${i}" data-key="note"`)) +
-          td("", `<button class="small" type="button" data-action="returnConfirmedPrice" data-i="${i}">候補へ戻す</button>`, "mobileNoLabel deleteCell") +
+          td("", `<button class="small" type="button" data-action="returnConfirmedPrice" data-i="${i}" ${toNumber(item.price, 0) === 0 ? 'disabled title="0Gの品は辞書内で編集してください"' : ""}>候補へ戻す</button>`, "mobileNoLabel deleteCell") +
           td("", `<button class="small danger deleteBtn" type="button" data-action="removeConfirmedPrice" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
         tbody.appendChild(tr);
       });
@@ -3745,7 +3929,7 @@
       const items = groupProcessDefinitions(state.processCsvItems || []);
       if (!items.length) {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td colspan="13" class="hint">加工CSVは未読込です。上部の「辞書・強化データ設定」から読み込んでください。</td>`;
+        tr.innerHTML = `<td colspan="13" class="hint">加工CSVは未読込です。この欄の「強化CSV」から読み込めます。</td>`;
         tbody.appendChild(tr);
         return;
       }
@@ -4382,12 +4566,16 @@
       const c = String(itemCategory || "").trim();
       if (!context) return true;
       if (!c) return true; // 空欄カテゴリは getPresetSuggestions 側で3文字以上に制限する
+      const info = getPriceCategoryInfo(c);
+      // 矢弾は辞書では武器の小分類だが、購入入力の候補は消耗品欄に表示する。
+      if (info.major === "武器" && info.minor === "矢弾") return context === "consumable";
+      if (info.major) return PRICE_CATEGORY_GROUPS[info.groupIndex].context === context;
       if (context === "equipment") {
         return ["武器", "防具", "武器防具", "武器・防具", "武器防具等", "装備", "非金属鎧", "金属鎧", "盾"].some(x => c.includes(x));
       }
       if (context === "accessory") return c.includes("装飾品");
       if (context === "consumable") return ["消耗品", "ポーション", "薬草", "魔晶石", "魔符"].some(x => c.includes(x));
-      if (context === "other") return ["ゴーレム", "騎獣", "魔神", "冒険道具", "フレーバー", "その他"].some(x => c.includes(x));
+      if (context === "other") return ["ゴーレム", "騎獣", "魔神", "冒険道具", "冒険者技能用", "フレーバー", "その他"].some(x => c.includes(x));
       return true;
     }
     function getPresetSuggestions(query, context = "") {
@@ -4532,7 +4720,9 @@
       if (action === "learnedField") {
         const item = state.learnedPriceItems[i];
         if (!item) return;
-        if (key === "aliases") {
+        if (key === "category" || key === "categoryMajor") {
+          updatePriceCategoryField(item, target);
+        } else if (key === "aliases") {
           item.aliases = String(value || "").split("|").map(v => v.trim()).filter(Boolean);
         } else if (key === "price") {
           item.price = toNumber(value, 0);
@@ -4549,7 +4739,9 @@
       if (action === "confirmedField") {
         const item = state.confirmedPriceItems[i];
         if (!item) return;
-        if (key === "aliases") {
+        if (key === "category" || key === "categoryMajor") {
+          updatePriceCategoryField(item, target);
+        } else if (key === "aliases") {
           item.aliases = String(value || "").split("|").map(v => v.trim()).filter(Boolean);
         } else if (key === "price") {
           item.price = toNumber(value, 0);
@@ -4558,7 +4750,7 @@
         }
         item.name = canonicalizeLearnedPriceName(item.name);
         item.updatedAt = new Date().toISOString().slice(0, 10);
-        state.confirmedPriceItems = (state.confirmedPriceItems || []).filter(x => normalizeName(x.name) && toNumber(x.price, 0) > 0);
+        state.confirmedPriceItems = (state.confirmedPriceItems || []).filter(x => normalizeName(x.name) && toNumber(x.price, 0) >= 0);
         saveConfirmedPrices();
         generateOutputs();
         return;
@@ -4867,8 +5059,23 @@
       const file = e.target.files && e.target.files[0];
       if (!file) return;
       const text = await file.text();
-      loadPriceCsvText(text, true);
+      previewPriceDictionaryCsv(text, file.name);
+      e.target.value = "";
     });
+    el("applyPriceDictionaryImportBtn").addEventListener("click", applyPriceDictionaryImport);
+    el("cancelPriceDictionaryImportBtn").addEventListener("click", closePriceDictionaryImport);
+    el("retryLegacyPriceImportBtn").addEventListener("click", () => {
+      const text = localStorage.getItem("sw25_price_csv_text");
+      if (text) previewPriceDictionaryCsv(text, "以前保存した価格CSV", true);
+    });
+    el("dictionaryBackupBtn").addEventListener("click", openSettingsBackup);
+    el("dictionarySearch").addEventListener("input", renderConfirmedPriceTable);
+    el("dictionaryCategory").addEventListener("change", renderConfirmedPriceTable);
+    el("dictionaryMajorCategory").addEventListener("change", () => { el("dictionaryCategory").value = ""; renderConfirmedPriceTable(); });
+    el("repairLearnedCategoriesBtn").addEventListener("click", () => repairPriceCategories("learned"));
+    el("repairConfirmedCategoriesBtn").addEventListener("click", () => repairPriceCategories("confirmed"));
+    el("dictionarySort").addEventListener("change", renderConfirmedPriceTable);
+    el("refreshDictionaryViewBtn").addEventListener("click", renderConfirmedPriceTable);
     el("clearProcessCsvBtn").addEventListener("click", async () => {
       const ok = await showConfirm("保存済み武器防具強化データを削除します。\n現在画面に入力済みの加工は消えません。", { confirmText: "削除" });
       if (!ok) return;
@@ -4876,19 +5083,6 @@
       state.processCsvItems = [];
       state.processCsvCount = 0;
       rebuildProcessMaster();
-      updateCsvStatuses();
-      renderAll();
-      generateOutputs();
-    });
-    el("clearPriceCsvBtn").addEventListener("click", async () => {
-      const ok = await showConfirm("保存済みアイテム価格データを削除します。\n現在画面に入力済みの価格は消えません。", { confirmText: "削除" });
-      if (!ok) return;
-      localStorage.removeItem("sw25_price_csv_text");
-      state.pricePreset = {};
-      state.pricePresetAliases = {};
-      state.pricePresetItems = [];
-      state.priceCsvCount = 0;
-      renderPresetDatalist();
       updateCsvStatuses();
       renderAll();
       generateOutputs();
@@ -4991,6 +5185,7 @@
         if (e.key === "Escape") { e.preventDefault(); e.target.closest("[data-title-editor]").hidden = true; return; }
       }
       if (e.key === "Escape") {
+        closePriceDictionaryImport();
         closeHelp();
         closeCharacterJson();
         closeSettingsBackup();
@@ -5044,7 +5239,6 @@
       generateOutputs();
       showToast(`${moved}件を登録済み価格辞書へ移しました`);
     });
-    el("clearLearnedPriceBtn").addEventListener("click", clearAllLearnedPrices);
 
     el("themeBtn").addEventListener("click", () => {
       const headerMenu = document.querySelector(".headerMenu");
@@ -5112,7 +5306,6 @@
       if (savedProcessCsv) loadProcessCsvText(savedProcessCsv, false);
       loadCustomProcessItems();
       const savedPriceCsv = localStorage.getItem("sw25_price_csv_text");
-      if (savedPriceCsv) loadPriceCsvText(savedPriceCsv, false);
       state.equipment = [blankEquipment()];
       state.accessories = ACCESSORY_PARTS.map(part => blankAccessory(part));
       state.consumables = [blankConsumable()];
@@ -5122,6 +5315,12 @@
       renderAll();
       generateOutputs();
       refreshServerJsonList();
+      if (savedPriceCsv) {
+        el("dataSettingsSection").open = true; el("confirmedPriceSection").open = true;
+        el("retryLegacyPriceImportBtn").hidden = false;
+        el("priceDictionaryImportStatus").textContent = "以前の価格CSVが残っています。確認後に登録済み価格辞書へ統合します。取消した場合は元データを保持します。";
+        previewPriceDictionaryCsv(savedPriceCsv, "以前保存した価格CSV", true);
+      }
     })();
   </script>
 </body>
