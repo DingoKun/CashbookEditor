@@ -1,10 +1,12 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.5.16
+  version: v1.5.18
   date: 2026-10-18
   versioning: previous v26 is treated as 0.26
   notes:
+    - v1.5.18：装備情報と取引履歴の表示を分離し、履歴の一括開閉・見出し変更を追加
+    - v1.5.17：追加計上しない装備の0表示を履歴参照へ変更し、色の凡例を追加
     - v1.5.16：データなしの加工CSVひな形をHTML内から生成し、価格サンプルリンクを削除
     - v1.5.15：JSON出力の長文比較を変更行・変更部分の強調表示へ改善
     - v1.5.14：URL読込を主操作へ変更し、使い方を最新機能に更新
@@ -26,7 +28,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.5.16</title>
+  <title>SW2.5 収支・持ち物エディタ v1.5.18</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -493,6 +495,17 @@
     details.section > summary::-webkit-details-marker { display: none; }
     .summaryLeft { display: flex; align-items: center; gap: 6px; min-width: 0; }
     .summaryTitle { overflow-wrap: anywhere; }
+    .historyHeader { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 14px 0 6px; scroll-margin-top: 12px; }
+    .historyHeader h2 { font-size: 14px; margin: 0; }
+    .historyHeader .toolbar { margin: 0; }
+    .historyLinks { margin-left: auto; font-size: 11px; }
+    .historyStatus { font-size: 10px; color: var(--muted); overflow-wrap: anywhere; }
+    .historyStatus.needsReview { color: #8a5200; }
+    .sectionTitleEditor { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 8px; }
+    .sectionTitleEditor[hidden] { display: none; }
+    .sectionTitleEditor input { flex: 1 1 180px; min-width: 0; }
+    .sectionTitleEditor .hint { flex-basis: 100%; margin: 0; }
+    #equipmentSection { scroll-margin-top: 12px; }
     .summaryCount {
       display: inline-flex;
       align-items: center;
@@ -720,6 +733,17 @@
     .ledgerTable th:nth-child(7) { width: 8%; }
     .incomeRow td { background: #edf8f0; }
     .transferRow td { background: #eef5fc; }
+    .gridTable tr.historyCoveredRow > td { background: #f5f7fa; }
+    .gridTable tr.costExcluded > td { background: #fff7f7; }
+    .priceState { flex: 1 1 50px; min-width: 50px; font-size: 11px; line-height: 24px; white-space: nowrap; color: #52606d; }
+    .accountingLegend { margin: 4px 0 8px; font-size: 11px; }
+    .accountingLegend .legendChips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .legendChip { border: 1px solid var(--line); border-radius: 4px; padding: 2px 5px; color: var(--text); }
+    .legendNeutral { background: #f5f7fa; }
+    .legendExcluded { background: #fff7f7; }
+    .legendIncome { background: #edf8f0; }
+    .legendTransfer { background: #eef5fc; }
+    .accountingLegend summary { cursor: pointer; color: var(--accent); margin-top: 4px; }
     .priceEditor { display: flex; align-items: center; gap: 4px; }
     .priceEditor > input { flex: 1 1 50px; width: 0; min-width: 50px; }
     .purchaseCostControl { display: flex; align-items: center; gap: 3px; margin: 0; flex: 0 0 auto; font-size: 11px; line-height: 16px; white-space: nowrap; }
@@ -881,7 +905,7 @@
       <div>
         <div class="titleLine">
           <h1>SW2.5 収支・持ち物エディタ</h1>
-          <span class="version">v1.5.16</span>
+          <span class="version">v1.5.18</span>
         </div>
         <p class="lead">ゆとシートのURLから読み込み、収支・持ち物を整理してテキストやJSONで出力します。</p>
       </div>
@@ -918,6 +942,15 @@
             <div class="helpStep"><strong>3．所持数・購入履歴を整理する</strong><p>履歴があるシートでは、消耗品・カードの現在所持数と過去の購入数を分けます。カードの購入額は「購入・売却履歴」で編集し、新しい購入は「購入を記録」で追加します。読込時の現在数は支出に加えません。</p></div>
             <div class="helpStep"><strong>4．変更を確認して出力する</strong><p>テキストをコピーしてゆとシートへ貼り付けるか、「キャラクターJSON出力・変更確認」で反映する項目を選んでJSONを保存します。未チェックの項目は元の記載を保持します。出力したJSONはゆとシート側で取り込み、確認して保存してください。</p></div>
           </div>
+          <details><summary>価格表示と色の見方</summary>
+            <p>「履歴参照」は無料や価格不明ではなく、装備欄から購入費を追加しない状態です。購入額は収支履歴側で確認します。個別の購入記録との一致を保証する「計上済み」表示ではありません。新しい購入費を足す場合だけ「別途計上」を選びます。</p>
+            <p>灰色は追加計上なし、薄赤は計算から除外、薄緑の取引行は収入、薄青の取引行は預金・貸付・借入・返済です。白は通常の編集行、青い見出しはデザイン上の色です。数字の0は入力額が0、または価格未入力の場合です。JSON比較の赤・緑は変更前・変更後で、収支の色とは別です。</p>
+          </details>
+          <details><summary>装備情報と収支履歴・見出しの整理</summary>
+            <p>上の武器・防具は装備情報と加工、下の収支履歴は購入・売却などの取引です。同じ商品が両方にあっても、「履歴参照」の装備行から購入費を追加することはありません。移動リンクで行き来できます。</p>
+            <p>読込済みの履歴は原則閉じます。見出しのない取引と未計算の式を含む枠は開いて表示し、件数を見出しに表示します。「すべて開く／閉じる」は履歴だけに適用します。</p>
+            <p>「名称変更」で見出しを編集して「保存」すると、出力する収支履歴の見出しも変わります。JSON出力では収支履歴の変更を選んだ場合だけ反映します。「読込時の原文を見る」は変更前の参考表示です。</p>
+          </details>
           <p class="helpNote">ゆとシートへの自動保存はしません。スマホでは表を左右にスクロールできます。数量は <code>*3</code> の形式で出力されます。</p>
           <details><summary>価格候補・辞書・設定の保存</summary>
             <p>「価格候補（整理中）」で名称・略称・価格を整え、「整理済みの全件を辞書へ登録」を押すと登録済み価格辞書へ移せます。収入や既存の取引額は通常価格として自動収集しません。</p>
@@ -950,12 +983,12 @@
         </div>
         <div class="modalBody">
           <div class="changelogItem">
+            <h3>v1.5.18</h3>
+            <ul><li>装備情報と取引履歴の見出しを区別し、相互移動・履歴の一括開閉・見出し変更を追加。読込済み履歴は原則閉じ、要確認の枠は開いて表示。</li></ul>
+            <h3>v1.5.17</h3>
+            <ul><li>追加計上しない装備は「0」ではなく「履歴参照」と表示。灰色と薄赤の意味を分離し、色・価格表示の凡例を追加。</li></ul>
             <h3>v1.5.16</h3>
             <ul><li>加工CSVは列名だけのひな形をダウンロード可能にし、価格サンプルリンクを削除。</li><li>加工CSVの記入・受け渡し方法と、再配布時の注意を追加。</li></ul>
-            <h3>v1.5.15</h3>
-            <ul><li>JSON出力の収支履歴・所持品比較は変更行のみ表示し、変わった金額などを強調。全文は折りたたみで確認。</li></ul>
-            <h3>v1.5.14</h3>
-            <ul><li>URL読込を主操作として強調し、JSONファイル読込は補助へ移動。</li><li>使い方をURL読込・別途計上・カード管理・変更確認付き出力・設定バックアップに合わせて更新。</li></ul>
             <p class="hint">過去の詳細な更新履歴はリポジトリ内の <code>CHANGELOG.md</code> に移動しました。</p>
           </div>
         </div>
@@ -1208,6 +1241,10 @@
       <div id="calcWarning" class="calcWarning"></div>
       <p id="transferSummary" class="hint" role="status" title="残り＝初期所持金＋収入−支出−預金・貸付＋借金" hidden></p>
       <p id="ledgerModeHint" class="hint" role="status" aria-live="polite"></p>
+      <div class="accountingLegend" id="accountingLegend">
+        <div class="legendChips"><span class="legendChip legendNeutral">灰：追加計上なし</span><span class="legendChip legendExcluded">薄赤：計算から除外</span><span class="legendChip legendIncome">薄緑：収入</span><span class="legendChip legendTransfer">薄青：預金・借金</span></div>
+        <details><summary>価格の「履歴参照」と0の違い</summary><p>「履歴参照」は、この装備欄から追加の購入費を計上しない表示です。購入額は収支履歴側で確認してください。同じ装備の購入記録が見つかったことを保証する表示ではありません。「別途計上」を選ぶと数値を入力して追加できます。数字の0は入力額が0、または価格が未入力の場合です。</p><p>白は通常の編集行です。青い見出し・枠は計上状態を示しません。JSON変更確認の赤・緑は変更前・変更後を示します。</p></details>
+      </div>
     </div>
 
     <details class="section">
@@ -1223,14 +1260,15 @@
       </div>
     </details>
 
-    <details class="section" open>
-      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">武器・防具等</span></span><span class="summaryHint">クリックで開閉</span></summary>
+    <details class="section" id="equipmentSection" open>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">武器・防具（装備情報・加工）</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="sectionBody">
         <div class="toolbar">
           <label style="display:flex; align-items:center; gap:6px; margin:0;">
             <input id="equipmentMemoOutput" type="checkbox" class="checkBig" />
             メモを収支欄に出力
           </label>
+          <a class="historyLinks" href="#cashbookHistorySection" data-action="goHistory">購入・売却履歴へ</a>
         </div>
         <table class="gridTable" id="equipmentTable">
           <thead><tr><th>種別</th><th>アイテム名</th><th>価格</th><th>数量</th><th>メモ</th><th></th></tr></thead>
@@ -1241,7 +1279,7 @@
     </details>
 
     <details class="section" open>
-      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">装飾品</span></span><span class="summaryHint">クリックで開閉</span></summary>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">装飾品（装備情報）</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="sectionBody">
         <div class="toolbar">
           <label style="display:flex; align-items:center; gap:6px; margin:0;">
@@ -1298,12 +1336,19 @@
       </div>
     </details>
 
-    <div id="otherSections"></div>
-
-    <details class="section">
-      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">既存の収支履歴（参考）</span></span><span class="summaryHint">クリックで開閉</span></summary>
-      <div class="sectionBody"><textarea id="cashbookPreview" placeholder="元データの収支履歴を表示"></textarea></div>
-    </details>
+    <section aria-labelledby="cashbookHistoryTitle">
+      <div class="historyHeader" id="cashbookHistorySection" tabindex="-1">
+        <h2 id="cashbookHistoryTitle">収支履歴｜購入・売却・収入など</h2>
+        <div class="toolbar"><button id="expandHistoryBtn" type="button" class="small">すべて開く</button><button id="collapseHistoryBtn" type="button" class="small">すべて閉じる</button></div>
+        <a class="historyLinks" href="#equipmentSection" data-action="goEquipment">装備情報へ戻る</a>
+      </div>
+      <p class="hint" id="historySectionsHint"></p>
+      <div id="otherSections"></div>
+      <details class="section" id="historyOriginal">
+        <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">読込時の原文を見る（参考）</span></span><span class="summaryHint">クリックで開閉</span></summary>
+        <div class="sectionBody"><textarea id="cashbookPreview" readonly aria-label="読込時の収支履歴（参考）" placeholder="元データの収支履歴を表示"></textarea></div>
+      </details>
+    </section>
 
     <details class="section" open>
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">出力</span></span><span class="summaryHint">クリックで開閉</span></summary>
@@ -1333,7 +1378,7 @@
   </div>
 
   <script>
-    const VERSION = "v1.5.16";
+    const VERSION = "v1.5.18";
     const SETTINGS_EXPORT_KIND = "sw25-cashbook-editor-settings";
     const SETTINGS_EXPORT_FORMAT_VERSION = 1;
     const ACCESSORY_CODES = { "頭": "Head", "顔": "Face", "耳": "Ear", "首": "Neck", "背": "Back", "右": "HandR", "左": "HandL", "腰": "Waist", "足": "Leg", "他": "Other" };
@@ -2510,7 +2555,7 @@
     }
     function blankConsumable() { return { name: "", price: 0, count: 1, includeItemList: true, excludeCost: false, note: "" }; }
     function blankCard() { return { color: "赤", rank: "A", price: getCardPrice("A", "赤"), count: 1, includeItemList: true, excludeCost: false, note: "" }; }
-    function blankOtherSection(title = "その他", open = true) { return { title, open, memoOutput: false, items: [{ name: "", price: 0, count: 1, includeItemList: false, excludeCost: false, note: "" }] }; }
+    function blankOtherSection(title = "その他", open = true) { return { title, open, memoOutput: false, items: [{ name: "", price: 0, count: 1, sign: -1, includeItemList: false, excludeCost: false, note: "" }] }; }
     function markStockOnly(row, note = "所持品欄の現在数（支出計算なし）") {
       row.source = "stock";
       row.stockOnly = true;
@@ -2754,7 +2799,7 @@
     }
     function characterEditSignature() {
       return JSON.stringify([state.equipment, state.accessories, state.consumables, state.cards,
-        state.otherSections, el("cashbookOutput").value, el("itemListOutput").value]);
+        state.otherSections.map(({ open, ...section }) => section), el("cashbookOutput").value, el("itemListOutput").value]);
     }
     function captureCharacterBaseline() {
       characterBaseline = {
@@ -3184,6 +3229,7 @@
       el("historyHonor").value = data.history0Honor || "";
       el("historyNote").value = data.history0Note || "";
       el("cashbookPreview").value = decodeYutoText(data.cashbook || "");
+      el("historyOriginal").open = false;
 
       state.equipment = parseEquipment(data);
       state.accessories = parseAccessories(data);
@@ -3536,14 +3582,14 @@
     function parseLedgerSections(cashbook) {
       const sections = [];
       let current = null;
-      const section = title => { current = { title, open: true, memoOutput: true, ledger: true, items: [] }; sections.push(current); };
+      const section = (title, noHeading = false) => { current = { title, noHeading, open: false, memoOutput: true, ledger: true, items: [] }; sections.push(current); };
       for (const raw of decodeYutoText(cashbook).split("\n")) {
         const line = raw.trim();
         if (!line) continue;
         const heading = line.match(/^\[[>vVＶｖ]\](.*)$/);
         if (heading) { section(heading[1].trim() || "詳細"); continue; }
         if (/^\[---+\]/.test(line)) { current = null; continue; }
-        if (!current) section("未分類");
+        if (!current) section("未分類", true);
         const parsed = parseLedgerLine(line);
         if (!parsed || /^\/\/|^\||^\*+/.test(line)) {
           current.items.push({ name: raw, price: 0, count: 1, sign: -1, note: "",
@@ -3555,7 +3601,10 @@
         row.sourceSignature = transactionSignature(row);
         current.items.push(row);
       }
-      return sections.filter(sec => sec.items.length);
+      return sections.filter(sec => sec.items.length).map(sec => {
+        sec.open = sec.noHeading || sec.items.some(row => row.uncalculated);
+        return sec;
+      });
     }
     function parseOtherSectionsFromCashbook(cashbook) {
       if (state.ledgerMode) return parseLedgerSections(cashbook);
@@ -3728,7 +3777,7 @@
     function renderAll() {
       const uncalculated = state.otherSections.flatMap(sec => sec.items).filter(row => row.uncalculated).length;
       el("ledgerModeHint").textContent = state.ledgerMode
-        ? "収支履歴を基準に計算しています。装備しているだけでは購入費を追加しません。新たに購入する行だけ、価格欄の『別途計上』を選んでください。" +
+        ? "収支履歴を基準に計算しています。装備しているだけでは購入費を追加しません。装備の『履歴参照』は追加計上なしの意味です。新たに購入する行だけ『別途計上』を選んでください。" +
           (uncalculated ? " 未対応の式が" + uncalculated + "行あります。原文を残し、計算には含めていません。" : "")
         : "";
       renderEquipmentTable();
@@ -3750,14 +3799,20 @@
         (!row.historyCovered ? "checked" : "") + '>別途計上</label>';
     }
     function priceEditorHtml(row, action, attrs, kind, i, p = "") {
-      return '<div class="priceEditor">' + inputHtml(row.price, action, attrs, "number") + purchaseCostControl(row, kind, i, p) + '</div>';
+      const price = row.historyCovered
+        ? '<span class="priceState" title="収支履歴で管理し、この行から購入費を追加しません">' + (String(row.name || "").trim() ? "履歴参照" : "—") + '</span>'
+        : inputHtml(row.price, action, attrs, "number");
+      return '<div class="priceEditor">' + price + purchaseCostControl(row, kind, i, p) + '</div>';
+    }
+    function costRowClass(row) {
+      return row.historyCovered || row.stockOnly ? "historyCoveredRow" : row.excludeCost ? "costExcluded" : "";
     }
     function renderEquipmentTable() {
       const tbody = el("equipmentTable").querySelector("tbody");
       tbody.innerHTML = "";
       state.equipment.forEach((row, i) => {
         const tr = document.createElement("tr");
-        tr.className = row.excludeCost ? "costExcluded" : "";
+        tr.className = costRowClass(row);
         tr.innerHTML =
           td("種別", selectHtml(EQUIPMENT_TYPES, row.type, "equipType", `data-i="${i}"`)) +
           td("アイテム名", `<div class="stack">${inputHtml(row.name, "equipField", `data-i="${i}" data-key="name"`)}<div class="toolbar"><button class="small" type="button" data-action="addProcess" data-i="${i}">加工を追加</button><span class="badge">加工数: ${row.processes.length}</span></div></div>`) +
@@ -3773,7 +3828,7 @@
           const max = getMaxProcessCount(proc.name);
           const countOptions = Array.from({ length: max }, (_, idx) => String(idx + 1));
           const sub = document.createElement("tr");
-          sub.className = proc.excludeCost ? "subRow costExcluded" : "subRow";
+          sub.className = "subRow " + costRowClass(proc);
           sub.innerHTML =
             td("種別", `<div class="partMark">┗ 加工</div>`) +
             td("アイテム名", `<div class="stack">${selectHtml(names, proc.name, "processName", `data-i="${i}" data-p="${p}"`)}${proc.name === "その他" ? inputHtml(proc.customName, "processField", `data-i="${i}" data-p="${p}" data-key="customName"`) : ""}<div class="row" style="grid-template-columns: 1fr 1fr; gap: 6px;"><div>${selectHtml(PROCESS_RANKS, proc.rank, "processRank", `data-i="${i}" data-p="${p}"`)}</div><div>${multi ? selectHtml(countOptions, String(proc.count), "processCount", `data-i="${i}" data-p="${p}"`) : `<select disabled><option>1</option></select>`}</div></div></div>`) +
@@ -3791,7 +3846,7 @@
       tbody.innerHTML = "";
       state.accessories.forEach((row, i) => {
         const tr = document.createElement("tr");
-        tr.className = row.excludeCost ? "costExcluded" : "";
+        tr.className = costRowClass(row);
         const partCell = row.child ? `<div class="partMark">┗</div>` : selectHtml(ACCESSORY_PARTS, row.part, "accessoryField", `data-i="${i}" data-key="part"`);
         tr.innerHTML =
           td("部位", partCell) +
@@ -3814,11 +3869,11 @@
         : "";
       state.consumables.forEach((row, i) => {
         const tr = document.createElement("tr");
-        tr.className = row.excludeCost ? "costExcluded" : "";
+        tr.className = costRowClass(row);
         tr.innerHTML =
           td("所持品に含める", `<div class="center">${checkboxHtml(row.includeItemList, "consumableField", `data-i="${i}" data-key="includeItemList"`)}</div>`) +
           td("アイテム名", inputHtml(row.name, "consumableField", `data-i="${i}" data-key="name"`)) +
-          td("価格", inputHtml(row.price, "consumableField", `data-i="${i}" data-key="price"`, "number")) +
+          td("価格", row.stockOnly ? '<span class="priceState" title="現在の所持数だけを管理し、支出には加えません">所持数のみ</span>' : inputHtml(row.price, "consumableField", `data-i="${i}" data-key="price"`, "number")) +
           td("数量", inputHtml(row.count, "consumableField", `data-i="${i}" data-key="count" min="1"`, "number")) +
           td("メモ", inputHtml(row.note, "consumableField", `data-i="${i}" data-key="note"`)) +
           td("", `<button class="small danger deleteBtn" type="button" data-action="removeConsumable" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
@@ -3839,7 +3894,7 @@
         : (state.hasCashbookCardPurchase ? "収支履歴にカード購入記録があります。重複している場合は差額の原因候補から除外できます。" : "");
       state.cards.forEach((row, i) => {
         const tr = document.createElement("tr");
-        tr.className = row.excludeCost ? "costExcluded" : "";
+        tr.className = costRowClass(row);
         tr.innerHTML =
           td("所持品に含める", `<div class="center">${checkboxHtml(row.includeItemList, "cardField", `data-i="${i}" data-key="includeItemList"`)}</div>`) +
           td("色", selectHtml(CARD_COLORS.map(v => v[0]), row.color, "cardField", `data-i="${i}" data-key="color"`)) +
@@ -3854,8 +3909,10 @@
       el("cardPurchaseHistory").hidden = !state.ledgerMode || !groups.length;
       el("cardPurchaseCount").textContent = groups.reduce((sum, group) => sum + group.items.length, 0) + "件";
       el("cardPurchaseRows").innerHTML = groups.map(({ section, s, items }) =>
-        `<div class="cardHistoryGroup"><div class="toolbar"><strong>${esc(section.title)}</strong>
-          <label><input type="checkbox" class="checkBig" data-action="otherMemoOutput" data-s="${s}" ${section.memoOutput ? "checked" : ""}> メモ出力</label></div>
+        `<div class="cardHistoryGroup"><div class="toolbar"><strong>${esc(otherSectionDisplayTitle(section))}</strong>
+          <label><input type="checkbox" class="checkBig" data-action="otherMemoOutput" data-s="${s}" ${section.memoOutput ? "checked" : ""}> メモ出力</label>
+          <button type="button" class="small" data-action="editSectionTitle" data-s="${s}">名称変更</button></div>
+          ${sectionTitleEditorHtml(section, s)}
           <div class="ledgerScroll">${ledgerTableHtml(items, s)}</div></div>`).join("");
     }
 
@@ -3869,6 +3926,46 @@
       return state.otherSections.map((section, s) => ({ section, s,
         items: section.items.map((item, i) => ({ item, i })).filter(({ item }) => isCardLedgerRow(item))
       })).filter(group => group.items.length);
+    }
+    function otherSectionDisplayTitle(section) {
+      return section.noHeading && section.title === "未分類" ? "見出しなし" : section.title;
+    }
+    function sectionTitleEditorHtml(section, s) {
+      return `<div class="sectionTitleEditor" data-title-editor="${s}" hidden>
+        <input type="text" aria-label="収支の見出し" maxlength="120" data-section-title-input="${s}" value="${esc(otherSectionDisplayTitle(section))}">
+        <button type="button" class="small" data-action="saveSectionTitle" data-s="${s}">保存</button>
+        <button type="button" class="small" data-action="cancelSectionTitle" data-s="${s}">取消</button>
+        <p class="hint">保存すると出力する履歴の見出しも変わります。JSONでは収支履歴を選択した場合だけ反映します。</p>
+        <span class="hint" role="alert" data-title-error></span></div>`;
+    }
+    function saveSectionTitle(editor, s) {
+      const section = state.otherSections[s];
+      if (!editor || !section) return;
+      const input = editor.querySelector("[data-section-title-input]");
+      const value = input.value.trim();
+      if (!value || /[\r\n]/.test(value) || value.length > 120) {
+        editor.querySelector("[data-title-error]").textContent = "見出しは1～120文字の1行で入力してください。";
+        input.focus(); return;
+      }
+      // 開いて保存しただけなら、表示用の「見出しなし」を元の原文見出しへ書き戻さない。
+      if (value !== otherSectionDisplayTitle(section)) section.title = value;
+      renderCardTable(); renderOtherSections(); generateOutputs();
+    }
+    function setHistorySectionsOpen(open) {
+      state.otherSections.forEach(section => { section.open = open; });
+      document.querySelectorAll("#otherSections details[data-other-index]").forEach(details => { details.open = open; });
+      el("cardPurchaseHistory").open = open;
+      if (!open) el("historyOriginal").open = false;
+    }
+    function refreshHistorySectionStatus() {
+      document.querySelectorAll("[data-history-status]").forEach(node => {
+        const section = state.otherSections[Number(node.dataset.historyStatus)];
+        if (!section) return;
+        const items = section.items.filter(item => !isCardLedgerRow(item));
+        const uncalculated = items.filter(item => item.uncalculated).length;
+        node.textContent = `${items.length}行` + (uncalculated ? `・未計算${uncalculated}行` : "");
+        node.classList.toggle("needsReview", uncalculated > 0);
+      });
     }
     function ledgerTableHtml(items, s) {
       return `<table class="gridTable ledgerTable">
@@ -3899,6 +3996,10 @@
     function renderOtherSections() {
       const root = el("otherSections");
       root.innerHTML = "";
+      el("cashbookHistoryTitle").textContent = state.ledgerMode ? "収支履歴｜購入・売却・収入など" : "その他の購入・所持品";
+      el("historySectionsHint").textContent = state.ledgerMode
+        ? "装備情報とは別の取引記録です。カードの取引は上のマテリアルカード欄に表示します。読込時は、見出しのない取引・未計算の式を含む枠を開きます。"
+        : "その他の購入や所持品を整理します。値が入った枠は開いて表示します。";
       state.otherSections.forEach((section, s) => {
         const visibleItems = section.items.map((item, i) => ({ item, i })).filter(({ item }) => !isCardLedgerRow(item));
         if (!visibleItems.length && (section.items.length || state.ledgerMode && section.title === "マテリアルカード")) return;
@@ -3908,7 +4009,7 @@
         details.open = Boolean(section.open);
         details.addEventListener("toggle", () => { section.open = details.open; });
         details.innerHTML = `
-          <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">${esc(section.title)}</span></span><span class="summaryHint">クリックで開閉</span></summary>
+          <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">${section.ledger ? "収支履歴：" : ""}${esc(otherSectionDisplayTitle(section))}</span><span class="historyStatus" data-history-status="${s}"></span></span><span class="summaryHint">クリックで開閉</span></summary>
           <div class="sectionBody">
             <div class="toolbar">
               <label style="display:flex; align-items:center; gap:6px; margin:0;">
@@ -3916,8 +4017,11 @@
                 メモを収支欄に出力
               </label>
               <button type="button" data-action="addOtherItem" data-s="${s}">行を追加</button>
+              <button type="button" class="small" data-action="editSectionTitle" data-s="${s}">名称変更</button>
               <button type="button" class="danger" data-action="removeOtherSection" data-s="${s}">この枠を削除</button>
             </div>
+            ${sectionTitleEditorHtml(section, s)}
+            ${section.items.some(isCardLedgerRow) ? '<p class="hint">この見出しのカード取引は、上のマテリアルカード欄に表示しています。名称変更はそちらにも反映します。</p>' : ""}
             ${ledgerTableHtml(visibleItems, s)}
           </div>`;
         root.appendChild(details);
@@ -3925,8 +4029,9 @@
       const add = document.createElement("div");
       add.className = "toolbar";
       add.style.marginBottom = "12px";
-      add.innerHTML = `<button type="button" data-action="addOtherSection">その他枠を追加</button>`;
+      add.innerHTML = `<button type="button" data-action="addOtherSection">${state.ledgerMode ? "取引欄を追加" : "その他枠を追加"}</button>`;
       root.appendChild(add);
+      refreshHistorySectionStatus();
     }
 
     function costAmount(row) {
@@ -4230,6 +4335,7 @@
         ...state.otherSections.flatMap(sec => sec.items.filter(r => r.includeItemList).map(itemLine))
       ].filter(Boolean);
       el("itemListOutput").value = itemLines.join("\n");
+      refreshHistorySectionStatus();
       updateTotals();
     }
 
@@ -4381,7 +4487,14 @@
             row.isTransaction = true;
           } else row[key] = numeric ? Math.max(0, toNumber(value, key === "count" ? 1 : 0)) : value;
           if (row.transferAccount || Number(row.sign) === 1) row.includeItemList = false;
-          if (key === "sign" || commit && key === "name") { renderCardTable(); renderOtherSections(); }
+          const moved = (key === "sign" || commit && key === "name") && Boolean(target.closest("#cardPurchaseRows")) !== isCardLedgerRow(row);
+          // 名前を確定するたびに表を作り直すと、次に触った価格欄の入力が失われる。
+          // カード欄との表示場所が変わる場合だけ移動し、移動先は開いておく。
+          if (moved) {
+            if (isCardLedgerRow(row)) el("cardPurchaseHistory").open = true;
+            else state.otherSections[s].open = true;
+          }
+          if (key === "sign" || moved) { renderCardTable(); renderOtherSections(); }
           generateOutputs(); return; // 個別取引の価格・摘要を共通辞書へ登録しない
         }
       }
@@ -4609,6 +4722,25 @@
       const i = Number(t.dataset.i);
       const s = Number(t.dataset.s);
       const p = Number(t.dataset.p);
+      if (action === "goHistory" || action === "goEquipment") {
+        e.preventDefault();
+        const target = el(action === "goHistory" ? "cashbookHistorySection" : "equipmentSection");
+        if (action === "goEquipment") target.open = true;
+        const focusTarget = action === "goEquipment" ? target.querySelector("summary") : target;
+        focusTarget.focus({ preventScroll: true }); target.scrollIntoView({ block: "start" }); return;
+      }
+      if (action === "editSectionTitle") {
+        const editor = t.closest(".sectionBody, .cardHistoryGroup").querySelector("[data-title-editor]");
+        editor.hidden = false;
+        const input = editor.querySelector("input"); input.value = otherSectionDisplayTitle(state.otherSections[s]);
+        editor.querySelector("[data-title-error]").textContent = ""; input.focus(); input.select(); return;
+      }
+      if (action === "saveSectionTitle" || action === "cancelSectionTitle") {
+        const editor = t.closest("[data-title-editor]");
+        if (action === "saveSectionTitle") saveSectionTitle(editor, s);
+        else editor.hidden = true;
+        return;
+      }
       if (action === "openDiffCheck") { openDiffCheck(); return; }
       if (action === "excludeCostRow" || action === "includeCostRow") {
         const excluded = action === "excludeCostRow";
@@ -4626,9 +4758,16 @@
       if (action === "removeAccessory") state.accessories.splice(i, 1);
       if (action === "removeConsumable") state.consumables.splice(i, 1);
       if (action === "removeCard") state.cards.splice(i, 1);
-      if (action === "addOtherItem") state.otherSections[s].items.push({ name: "", price: 0, count: 1, sign: -1, isTransaction: Boolean(state.otherSections[s].ledger), includeItemList: false, excludeCost: false, note: "" });
+      if (action === "addOtherItem") {
+        state.otherSections[s].open = true;
+        state.otherSections[s].items.push({ name: "", price: 0, count: 1, sign: -1, isTransaction: Boolean(state.otherSections[s].ledger), includeItemList: false, excludeCost: false, note: "" });
+      }
       if (action === "removeOtherItem") state.otherSections[s].items.splice(i, 1);
-      if (action === "addOtherSection") state.otherSections.push(blankOtherSection(`その他_${state.otherSections.length + 1}`, true));
+      if (action === "addOtherSection") {
+        const section = blankOtherSection(`${state.ledgerMode ? "新しい取引" : "その他"}_${state.otherSections.length + 1}`, true);
+        if (state.ledgerMode) { section.ledger = true; section.items[0].isTransaction = true; }
+        state.otherSections.push(section);
+      }
       if (action === "removeOtherSection") state.otherSections.splice(s, 1);
       if (action === "removeLearnedPrice") {
         const removed = state.learnedPriceItems.splice(i, 1);
@@ -4660,6 +4799,8 @@
     });
 
     el("addEquipmentBtn").addEventListener("click", () => { state.equipment.push(blankEquipment()); renderAll(); generateOutputs(); });
+    el("expandHistoryBtn").addEventListener("click", () => setHistorySectionsOpen(true));
+    el("collapseHistoryBtn").addEventListener("click", () => setHistorySectionsOpen(false));
     el("addAccessoryBtn").addEventListener("click", () => { state.accessories.push(blankAccessory("他")); renderAll(); generateOutputs(); });
     el("addConsumableBtn").addEventListener("click", () => { state.consumables.push(blankConsumable()); renderAll(); generateOutputs(); });
     el("addCardBtn").addEventListener("click", () => { const row = blankCard(); if (state.ledgerMode) markStockOnly(row, ""); state.cards.push(row); renderAll(); generateOutputs(); });
@@ -4815,6 +4956,10 @@
       if (e.target === el("confirmModal")) closeConfirm(false);
     });
     document.addEventListener("keydown", e => {
+      if (e.target.matches("[data-section-title-input]")) {
+        if (e.key === "Enter") { e.preventDefault(); saveSectionTitle(e.target.closest("[data-title-editor]"), Number(e.target.dataset.sectionTitleInput)); return; }
+        if (e.key === "Escape") { e.preventDefault(); e.target.closest("[data-title-editor]").hidden = true; return; }
+      }
       if (e.key === "Escape") {
         closeHelp();
         closeCharacterJson();
