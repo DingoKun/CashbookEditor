@@ -1,10 +1,11 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.5.18
+  version: v1.5.19
   date: 2026-10-18
   versioning: previous v26 is treated as 0.26
   notes:
+    - v1.5.19：編集した収支を安全確認後に初期選択し、JSONへの反映漏れを案内
     - v1.5.18：装備情報と取引履歴の表示を分離し、履歴の一括開閉・見出し変更を追加
     - v1.5.17：追加計上しない装備の0表示を履歴参照へ変更し、色の凡例を追加
     - v1.5.16：データなしの加工CSVひな形をHTML内から生成し、価格サンプルリンクを削除
@@ -28,7 +29,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.5.18</title>
+  <title>SW2.5 収支・持ち物エディタ v1.5.19</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -905,7 +906,7 @@
       <div>
         <div class="titleLine">
           <h1>SW2.5 収支・持ち物エディタ</h1>
-          <span class="version">v1.5.18</span>
+          <span class="version">v1.5.19</span>
         </div>
         <p class="lead">ゆとシートのURLから読み込み、収支・持ち物を整理してテキストやJSONで出力します。</p>
       </div>
@@ -957,6 +958,7 @@
             <p>価格CSV・加工CSV・価格辞書などの設定はこのブラウザに保存されます。別端末へ移すときは「設定」→「設定バックアップ」を使います。キャラクターJSONや作業中の編集内容は設定バックアップには含みません。</p>
           </details>
           <details><summary>JSON出力時の確認と原文の保持</summary>
+            <p>装備の価格・数量・加工費や取引を編集した場合、読込時の記録の保持を確認できれば「編集した収支を反映する」を初期選択します。自動整形だけの変更、競合、最新版取得失敗、原文保持を確認できない場合は初期OFFです。チェックを外せば、装備情報だけの反映も可能です。</p>
             <p>長い文章の比較は変更行だけを表示し、金額など変わった部分を強調します。全文は「全文を確認」で開けます。チェックは行単位ではなく、収支履歴・所持品などの欄全体の置換を選ぶ操作です。</p>
             <p>URLから読み込んだ場合、出力前に保存済み最新版を確認します。競合した項目は初期状態で未選択です。ゆとシート側の未保存編集は確認できません。</p>
             <p>無編集なら「変更せずJSONを出力」で元データを保持できます。「自動生成テキストへの置換（任意）」は手動編集ではありません。元の自由記述・未分類の所持品が省かれる場合があるため、必要なときだけ選択してください。武器の性能は自動計算しません。</p>
@@ -983,12 +985,12 @@
         </div>
         <div class="modalBody">
           <div class="changelogItem">
+            <h3>v1.5.19</h3>
+            <ul><li>装備価格・数量・加工費などの編集を含め、記録保持を確認できる収支変更はJSON出力で初期選択。自動整形・競合などはOFFを維持し、未選択の収支は反映しない旨を表示。</li></ul>
             <h3>v1.5.18</h3>
             <ul><li>装備情報と取引履歴の見出しを区別し、相互移動・履歴の一括開閉・見出し変更を追加。読込済み履歴は原則閉じ、要確認の枠は開いて表示。</li></ul>
             <h3>v1.5.17</h3>
             <ul><li>追加計上しない装備は「0」ではなく「履歴参照」と表示。灰色と薄赤の意味を分離し、色・価格表示の凡例を追加。</li></ul>
-            <h3>v1.5.16</h3>
-            <ul><li>加工CSVは列名だけのひな形をダウンロード可能にし、価格サンプルリンクを削除。</li><li>加工CSVの記入・受け渡し方法と、再配布時の注意を追加。</li></ul>
             <p class="hint">過去の詳細な更新履歴はリポジトリ内の <code>CHANGELOG.md</code> に移動しました。</p>
           </div>
         </div>
@@ -1035,6 +1037,7 @@
           <p id="characterJsonStatus" role="status" aria-live="polite"></p>
           <p class="hint">チェックした項目だけを変更します。未チェックの項目は元の記載（URL読込時は取得した最新版）を保持します。価格・加工費は収支履歴への反映を選んだ場合のみ書き出します。武器の性能値は自動設定しません。</p>
           <div id="characterJsonChanges"></div>
+          <p id="characterCashbookNotice" class="hint" role="status" aria-live="polite" hidden></p>
           <label id="characterJsonFallbackLabel" hidden><input id="characterJsonFallback" type="checkbox" /> 最新版を確認できていない元の読込データを土台に出力する</label>
           <p class="hint">ゆとシート側の未保存編集と、JSON出力後の更新は確認できません。取り込み後はゆとシート側で内容を確認して保存してください。</p>
           <button id="downloadCharacterJsonBtn" type="button" class="primary" disabled>選択した変更でJSONを出力</button>
@@ -1378,7 +1381,7 @@
   </div>
 
   <script>
-    const VERSION = "v1.5.18";
+    const VERSION = "v1.5.19";
     const SETTINGS_EXPORT_KIND = "sw25-cashbook-editor-settings";
     const SETTINGS_EXPORT_FORMAT_VERSION = 1;
     const ACCESSORY_CODES = { "頭": "Head", "顔": "Face", "耳": "Ear", "首": "Neck", "背": "Back", "右": "HandR", "左": "HandL", "腰": "Waist", "足": "Leg", "他": "Other" };
@@ -2849,7 +2852,17 @@
       const labels = { Name: "名称", Note: "備考・効果", Own: "専用化", Add: "追加枠", Category: "種別" };
       return Object.entries(labels).find(([suffix]) => key.endsWith(suffix))?.[1] || key;
     }
-    function buildCharacterChanges(latest) {
+    // 初期チェックの安全確認。編集前に自動生成だけで元の非空行を落としていないか調べる。
+    // 空行・行端の空白・折りたたみの開閉記号以外は同じ行を順序付きで照合する。
+    // 編集後の削除や金額変更はユーザーの操作なので、比較先は読込直後の生成テキスト。
+    function cashbookOriginalLinesRetained(original, generated) {
+      const lines = text => decodeYutoText(text).split("\n").map(line => line.trim().replace(/^\[[vVｖＶ]\]/, "[>]")).filter(Boolean);
+      const before = lines(original), after = lines(generated);
+      let i = 0;
+      for (const line of after) if (i < before.length && line === before[i]) i++;
+      return i === before.length;
+    }
+    function buildCharacterChanges(latest, { latestUnavailable = false } = {}) {
       const base = characterBaseline;
       const groups = [], issues = [];
       const add = (title, writes, options = {}) => {
@@ -2976,13 +2989,24 @@
       // 未編集の再構成案は任意の折りたたみへ分離し、実際の編集と誤認させない。
       for (const [key, outputId, label] of [["cashbook", "cashbookOutput", "収支履歴"], ["items", "itemListOutput", "所持品欄"]]) {
         const value = el(outputId).value;
-        add(label + "を出力テキストで置き換える", { [key]: value }, {
-          defaultOff: true, automatic: characterFieldEqual(base[key], value)
+        const automatic = characterFieldEqual(base[key], value);
+        const isEditedCashbook = key === "cashbook" && !automatic;
+        const retained = isEditedCashbook && cashbookOriginalLinesRetained(base.raw.cashbook, base.cashbook);
+        add(isEditedCashbook ? "編集した収支を反映する（欄全体を更新）" : label + "を出力テキストで置き換える", { [key]: value }, {
+          defaultOff: !isEditedCashbook || !retained || latestUnavailable, automatic,
+          selectionNote: !isEditedCashbook ? "" : latestUnavailable
+            ? "最新版を確認できないため初期OFFです。元データを土台にする場合も、収支の反映は別途選択してください。"
+            : retained ? "装備の価格・数量・加工費などを含む収支の編集を反映します。初期選択していますが、装備情報だけを反映する場合は外せます。"
+            : "読込時の記録が自動生成で欠けないことを確認できないため初期OFFです。元の文章と全文を確認してから選択してください。"
         });
       }
       groups.forEach(group => {
         group.conflict = Object.keys(group.writes).some(key =>
           !characterFieldEqual(latest[key], base.raw[key]) && !characterFieldEqual(latest[key], group.writes[key]));
+        if (group.conflict && Object.hasOwn(group.writes, "cashbook")) {
+          group.defaultOff = true;
+          group.selectionNote = "収支履歴はゆとシート側でも変更されているため初期OFFです。反映する場合は差分を確認してください。";
+        }
       });
       return { groups, issues };
     }
@@ -3094,6 +3118,7 @@
       const token = {}, signature = characterEditSignature();
       characterExportDraft = token;
       el("characterJsonChanges").textContent = "";
+      el("characterCashbookNotice").hidden = true;
       el("characterJsonStatus").textContent = characterSourceUrl ? "保存済みの最新版を確認しています…" : "元のJSONファイルを土台に出力します（URLによる最新版確認なし）。";
       el("downloadCharacterJsonBtn").disabled = true;
       el("characterJsonFallbackLabel").hidden = true;
@@ -3107,13 +3132,14 @@
       }
       if (characterExportDraft !== token) return;
       if (statusText) el("characterJsonStatus").textContent = statusText;
-      const { groups, issues } = buildCharacterChanges(latest);
+      const { groups, issues } = buildCharacterChanges(latest, { latestUnavailable: failed });
       characterExportDraft = { latest, groups, failed, signature };
       el("characterJsonFallbackLabel").hidden = !failed;
       const groupHtml = (group, i) => '<div class="jsonChange ' + (group.conflict ? "conflict" : "") + '">' +
           '<label><input type="checkbox" class="checkBig characterChangeSelect" data-i="' + i + '" ' +
           (!group.conflict && !group.defaultOff ? "checked" : "") + '>' + esc(group.title) + '</label>' +
           (group.conflict ? "<p>ゆとシート側でも変更されています。チェックすると、以下の変更はツール側を採用します。</p>" : "") +
+          (group.selectionNote ? '<p class="hint">' + esc(group.selectionNote) + '</p>' : "") +
           Object.entries(group.writes).map(([key, value]) => renderCharacterFieldDiff(key, latest[key], value)).join("") +
           (Object.hasOwn(group.writes, "cashbook") || Object.hasOwn(group.writes, "items") ?
             '<p class="hint">欄全体を置き換えます。売却・返金・自由記述・現在所持数など、元の記載が消えないか確認してください。</p>' : "") +
@@ -3132,6 +3158,10 @@
         (characterExportDraft.failed && !el("characterJsonFallback").checked);
       const count = document.querySelectorAll(".characterChangeSelect:checked").length;
       el("downloadCharacterJsonBtn").textContent = count ? `選択した${count}件を反映してJSONを出力` : "変更せずJSONを出力";
+      const cashbookIndex = characterExportDraft?.groups?.findIndex(group => !group.automatic && Object.hasOwn(group.writes, "cashbook")) ?? -1;
+      const notice = el("characterCashbookNotice");
+      notice.hidden = cashbookIndex < 0 || Boolean(document.querySelector(`.characterChangeSelect[data-i="${cashbookIndex}"]:checked`));
+      notice.textContent = notice.hidden ? "" : "編集した収支履歴は、このJSONに反映しません。装備の追加を選んでも購入費は反映されません。収支への変更も反映する場合はチェックしてください。";
     }
     function downloadCharacterJson() {
       const draft = characterExportDraft;
