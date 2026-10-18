@@ -1,37 +1,32 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.4.7
-  date: 2026-06-29
+  version: v1.5.16
+  date: 2026-10-18
   versioning: previous v26 is treated as 0.26
   notes:
+    - v1.5.16：データなしの加工CSVひな形をHTML内から生成し、価格サンプルリンクを削除
+    - v1.5.15：JSON出力の長文比較を変更行・変更部分の強調表示へ改善
+    - v1.5.14：URL読込を主操作へ変更し、使い方を最新機能に更新
+    - v1.5.13：カードの新規購入名を「赤A」形式へ統一
+    - v1.5.12：JSON出力で編集差分と自動生成テキストへの任意の置換を区別
+    - v1.5.11：装飾品の行を1段に圧縮し、カードの現在数と購入履歴を一か所に集約
+    - v1.5.10：預金・貸付・借入・返済に対応し、価格欄をコンパクト化
+    - v1.5.9：既存収支を優先し、収入の符号と装備の重複計上を修正
+    - v1.5.8：URL読込と変更確認付きキャラクターJSON出力を追加
     - GitHub Pages 向けに不要な再読込・サンプル系ボタンを削除
-    - v1.4.7：矢・太矢の12本セット表記統一と、公開用の非公式・権利表示を追加
-    - v1.4.6：価格候補・登録済み価格辞書の列幅を、名称と略称を広く、価格・カテゴリ・メモをコンパクトに調整
-    - v1.4.5：主要編集欄を常時展開へ戻し、収支サマリーをPC1段・狭幅2段のカード表示へ調整
-    - v1.4.4：収支サマリーとスマホ表示を省スペース化し、使い方モーダルを追加
-    - v1.4.3：管理欄へ件数表示を移動し、価格候補・登録済み辞書の名称と設定欄の開閉表示を改善
-    - v1.4.2：HTML内に残っていた未使用のマテリアルカード価格定数を削除
-    - v1.4.1：学習価格の一括確定と、CSV加工データの参照・手動登録コピーを追加
-    - v1.4.0：確定価格辞書と武器防具強化データの手動編集機能を追加
-    - v1.3.2：価格候補を1回の選択で確実に適用するようイベント順序を修正
-    - v1.3.1：上部UIを整理し、低頻度の辞書・強化設定と履歴・配色をコンパクト化
-    - v1.3.0：ローカルHTTP検証用JSON一覧とページ内確認ダイアログを追加
-    - v1.2.9：入力途中の名称を誤学習しないよう、手動学習を明示操作に変更
-    - v1.2.8：公式表記に合わせた3商品の名称統一を追加
-    - v1.2.7：消耗品・カード・能力増強品などの表記揺れを統一
-    - v1.2.6：通称（正式名称）形式から正式名称を抽出
-    - v1.2.5：学習価格名からアビスカース接頭辞を除外し、既存データも移行
-    - v1.2.4：JSON装備名からアビスカース接頭辞を分離
-    - v1.2.3：CSV未読込時の複数回加工とアビスカース名照合を改善
-    - v1.2.2：カテゴリ候補・アビスカース名照合・学習価格重複チェックを追加
-    - v1.2.1：学習価格管理機能を追加
+    - v1.5.7：価格候補（整理中）で複数選択・一括削除できるよう改善
+    - v1.5.6：設定エクスポート／インポートを追加し、正本と検証コピーの運用を整理
+    - v1.5.5：HTML内の更新履歴を直近分だけに短縮し、過去履歴をCHANGELOG.mdへ移動
+    - v1.5.4：まとめ買い・略称系のアイテム名補正を編集しやすいルール表へ整理
+    - v1.5.3：消耗品・マテリアルカードの購入履歴と現在所持数を分けて扱うよう改善
+    - 古い履歴は CHANGELOG.md に移動
 -->
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.4.7</title>
+  <title>SW2.5 収支・持ち物エディタ v1.5.16</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -143,6 +138,54 @@
       color: var(--text);
       font-weight: 700;
     }
+    .calcWarning .inlineAction {
+      margin-left: 8px;
+      padding: 3px 8px;
+      font-size: 12px;
+      vertical-align: middle;
+    }
+    .costExcluded {
+      background: #fff7f7;
+      opacity: .72;
+    }
+    .diffSummary {
+      margin: 0 0 10px;
+      padding: 8px 10px;
+      border-left: 4px solid var(--accent);
+      background: #f7faff;
+      line-height: 1.6;
+    }
+    .diffCandidate {
+      margin: 10px 0;
+      border: 1px solid var(--section-border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+    }
+    .diffCandidateTitle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 9px;
+      background: var(--section-bg);
+      font-weight: 900;
+      color: #1d3557;
+    }
+    .diffCandidateBody { padding: 8px; }
+    .diffCandidateReason { margin: 0 0 7px; color: var(--muted); line-height: 1.55; }
+    .diffRows {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .diffRows th, .diffRows td {
+      border: 1px solid var(--line);
+      padding: 5px 6px;
+      vertical-align: top;
+    }
+    .diffRows th { background: #fafcff; text-align: left; }
+    .diffRows td:last-child { white-space: nowrap; text-align: center; }
     .toast {
       position: fixed;
       left: 50%;
@@ -185,7 +228,7 @@
       margin-bottom: 2px;
       font-weight: 700;
     }
-    input[type="text"], input[type="number"], textarea, select {
+    input[type="text"], input[type="number"], input[type="url"], textarea, select {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 4px;
@@ -214,21 +257,6 @@
       font: inherit;
       font-weight: 700;
       cursor: pointer;
-    }
-    input[type="file"].fileMain {
-      border: 2px dashed var(--section-border);
-      border-radius: 8px;
-      padding: 12px;
-      background: #f8fbff;
-      font-size: 15px;
-      font-weight: 700;
-    }
-    input[type="file"].fileMain::file-selector-button {
-      border-color: var(--accent);
-      background: var(--accent);
-      color: #fff;
-      padding: 8px 12px;
-      font-weight: 800;
     }
     .miniActions {
       display: flex;
@@ -512,7 +540,7 @@
     #accessoryTable { min-width: 900px; }
     #consumableTable { min-width: 760px; }
     #cardTable { min-width: 760px; }
-    #learnedPriceTable { min-width: 900px; }
+    #learnedPriceTable { min-width: 960px; }
     #confirmedPriceTable { min-width: 900px; }
     #processCsvPreviewTable, #customProcessTable { min-width: 1180px; }
     .tableScrollBox {
@@ -523,12 +551,13 @@
       background: #fff;
     }
     .tableScrollBox .gridTable { margin: 0; }
-    #learnedPriceTable th:nth-child(1), #learnedPriceTable td:nth-child(1) { width: 36%; }
-    #learnedPriceTable th:nth-child(2), #learnedPriceTable td:nth-child(2) { width: 10%; }
-    #learnedPriceTable th:nth-child(3), #learnedPriceTable td:nth-child(3) { width: 26%; }
-    #learnedPriceTable th:nth-child(4), #learnedPriceTable td:nth-child(4) { width: 10%; }
-    #learnedPriceTable th:nth-child(5), #learnedPriceTable td:nth-child(5) { width: 10%; }
-    #learnedPriceTable th:nth-child(6), #learnedPriceTable td:nth-child(6) { width: 8%; }
+    #learnedPriceTable th:nth-child(1), #learnedPriceTable td:nth-child(1) { width: 6%; text-align: center; }
+    #learnedPriceTable th:nth-child(2), #learnedPriceTable td:nth-child(2) { width: 32%; }
+    #learnedPriceTable th:nth-child(3), #learnedPriceTable td:nth-child(3) { width: 9%; }
+    #learnedPriceTable th:nth-child(4), #learnedPriceTable td:nth-child(4) { width: 23%; }
+    #learnedPriceTable th:nth-child(5), #learnedPriceTable td:nth-child(5) { width: 9%; }
+    #learnedPriceTable th:nth-child(6), #learnedPriceTable td:nth-child(6) { width: 11%; }
+    #learnedPriceTable th:nth-child(7), #learnedPriceTable td:nth-child(7) { width: 10%; }
     #confirmedPriceTable th:nth-child(1), #confirmedPriceTable td:nth-child(1) { width: 34%; }
     #confirmedPriceTable th:nth-child(2), #confirmedPriceTable td:nth-child(2) { width: 10%; }
     #confirmedPriceTable th:nth-child(3), #confirmedPriceTable td:nth-child(3) { width: 18%; }
@@ -560,28 +589,21 @@
     #cardTable th:nth-child(6), #cardTable td:nth-child(6) { width: 33%; }
     #cardTable th:nth-child(7), #cardTable td:nth-child(7) { width: 8%; }
 
-    #otherSections .gridTable th:nth-child(1), #otherSections .gridTable td:nth-child(1) { width: 12%; }
-    #otherSections .gridTable th:nth-child(2), #otherSections .gridTable td:nth-child(2) { width: 30%; }
-    #otherSections .gridTable th:nth-child(3), #otherSections .gridTable td:nth-child(3) { width: 10%; }
-    #otherSections .gridTable th:nth-child(4), #otherSections .gridTable td:nth-child(4) { width: 7%; }
-    #otherSections .gridTable th:nth-child(5), #otherSections .gridTable td:nth-child(5) { width: 33%; }
-    #otherSections .gridTable th:nth-child(6), #otherSections .gridTable td:nth-child(6) { width: 8%; }
-
     /* 武器・防具等は、操作系列を狭くしてアイテム名・メモを広くする */
     #equipmentTable th:nth-child(1), #equipmentTable td:nth-child(1) { width: 12%; }
     #equipmentTable th:nth-child(2), #equipmentTable td:nth-child(2) { width: 30%; }
-    #equipmentTable th:nth-child(3), #equipmentTable td:nth-child(3) { width: 10%; }
+    #equipmentTable th:nth-child(3), #equipmentTable td:nth-child(3) { width: 16%; }
     #equipmentTable th:nth-child(4), #equipmentTable td:nth-child(4) { width: 7%; }
-    #equipmentTable th:nth-child(5), #equipmentTable td:nth-child(5) { width: 33%; }
+    #equipmentTable th:nth-child(5), #equipmentTable td:nth-child(5) { width: 27%; }
     #equipmentTable th:nth-child(6), #equipmentTable td:nth-child(6) { width: 8%; }
 
     /* 装飾品は「部位+追加枠+アイテム名」の合計を、武器防具の「種別+アイテム名」と揃える */
     #accessoryTable th:nth-child(1), #accessoryTable td:nth-child(1) { width: 7%; }
     #accessoryTable th:nth-child(2), #accessoryTable td:nth-child(2) { width: 5%; }
     #accessoryTable th:nth-child(3), #accessoryTable td:nth-child(3) { width: 30%; }
-    #accessoryTable th:nth-child(4), #accessoryTable td:nth-child(4) { width: 10%; }
+    #accessoryTable th:nth-child(4), #accessoryTable td:nth-child(4) { width: 16%; }
     #accessoryTable th:nth-child(5), #accessoryTable td:nth-child(5) { width: 7%; }
-    #accessoryTable th:nth-child(6), #accessoryTable td:nth-child(6) { width: 33%; }
+    #accessoryTable th:nth-child(6), #accessoryTable td:nth-child(6) { width: 27%; }
     #accessoryTable th:nth-child(7), #accessoryTable td:nth-child(7) { width: 8%; }
     .stack { display: flex; flex-direction: column; gap: 3px; }
     .center {
@@ -667,6 +689,54 @@
       box-shadow: 0 12px 36px rgba(0,0,0,.28);
     }
     .modalPanel.confirmPanel { width: min(520px, 100%); }
+    .jsonChange { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px; margin: 10px 0; }
+    .jsonChange.conflict { border-left-color: #b45309; background: #fff8ed; }
+    .jsonChange label { display: flex; align-items: center; gap: 8px; }
+    .jsonChange pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow: auto; font-size: 12px; margin: 4px 0; }
+    .jsonChange ins { text-decoration: none; background: #e5f5e9; }
+    .jsonChange del { background: #ffeded; }
+    .jsonDiffBlock { border: 1px solid var(--line); border-radius: 4px; padding: 5px; margin: 5px 0; }
+    .jsonDiffLineLabel { color: var(--muted); font-size: 10px; }
+    .jsonDiffFull > summary { cursor: pointer; color: var(--accent); font-size: 12px; padding: 4px 0; }
+    #characterAutoFormatChanges { margin-top: 8px; }
+    #characterAutoFormatChanges > summary { cursor: pointer; padding: 5px 0; color: var(--accent); }
+    #characterJsonStatus { white-space: pre-line; }
+    #characterUrl { width: 100%; min-width: 0; min-height: 34px; }
+    .characterUrlPanel { padding: 8px; border: 1px solid var(--section-border); border-radius: 6px; background: var(--section-bg); }
+    .characterUrlRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+    #loadCharacterUrlBtn { min-height: 34px; padding: 5px 14px; white-space: nowrap; }
+    #jsonFileFallback { margin-top: 7px; }
+    #jsonFileFallback > summary { cursor: pointer; padding: 4px 0; color: var(--muted); font-size: 12px; }
+    #jsonFileFallback > summary:hover { color: var(--accent); }
+    #jsonFile { font-size: 12px; padding: 4px; }
+    #jsonFile::file-selector-button { border-color: var(--line); background: #f4f4f5; color: var(--text); font-weight: 400; }
+    .ledgerTable { min-width: 920px; }
+    .ledgerTable th:nth-child(1) { width: 13%; }
+    .ledgerTable th:nth-child(2) { width: 8%; }
+    .ledgerTable th:nth-child(3) { width: 32%; }
+    .ledgerTable th:nth-child(4) { width: 13%; }
+    .ledgerTable th:nth-child(5) { width: 7%; }
+    .ledgerTable th:nth-child(6) { width: 19%; }
+    .ledgerTable th:nth-child(7) { width: 8%; }
+    .incomeRow td { background: #edf8f0; }
+    .transferRow td { background: #eef5fc; }
+    .priceEditor { display: flex; align-items: center; gap: 4px; }
+    .priceEditor > input { flex: 1 1 50px; width: 0; min-width: 50px; }
+    .purchaseCostControl { display: flex; align-items: center; gap: 3px; margin: 0; flex: 0 0 auto; font-size: 11px; line-height: 16px; white-space: nowrap; }
+    .purchaseCostControl input { width: 13px; height: 13px; margin: 0; flex: 0 0 auto; }
+    #cardTable.cardStockMode { min-width: 640px; }
+    #cardTable.cardStockMode .cardPriceCell { display: none; }
+    #cardTable.cardStockMode th:nth-child(1), #cardTable.cardStockMode td:nth-child(1) { width: 14%; }
+    #cardTable.cardStockMode th:nth-child(2), #cardTable.cardStockMode td:nth-child(2) { width: 15%; }
+    #cardTable.cardStockMode th:nth-child(3), #cardTable.cardStockMode td:nth-child(3) { width: 12%; }
+    #cardTable.cardStockMode th:nth-child(5), #cardTable.cardStockMode td:nth-child(5) { width: 12%; }
+    #cardTable.cardStockMode th:nth-child(6), #cardTable.cardStockMode td:nth-child(6) { width: 39%; }
+    #cardTable.cardStockMode th:nth-child(7), #cardTable.cardStockMode td:nth-child(7) { width: 8%; }
+    .ledgerScroll { max-width: 100%; overflow-x: auto; }
+    .cardHistoryGroup { margin-top: 6px; }
+    #cardPurchaseHistory > summary { cursor: pointer; padding: 5px 0; color: var(--accent); }
+    #cardPurchaseHistory[hidden], #cardMemoTools[hidden] { display: none; }
+    #characterJsonFallbackLabel[hidden] { display: none; }
     .confirmMessage { margin: 0; line-height: 1.7; white-space: pre-line; }
     .confirmActions { justify-content: flex-end; padding: 0 12px 12px; }
     .serverJsonTools {
@@ -690,7 +760,6 @@
       color: #1d3557;
     }
     .loadCardBody { padding: 8px; }
-    .jsonLoadGrid { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(260px, 1fr); gap: 8px; }
     .dataSettings { border-top: 1px solid var(--section-border); }
     .dataSettings > summary {
       list-style: none;
@@ -712,7 +781,6 @@
     .dataPanel { padding: 7px; border: 1px solid var(--line); border-radius: 6px; background: #fff; }
     .dataPanelTitle { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin: 0 0 5px; color: #1d3557; font-size: 13px; }
     @media (max-width: 700px) {
-      .jsonLoadGrid { grid-template-columns: 1fr; }
       .dataSettings > summary { align-items: flex-start; }
     }
     .modalHeader {
@@ -770,14 +838,12 @@
       .stat { padding: 5px 6px; }
       .stat .label { font-size: 10px; }
       .stat .value { font-size: 18px; }
-      input[type="file"].fileMain { padding: 8px; font-size: 14px; }
-      input[type="file"].fileMain::file-selector-button { padding: 6px 8px; }
       .gridTable {
         width: max-content;
         min-width: 680px;
       }
       #equipmentTable, #accessoryTable { min-width: 900px; }
-      input[type="text"], input[type="number"], textarea, select {
+      input[type="text"], input[type="number"], input[type="url"], textarea, select {
         font-size: 16px; /* iOS Safari の自動ズーム対策 */
       }
       button { font-size: 13px; }
@@ -798,6 +864,8 @@
       }
     }
     @media (max-width: 540px) {
+      .characterUrlRow { grid-template-columns: minmax(0, 1fr); }
+      #characterUrl, #loadCharacterUrlBtn { min-height: 38px; }
       .topbar { flex-wrap: wrap; }
       .topbar > div:first-child { flex: 1 1 100%; min-width: 0; }
       .titleLine { flex-wrap: nowrap; gap: 4px; }
@@ -813,9 +881,9 @@
       <div>
         <div class="titleLine">
           <h1>SW2.5 収支・持ち物エディタ</h1>
-          <span class="version">v1.4.7</span>
+          <span class="version">v1.5.16</span>
         </div>
-        <p class="lead">ゆとシートJSONを読み込み、収支欄テキストと持ち物リストを生成します。</p>
+        <p class="lead">ゆとシートのURLから読み込み、収支・持ち物を整理してテキストやJSONで出力します。</p>
       </div>
       <div class="topActions">
         <button id="helpBtn" type="button" class="headerHelp">？ 使い方</button>
@@ -823,6 +891,7 @@
           <summary>設定</summary>
           <div class="headerMenuPanel">
             <button id="themeBtn" type="button" class="small">カラー選択</button>
+            <button id="settingsBackupBtn" type="button" class="small">設定バックアップ</button>
             <button id="changelogBtn" type="button" class="small">更新履歴</button>
           </div>
         </details>
@@ -844,12 +913,32 @@
         </div>
         <div class="modalBody">
           <div class="helpSteps">
-            <div class="helpStep"><strong>1．キャラクターJSONを読み込む</strong><p>ゆとシートから出力したJSONファイルを、画面上部の「JSONファイル」で選択します。</p></div>
-            <div class="helpStep"><strong>2．価格と数量を確認する</strong><p>必要に応じて価格CSVを読み込み、各行の価格・数量・加工内容を確認します。価格CSVがない項目は0Gになることがあります。</p></div>
-            <div class="helpStep"><strong>3．価格候補を整理する</strong><p>JSONから収集された価格は「価格候補（整理中）」に入ります。名称や略称を整えた後、まとめて辞書へ登録できます。</p></div>
-            <div class="helpStep"><strong>4．出力をコピーする</strong><p>「出力」を開き、収支履歴テキストまたは所持品テキストをコピーしてゆとシートへ貼り付けます。</p></div>
+            <div class="helpStep"><strong>1．キャラクターURLから読み込む</strong><p>ゆとシートの閲覧URLを画面上部に貼り付け、「URLから読込」を押します。保存済みのデータを取得するので、ゆとシート側の編集は先に保存してください。読み込めない場合は「JSONファイルから読み込む（補助）」を開いてファイルを選択します。</p></div>
+            <div class="helpStep"><strong>2．収支と装備を確認する</strong><p>履歴があれば実際の取引を基準に計算し、装備の定価を重ねて支出にしません。新たな購入費だけ、価格横の「別途計上」を選びます。履歴がない場合は価格×数量で購入費を計算します。価格・加工CSVは「辞書・強化データ設定」から読み込めます。</p></div>
+            <div class="helpStep"><strong>3．所持数・購入履歴を整理する</strong><p>履歴があるシートでは、消耗品・カードの現在所持数と過去の購入数を分けます。カードの購入額は「購入・売却履歴」で編集し、新しい購入は「購入を記録」で追加します。読込時の現在数は支出に加えません。</p></div>
+            <div class="helpStep"><strong>4．変更を確認して出力する</strong><p>テキストをコピーしてゆとシートへ貼り付けるか、「キャラクターJSON出力・変更確認」で反映する項目を選んでJSONを保存します。未チェックの項目は元の記載を保持します。出力したJSONはゆとシート側で取り込み、確認して保存してください。</p></div>
           </div>
-          <p class="helpNote">武器・防具、装飾品、消耗品などの編集欄は最初から開いています。スマホでは表を左右にスクロールできます。数量は <code>*3</code> の形式で出力されます。</p>
+          <p class="helpNote">ゆとシートへの自動保存はしません。スマホでは表を左右にスクロールできます。数量は <code>*3</code> の形式で出力されます。</p>
+          <details><summary>価格候補・辞書・設定の保存</summary>
+            <p>「価格候補（整理中）」で名称・略称・価格を整え、「整理済みの全件を辞書へ登録」を押すと登録済み価格辞書へ移せます。収入や既存の取引額は通常価格として自動収集しません。</p>
+            <p>価格CSV・加工CSV・価格辞書などの設定はこのブラウザに保存されます。別端末へ移すときは「設定」→「設定バックアップ」を使います。キャラクターJSONや作業中の編集内容は設定バックアップには含みません。</p>
+          </details>
+          <details><summary>JSON出力時の確認と原文の保持</summary>
+            <p>長い文章の比較は変更行だけを表示し、金額など変わった部分を強調します。全文は「全文を確認」で開けます。チェックは行単位ではなく、収支履歴・所持品などの欄全体の置換を選ぶ操作です。</p>
+            <p>URLから読み込んだ場合、出力前に保存済み最新版を確認します。競合した項目は初期状態で未選択です。ゆとシート側の未保存編集は確認できません。</p>
+            <p>無編集なら「変更せずJSONを出力」で元データを保持できます。「自動生成テキストへの置換（任意）」は手動編集ではありません。元の自由記述・未分類の所持品が省かれる場合があるため、必要なときだけ選択してください。武器の性能は自動計算しません。</p>
+          </details>
+          <details><summary>読み取りやすい収支履歴の記入例</summary>
+            <p>1行に1取引、名前を金額の前、補足を後ろに書くと扱いやすくなります。既存の書き方を直すことは必須ではありません。</p>
+            <pre style="white-space:pre-wrap;">[&gt;]10/18
+購入品名 ::-金額 補足：メモ
+受取理由 ::+金額
+消耗品名 ::-単価*個数
+[---]</pre>
+            <p>「金額」「単価」「個数」は実際の数字に置き換えてください。公式のアイテム名・価格を示すサンプルではありません。</p>
+            <p>支出は <code>::-金額</code>、収入は <code>::+金額</code>（<code>::金額</code> でも可）、数量は <code>*個数</code>。購入履歴の個数と現在所持数は別として扱います。</p>
+            <p>預金・貸付は <code>:&gt;+金額</code>、引出・回収は <code>:&gt;-金額</code>、借入は <code>:&lt;+金額</code>、返済は <code>:&lt;-金額</code>。手元のお金と預金・借金を分けて計算します。</p>
+          </details>
         </div>
       </div>
     </div>
@@ -861,245 +950,61 @@
         </div>
         <div class="modalBody">
           <div class="changelogItem">
-            <h3>v1.4.7</h3>
-            <ul>
-              <li>矢・太矢の12本表記を、それぞれ12本セット商品「矢（12本）」「太矢（12本）」へ統一。</li>
-              <li>GitHub Pagesでの公開に備え、非公式ファンツール表記と権利表示をフッターへ追加。</li>
-            </ul>
-            <h3>v1.4.6</h3>
-            <ul>
-              <li>価格候補・登録済み価格辞書のアイテム名と略称を広げ、価格・カテゴリ・メモをコンパクト化。</li>
-              <li>登録済み価格辞書の「候補へ戻す」と「削除」を別列にし、削除列を他の編集表と同じ幅へ統一。</li>
-            </ul>
-            <h3>v1.4.5</h3>
-            <ul>
-              <li>武器・防具、装飾品、消耗品、マテリアルカード、出力をスマホでも初期展開する構成へ復帰。</li>
-              <li>収支4項目をPCでは4列1段、狭い画面では2列2段のコンパクトなカード表示へ調整。</li>
-            </ul>
-            <h3>v1.4.4</h3>
-            <ul>
-              <li>初期所持金・支出・収入・残りの表示を1行のコンパクトなサマリーへ変更。</li>
-              <li>スマホでは主要な編集欄を初期状態で畳み、入力欄・ボタン・出力欄の高さを省スペース化。</li>
-              <li>初見向けの「使い方」ボタンと画面内ガイドを追加。</li>
-            </ul>
-            <h3>v1.4.3</h3>
-            <ul>
-              <li>上部の設定欄から件数表示を外し、価格候補・登録済み価格辞書・加工データの各管理欄へ移動。</li>
-              <li>「学習価格」を「価格候補（整理中）」、「確定価格辞書」を「登録済み価格辞書」へ変更。</li>
-              <li>辞書・強化データ設定にも左側の＋／−表示を追加。</li>
-            </ul>
-            <h3>v1.4.2</h3>
-            <ul>
-              <li>価格CSV未読込時はマテリアルカード価格を0Gとする仕様を維持し、HTML内に残っていた未使用のランク別価格定数を削除。</li>
-            </ul>
-            <h3>v1.4.1</h3>
-            <ul>
-              <li>学習価格を一覧で整理した後、全件まとめて確定辞書へ移せるよう変更。</li>
-              <li>加工データ管理にCSV読込内容のランク別参照表を追加。</li>
-              <li>CSV加工を手動登録欄へコピーし、サプリメント差分などを編集できるよう改善。</li>
-            </ul>
+            <h3>v1.5.16</h3>
+            <ul><li>加工CSVは列名だけのひな形をダウンロード可能にし、価格サンプルリンクを削除。</li><li>加工CSVの記入・受け渡し方法と、再配布時の注意を追加。</li></ul>
+            <h3>v1.5.15</h3>
+            <ul><li>JSON出力の収支履歴・所持品比較は変更行のみ表示し、変わった金額などを強調。全文は折りたたみで確認。</li></ul>
+            <h3>v1.5.14</h3>
+            <ul><li>URL読込を主操作として強調し、JSONファイル読込は補助へ移動。</li><li>使い方をURL読込・別途計上・カード管理・変更確認付き出力・設定バックアップに合わせて更新。</li></ul>
+            <p class="hint">過去の詳細な更新履歴はリポジトリ内の <code>CHANGELOG.md</code> に移動しました。</p>
           </div>
-          <div class="changelogItem">
-            <h3>v1.4.0</h3>
-            <ul>
-              <li>学習候補を「確定価格辞書」へ移し、同じ名称・略称を次回以降の自動学習から除外できるよう対応。</li>
-              <li>読込済み価格CSVと確定辞書を統合したCSVの出力に対応。</li>
-              <li>武器・防具の加工名、適用対象、ランク別価格、複数回加工、メモを表形式で追加・編集できる管理欄を追加。</li>
-              <li>加工候補ではCSVより手動定義を優先し、統合CSVの出力にも対応。</li>
-            </ul>
+        </div>
+      </div>
+    </div>
+    <div id="settingsBackupModal" class="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="settingsBackupTitle">
+      <div class="modalPanel">
+        <div class="modalHeader">
+          <span id="settingsBackupTitle">設定バックアップ</span>
+          <button id="closeSettingsBackupBtn" type="button" class="small">閉じる</button>
+        </div>
+        <div class="modalBody">
+          <p class="hint">ブラウザに保存された価格候補、登録済み価格辞書、手動加工データ、テーマ色、自動収集設定をJSONで保存・復元できます。キャラクターJSONや現在の編集内容は含めません。</p>
+          <div class="helpSteps">
+            <div class="helpStep">
+              <strong>個人バックアップ</strong>
+              <p>別端末への移行向けです。読み込み済みの価格CSV・加工CSV本文も含めます。公式由来データを含む可能性があるため、公開配布には使わないでください。</p>
+              <button id="exportPersonalSettingsBtn" type="button" class="small primary">個人バックアップJSON出力</button>
+            </div>
+            <div class="helpStep">
+              <strong>共有用バックアップ</strong>
+              <p>CSV本文を含めず、整理した辞書・加工データを書き出します。データ自体の公開・再配布の可否は別途確認してください。</p>
+              <button id="exportSharedSettingsBtn" type="button" class="small">共有用JSON出力</button>
+            </div>
+            <div class="helpStep">
+              <strong>読み込み</strong>
+              <p>通常は既存データへ追加・統合します。辞書・加工データを完全に入れ替えたい場合だけ置き換えを選んでください。</p>
+              <label style="display:flex; align-items:center; gap:6px; margin:6px 0;">
+                <input id="settingsImportReplace" type="checkbox" class="checkBig" />
+                辞書・加工データを置き換える
+              </label>
+              <button id="importSettingsBtn" type="button" class="small">設定JSONを読み込む</button>
+              <input id="settingsImportFile" type="file" accept=".json,application/json" hidden />
+            </div>
           </div>
-          <div class="changelogItem">
-            <h3>v1.3.2</h3>
-            <ul>
-              <li>価格候補を押した際、入力欄のフォーカス移動より先に名称と価格を適用するよう修正。</li>
-              <li>マウス・タッチ・キーボードのいずれでも、候補を1回選ぶだけで反映されるよう改善。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.3.1</h3>
-            <ul>
-              <li>JSON読込を中心に据え、強化・価格辞書の設定を初期状態で閉じる構成へ整理。</li>
-              <li>更新履歴とカラー選択をヘッダーの小型メニューへ移動。</li>
-              <li>ゆとシートに近い青系の見出し・境界線と、省スペースな配置へ調整。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.3.0</h3>
-            <ul>
-              <li>ローカルHTTPサーバー利用時、同一フォルダ内のJSONを一覧から直接読み込める検証機能を追加。</li>
-              <li>削除・学習確認をブラウザ標準ポップアップからページ内確認ダイアログへ変更。</li>
-              <li>価格候補が適用された際、計算だけでなく価格入力欄の表示も即時更新するよう修正。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.2.9</h3>
-            <ul>
-              <li>名称の入力途中や候補選択時に、短い未確定名を自動学習しないよう変更。</li>
-              <li>現在の入力内容を確認後に保存する「現在の入力価格を学習」ボタンを追加。</li>
-              <li>自動学習の設定をJSON読込時だけに限定し、用途が分かる表記へ変更。</li>
-              <li>同価格・同カテゴリの正式名がある場合、過去に候補選択や手入力で保存された3文字以下の前方一致名を整理。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.2.8</h3>
-            <ul>
-              <li>マギスフィア小・マギスフィア(小)を「マギスフィア（小）」へ統一。</li>
-              <li>保存食1週間・保存食(1週間分)・保存食7日分を「保存食（1週間分）」へ統一。</li>
-              <li>弾丸12発・弾丸(12)・弾丸1ダースを、12発セット商品「弾丸（12発）」へ統一。</li>
-              <li>一般的な括弧内数字は数量として解釈せず、数量には従来どおり <code>*数量</code> を使用。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.2.7</h3>
-            <ul>
-              <li>魔晶石・MCC・消魔の守護石・魔符・マテリアルカードの表記揺れを統一。</li>
-              <li>能力増強の指輪・腕輪、スカウト用ツール、アウェイクポーションの一般的な略称を統一。</li>
-              <li>統一前にユーザーが入力した表記を学習価格データの略称へ自動追加。</li>
-              <li>名前の入力途中に不完全な名称を誤学習しないよう修正。</li>
-              <li>半額・自作・戦利品などの取得価格を標準価格として誤学習しないよう修正。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.2.6</h3>
-            <ul>
-              <li>「通称（正式名称）」形式の装備名は、括弧内を正式名称として読み込むよう対応。</li>
-              <li>括弧内の正式名称にアビスカース接頭辞がある場合、本体名からさらに分離。</li>
-              <li>点数・サイズ・加工メモなどの短い括弧書きは、従来どおり名称の一部として保持。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.2.5</h3>
-            <ul>
-              <li>学習価格データへ保存する際、先頭のアビスカース接頭辞を本体名から除外。</li>
-              <li>保存済みのアビスカース付き誤学習名を読込時に正規化し、同一本体の行へ統合。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.2.4</h3>
-            <ul>
-              <li>JSON装備名の先頭にあるアビスカース接頭辞を、本体名から分離するよう修正。</li>
-              <li>分離した接頭辞に対応する収支履歴の子行は、独立した加工名・加工費として保持。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.2.3</h3>
-            <ul>
-              <li>武器防具強化CSVが未読込でも、オーダーメイドの複数回指定を保持するよう修正。</li>
-              <li>収支履歴に明記された加工数量を、CSVの定義不足で1へ戻さないよう修正。</li>
-              <li>アビスカース接頭辞の照合対象を拡張し、括弧内の正式名も照合できるよう改善。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.2.2</h3>
-            <ul>
-              <li>価格候補のカテゴリを追加し、入力欄ごとの候補判定を拡張。</li>
-              <li>アビスカース接頭辞付きの名称を、元のアイテム名でも価格照合できるよう対応。</li>
-              <li>略称とアビスカース名を考慮して学習価格の重複登録を抑制。</li>
-              <li>学習価格データ管理に重複チェック機能を追加。</li>
-              <li>JSON読込時の学習結果を追加件数・更新件数で表示。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.2.1</h3>
-            <ul>
-              <li>学習価格データの一覧表示を追加。</li>
-              <li>学習したアイテムの略称・価格・カテゴリ・メモを画面上で編集できるよう対応。</li>
-              <li>学習したアイテムを個別削除できるよう対応。</li>
-              <li>JSON読込時に、保存した価格件数を表示するよう修正。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.2.0</h3>
-            <ul>
-              <li>入力・読込済み価格をブラウザに自動保存し、次回以降の候補に使えるよう追加。</li>
-              <li>学習価格データの件数表示、CSV出力、削除に対応。</li>
-              <li>ゆとシート上の残金とツール計算の残金がずれる場合、警告を表示。</li>
-              <li>コピー実行時に「コピーしました」を表示。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.1.14</h3>
-            <ul>
-              <li>カラー選択時、開閉見出しは選択色をそのまま塗らず、淡い背景色にして文字を読みやすく調整。</li>
-              <li>選択色はボタン・枠線・リンクなどのアクセントとして使うよう整理。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.1.13</h3>
-            <ul>
-              <li>読み込み時の注意書きをページ内に追加。</li>
-              <li>未知の加工を「加工名 ランク メモ」の形で分解しやすく修正。</li>
-              <li>コメント行・表組み行・見出し行を収支履歴読取対象から除外。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.1.12</h3>
-            <ul>
-              <li>装備行の価格後にメモがある場合、メモをアイテム名として誤読する問題を修正。</li>
-              <li>武器・防具本体価格と加工価格の照合優先順位を調整し、加工費を本体価格として拾いにくく修正。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.1.11</h3>
-            <ul>
-              <li>武器名に[魔][打]などのアイコンが含まれる場合でも、収支履歴の加工行を親武器へ紐づけやすく修正。</li>
-              <li>CSV未読込時や未知加工時に「Bランク」等が重複出力される問題を修正。</li>
-              <li>その他系見出しが「その他_その他_その他」のように重複する問題を修正。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.1.10</h3>
-            <ul>
-              <li>ページ内に更新履歴を確認できるボタンを追加。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.1.9</h3>
-            <ul>
-              <li>その他欄の追加行（┗）を支出計算に含めるよう修正。</li>
-              <li>ゆとシートのルビ・太字・リンク等の簡易整形記法を読み込み時に変換。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.1.8</h3>
-            <ul>
-              <li>装飾品の追加枠（┗）に記載された価格を読み込めるよう修正。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.1.7</h3>
-            <ul>
-              <li>装飾品の価格読取を修正。部位名ではなくアイテム名を照合するよう変更。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.1.6</h3>
-            <ul>
-              <li>出力欄の文言を「収支履歴テキスト」「所持品テキスト」に修正。</li>
-              <li>マテリアルカード欄の列幅を調整。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.1.5</h3>
-            <ul>
-              <li>消耗品・その他欄の列幅を調整。</li>
-              <li>所持品チェックボックスをセル中央に配置。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.1.4</h3>
-            <ul>
-              <li>残り金額の固定表示を、元の「残り」欄が見えない時だけ表示するよう修正。</li>
-              <li>「持ち物リストに含める」を「所持品に含める」に統一。</li>
-            </ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.1.3以前</h3>
-            <ul>
-              <li>サンプルCSVリンク、省スペース表示、カラー反映、残り金額固定表示などを追加。</li>
-              <li>正式版1.0で、CSVローカル読込・価格候補・メモ出力設定・その他枠などを実装。</li>
-            </ul>
-          </div>
+          <p id="settingsBackupStatus" class="hint" role="status" aria-live="polite" style="white-space:pre-line;"></p>
+        </div>
+      </div>
+    </div>
+    <div id="characterJsonModal" class="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="characterJsonTitle">
+      <div class="modalPanel">
+        <div class="modalHeader"><span id="characterJsonTitle">キャラクターJSONの変更確認</span><button id="closeCharacterJsonBtn" type="button" class="small">閉じる</button></div>
+        <div class="modalBody">
+          <p id="characterJsonStatus" role="status" aria-live="polite"></p>
+          <p class="hint">チェックした項目だけを変更します。未チェックの項目は元の記載（URL読込時は取得した最新版）を保持します。価格・加工費は収支履歴への反映を選んだ場合のみ書き出します。武器の性能値は自動設定しません。</p>
+          <div id="characterJsonChanges"></div>
+          <label id="characterJsonFallbackLabel" hidden><input id="characterJsonFallback" type="checkbox" /> 最新版を確認できていない元の読込データを土台に出力する</label>
+          <p class="hint">ゆとシート側の未保存編集と、JSON出力後の更新は確認できません。取り込み後はゆとシート側で内容を確認して保存してください。</p>
+          <button id="downloadCharacterJsonBtn" type="button" class="primary" disabled>選択した変更でJSONを出力</button>
         </div>
       </div>
     </div>
@@ -1113,24 +1018,45 @@
         </div>
       </div>
     </div>
+    <div id="diffCheckModal" class="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="diffCheckTitle">
+      <div class="modalPanel">
+        <div class="modalHeader">
+          <span id="diffCheckTitle">差額の原因候補</span>
+          <button id="closeDiffCheckBtn" type="button" class="small">閉じる</button>
+        </div>
+        <div class="modalBody">
+          <p id="diffCheckSummary" class="diffSummary"></p>
+          <div id="diffCheckContent"></div>
+        </div>
+      </div>
+    </div>
 
     <div class="card loadCard">
-      <div class="loadCardTitle"><span>キャラクターデータ読込</span><span class="badge">JSON</span></div>
-      <div class="loadCardBody jsonLoadGrid">
-        <div>
-          <label for="jsonFile">JSONファイル</label>
-          <input id="jsonFile" class="fileMain" type="file" accept=".json,application/json" />
-          <p class="hint">ゆとシートから出力したJSONを選択すると自動で読み込みます。</p>
-        </div>
-        <div id="serverJsonTools" class="serverJsonTools" hidden>
-          <label for="serverJsonSelect">ローカル検証用JSON</label>
-          <select id="serverJsonSelect"><option value="">JSONを選択</option></select>
-          <div class="miniActions">
-            <button id="loadServerJsonBtn" type="button" class="small">選択したJSONを読込</button>
-            <button id="refreshServerJsonBtn" type="button" class="small">一覧を更新</button>
-            <span id="serverJsonStatus" class="csvStatus">検索前</span>
+      <div class="loadCardTitle"><span>キャラクターデータ読込</span><span class="badge">URL読込</span></div>
+      <div class="loadCardBody">
+        <div class="characterUrlPanel">
+          <label for="characterUrl">キャラクターURL（おすすめ）</label>
+          <div class="characterUrlRow">
+            <input id="characterUrl" type="url" placeholder="ゆとシートの閲覧URLを貼り付け" aria-describedby="characterLoadStatus" />
+            <button id="loadCharacterUrlBtn" type="button" class="primary">URLから読込</button>
           </div>
+          <p id="characterLoadStatus" class="hint" role="status" aria-live="polite">閲覧URLから保存済みのキャラクターを直接読み込みます。</p>
         </div>
+        <details id="jsonFileFallback">
+          <summary>JSONファイルから読み込む（補助）</summary>
+          <label for="jsonFile">JSONファイル</label>
+          <input id="jsonFile" type="file" accept=".json,application/json" />
+          <p class="hint">URLで読み込めない場合や、保存済みJSONを使う場合はこちら。選択すると自動で読み込みます。</p>
+          <div id="serverJsonTools" class="serverJsonTools" hidden>
+            <label for="serverJsonSelect">ローカル検証用JSON</label>
+            <select id="serverJsonSelect"><option value="">JSONを選択</option></select>
+            <div class="miniActions">
+              <button id="loadServerJsonBtn" type="button" class="small">選択したJSONを読込</button>
+              <button id="refreshServerJsonBtn" type="button" class="small">一覧を更新</button>
+              <span id="serverJsonStatus" class="csvStatus">検索前</span>
+            </div>
+          </div>
+        </details>
       </div>
       <details class="dataSettings" id="dataSettingsSection">
         <summary>
@@ -1143,7 +1069,13 @@
               <h2 class="dataPanelTitle">武器防具強化データ</h2>
               <label for="processCsvFile">強化CSV</label>
               <input id="processCsvFile" type="file" accept=".csv,text/csv" />
-              <div class="miniActions"><a href="./data_sample.csv" download>サンプルDL</a></div>
+              <div class="miniActions"><button id="downloadProcessTemplateBtn" type="button" class="small">加工CSVひな形DL</button></div>
+              <details class="miniHelp"><summary>ひな形の記入・受け渡し</summary>
+                <p class="hint">列名だけのCSVです。2行目から入力するか、下の「武器・防具の加工データ管理」で登録して「統合加工CSV出力」を使えます。受け取る側は「強化CSV」で読み込みます。</p>
+                <p class="hint"><code>name</code>：加工名、<code>rank</code>：ランク、<code>price</code>：費用。<code>weapon</code>／<code>armor</code>／<code>nonMetalArmor</code>／<code>metalArmor</code>／<code>shield</code> は適用対象を1・対象外を0にします。防具には <code>armor=1</code> と該当する防具種別を指定します。</p>
+                <p class="hint">ランクごとに1行。ランク共通の費用は対象ランクに同額を記入します。<code>multiCountable</code>：複数回可なら1、<code>maxCount</code>：回数上限、<code>note</code>：メモ。名称・価格・効果本文のサンプルは含めません。</p>
+                <p class="hint">他者との受け渡しは、公開・再配布してよいデータに限ってください。CSV形式への変換が転載の許可になるわけではありません。</p>
+              </details>
               <p class="hint">武器や防具の強化に関連するデータです。初回読込後はブラウザに保存されます。</p>
               <div class="toolbar"><button id="clearProcessCsvBtn" type="button" class="small">保存済みデータを削除</button></div>
             </div>
@@ -1151,10 +1083,9 @@
               <h2 class="dataPanelTitle"><span>アイテム価格データ</span><span class="csvStatus" id="priceCsvStatus">CSV未読込</span></h2>
               <label for="priceCsvFile">価格CSV</label>
               <input id="priceCsvFile" type="file" accept=".csv,text/csv" />
-              <div class="miniActions"><a href="./price_sample.csv" download>サンプルDL</a></div>
               <label style="display:flex; align-items:center; gap:6px; margin-top:5px;">
                 <input id="autoLearnPriceToggle" type="checkbox" class="checkBig" checked />
-                JSON読込時に価格候補を自動収集
+                キャラクター読込時に価格候補を自動収集
               </label>
               <div class="miniActions">
                 <button id="learnCurrentPricesBtn" type="button" class="small">現在の入力価格を候補へ追加</button>
@@ -1188,7 +1119,7 @@
               </details>
               <div class="toolbar"><button id="clearPriceCsvBtn" type="button" class="small">保存済みデータを削除</button></div>
             </div>
-            <div class="col-12"><p class="hint">サンプルCSVは形式確認用の架空データです。実際のデータは各自で作成・読み込みしてください。</p></div>
+            <div class="col-12"><p class="hint">加工CSVひな形は列名のみです。価格・加工情報は各自で用意してください。</p></div>
           </div>
         </div>
       </details>
@@ -1200,7 +1131,7 @@
         <li>収支履歴は、基本的に1行1項目で <code>::-価格</code> または <code>::-価格*数量</code> と書かれている行を読み取ります。</li>
         <li>数量は <code>*5</code> 形式を推奨します。<code>×5</code> だけの場合、数量として扱えないことがあります。</li>
         <li><code>弾丸(12)</code>・<code>矢(12)</code>・<code>太矢(12)</code> は、それぞれ12発／12本セットの商品として扱います。それ以外の商品の括弧内数字は数量化せず、個数は <code>*数量</code> で指定してください。</li>
-        <li>1行に複数の価格がある場合、最初の価格だけを読み取ることがあります。</li>
+        <li>1行に複数の収支式がある場合は原文を保持し、未計算として案内します。1行1取引を推奨します。</li>
         <li>武器・防具の加工は、本体行の直後に <code>┗　::-価格 加工名 ランク メモ</code> の形で書くと紐づきやすくなります。本体行から離れている加工行は紐づかない場合があります。</li>
         <li>ツール未登録の加工は、<code>加工名 Bランク メモ</code> の順で書くと読み込みやすくなります。</li>
         <li><code>//</code> で始まるコメント行、表組み行、見出し行は読み込み対象外です。</li>
@@ -1215,11 +1146,14 @@
         <p class="hint">JSONなどから収集した、まだ辞書へ登録していない価格候補です。名称・価格・略称を一覧で整理した後、「整理済みの全件を辞書へ登録」を押してください。価格CSVの既存データは件数が多いため、この表には表示しません。</p>
         <div class="toolbar">
           <button id="checkLearnedDuplicatesBtn" type="button" class="small">候補の重複チェック</button>
+          <button id="selectAllLearnedPricesBtn" type="button" class="small">全候補を選択</button>
+          <button id="deleteSelectedLearnedPricesBtn" type="button" class="small danger">選択した候補を削除</button>
+          <button id="deleteAllLearnedPricesBtn" type="button" class="small danger">全候補を削除</button>
           <button id="confirmAllLearnedPricesBtn" type="button" class="small primary">整理済みの全件を辞書へ登録</button>
         </div>
         <p id="learnedDuplicateResult" class="hint" role="status" aria-live="polite" style="white-space:pre-line;"></p>
         <table class="gridTable" id="learnedPriceTable">
-          <thead><tr><th>アイテム名</th><th>価格</th><th>略称</th><th>カテゴリ</th><th>メモ</th><th></th></tr></thead>
+          <thead><tr><th>選択</th><th>アイテム名</th><th>価格</th><th>略称</th><th>カテゴリ</th><th>メモ</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -1256,6 +1190,7 @@
           <button id="exportMergedProcessBtn" type="button" class="small">統合加工CSV出力</button>
           <span id="customProcessStatus" class="csvStatus">手動0件</span>
         </div>
+        <p class="hint">出力したCSVを相手の「強化CSV」で読み込めます。公開・再配布してよい内容だけを共有してください。</p>
         <table class="gridTable" id="customProcessTable">
           <thead><tr><th>加工名</th><th>武器</th><th>非金属鎧</th><th>金属鎧</th><th>盾</th><th>B</th><th>A</th><th>S</th><th>SS</th><th>複数回</th><th>上限</th><th>メモ</th><th></th></tr></thead>
           <tbody></tbody>
@@ -1271,6 +1206,8 @@
         <div class="stat"><div class="label">残り</div><div class="value" id="remainingBudget">0 G</div></div>
       </div>
       <div id="calcWarning" class="calcWarning"></div>
+      <p id="transferSummary" class="hint" role="status" title="残り＝初期所持金＋収入−支出−預金・貸付＋借金" hidden></p>
+      <p id="ledgerModeHint" class="hint" role="status" aria-live="polite"></p>
     </div>
 
     <details class="section">
@@ -1323,6 +1260,7 @@
     <details class="section" open>
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">消耗品</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="sectionBody">
+        <p class="hint" id="consumableCostHint"></p>
         <div class="toolbar">
           <label style="display:flex; align-items:center; gap:6px; margin:0;">
             <input id="consumableMemoOutput" type="checkbox" class="checkBig" />
@@ -1337,21 +1275,26 @@
       </div>
     </details>
 
-    <details class="section" open>
+    <details class="section" id="materialCardSection" open>
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">マテリアルカード</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="sectionBody">
         <p class="hint" id="cardCostHint"></p>
-        <div class="toolbar">
+        <div class="toolbar" id="cardMemoTools">
           <label style="display:flex; align-items:center; gap:6px; margin:0;">
             <input id="cardMemoOutput" type="checkbox" class="checkBig" />
             メモを収支欄に出力
           </label>
         </div>
         <table class="gridTable" id="cardTable">
-          <thead><tr><th>所持品に含める</th><th>色</th><th>ランク</th><th>価格</th><th>数量</th><th>メモ</th><th></th></tr></thead>
+          <thead><tr><th>所持品に含める</th><th>色</th><th>ランク</th><th class="cardPriceCell">価格</th><th id="cardCountHeader">数量</th><th>メモ</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
-        <div class="toolbar"><button id="addCardBtn" type="button">行を追加</button></div>
+        <div class="toolbar"><button id="addCardBtn" type="button">行を追加</button><button id="addCardPurchaseBtn" type="button" hidden>購入を記録</button></div>
+        <details id="cardPurchaseHistory" hidden>
+          <summary>購入・売却履歴 <span id="cardPurchaseCount"></span></summary>
+          <p class="hint">過去の購入数と現在数は別です。ここで編集した金額だけを収支へ反映し、現在数は自動変更しません。</p>
+          <div id="cardPurchaseRows"></div>
+        </details>
       </div>
     </details>
 
@@ -1359,12 +1302,13 @@
 
     <details class="section">
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">既存の収支履歴（参考）</span></span><span class="summaryHint">クリックで開閉</span></summary>
-      <div class="sectionBody"><textarea id="cashbookPreview" placeholder="JSONから cashbook が読めた場合に表示"></textarea></div>
+      <div class="sectionBody"><textarea id="cashbookPreview" placeholder="元データの収支履歴を表示"></textarea></div>
     </details>
 
     <details class="section" open>
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">出力</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="sectionBody stack">
+        <div class="toolbar"><button id="exportCharacterJsonBtn" type="button" class="primary">キャラクターJSON出力・変更確認</button></div>
         <div>
           <label>収支履歴テキスト</label>
           <textarea id="cashbookOutput"></textarea>
@@ -1383,16 +1327,24 @@
       <div class="rightsNotice">
         本ツールは『ソード・ワールド2.5』の非公式ファンツールです。<br />
         本作は、「北沢慶／グループSNE」および「株式会社KADOKAWA」が権利を有する『ソード・ワールド2.5』の二次創作です。<br />
-        (C)GroupSNE (C)KADOKAWA ／ <a href="https://www.arclight.co.jp/trpg-rights/" target="_blank" rel="noopener noreferrer">TRPG二次創作活動ガイドライン</a>
+        (C)GroupSNE (C)KADOKAWA ／ <a href="https://fujimi-trpg-online.jp/info/entry-2587.html" target="_blank" rel="noopener noreferrer">ソード・ワールド二次創作ガイドライン</a>
       </div>
     </div>
   </div>
 
   <script>
-    const VERSION = "v1.4.7";
+    const VERSION = "v1.5.16";
+    const SETTINGS_EXPORT_KIND = "sw25-cashbook-editor-settings";
+    const SETTINGS_EXPORT_FORMAT_VERSION = 1;
+    const ACCESSORY_CODES = { "頭": "Head", "顔": "Face", "耳": "Ear", "首": "Neck", "背": "Back", "右": "HandR", "左": "HandL", "腰": "Waist", "足": "Leg", "他": "Other" };
+    let characterSourceUrl = "";
+    let characterBaseline = null;
+    let characterExportDraft = null;
+    let characterReadBusy = false;
 
     const state = {
       rawJson: null,
+      ledgerMode: false,
       pricePreset: {},
       pricePresetAliases: {},
       pricePresetItems: [],
@@ -1414,7 +1366,9 @@
       initialMoney: 0,
       sessionIncome: 0,
       sheetRemaining: null,
-      hasCashbookCardPurchase: false
+      hasCashbookCardPurchase: false,
+      hasCashbookConsumablePurchase: false,
+      hasConsumableStockRows: false
     };
 
     const EQUIPMENT_TYPES = ["武器", "非金属鎧", "金属鎧", "盾", "その他"];
@@ -1422,6 +1376,20 @@
     const CARD_COLORS = [["赤","Red"], ["緑","Gre"], ["黒","Bla"], ["白","Whi"], ["金","Gol"]];
     const CARD_RANKS = ["B", "A", "S", "SS"];
     const PROCESS_RANKS = ["B", "A", "S", "SS"];
+    const PROCESS_CSV_HEADERS = ["category", "name", "rank", "price", "weapon", "armor", "nonMetalArmor", "metalArmor", "shield", "multiCountable", "maxCount", "note"];
+
+    // ============================================================
+    // 手動編集しやすい設定エリア
+    // ============================================================
+    // 軽微な補正を手で足す場合は、まずこの周辺を見てください。
+    //
+    // よく編集する場所：
+    // - アビスカース接頭辞：ABYSS_CURSE_PREFIXES
+    // - まとめ買い・略称・表記ゆれ：ITEM_ALIAS_RULES
+    // - 価格CSV未読込時の加工名候補：FALLBACK_PROCESS_NAMES / FALLBACK_MULTI_COUNTABLE_PROCESSES
+    //
+    // GitHub Pagesで公開するHTMLには、公式の価格表・効果説明・ルール本文・画像の転記は入れず、
+    // 名称照合に必要な短い語や、ユーザー入力の表記ゆれ補正だけを置く方針です。
 
     // 辞書照合とJSON装備名の本体・加工分離に使うアビスカース接頭辞。
     // ルール本文・効果・表構成は収録せず、名称照合に必要な短い語だけを保持する。
@@ -1506,16 +1474,52 @@
       "筋力腕輪": "怪力の腕輪", "筋力の腕輪": "怪力の腕輪",
       "知力腕輪": "叡智の腕輪", "知力の腕輪": "叡智の腕輪"
     };
-    function canonicalizeKnownItemName(value) {
-      const sourceCompact = formatYutoText(value).normalize("NFKC")
-        .replace(/[〈〉《》【】]/g, "").replace(/[　\s]+/g, "")
+    // アイテム名の表記ゆれを、コードを読み慣れていない場合でも追加しやすい表。
+    // canonical: 辞書・学習データ・出力で揃えたい名前
+    // aliases: その canonical と同じものとして扱いたい入力表記
+    // 価格や効果などのルール本文はここに持たせず、名称の同一視だけを扱う。
+    //
+    // 例：新しいまとめ買い商品を足す場合
+    // { group: "まとめ買い", canonical: "商品名（セット内容）", aliases: ["商品名12個", "商品名(12)", "商品名1ダース"] },
+    const ITEM_ALIAS_RULES = [
+      { group: "まとめ買い", canonical: "保存食（1週間分）", aliases: ["保存食1週間", "保存食1週間分", "保存食(1週間分)", "保存食(1週間)", "保存食7日分", "保存食一週間分"] },
+      { group: "まとめ買い", canonical: "弾丸（12発）", aliases: ["弾丸12発", "弾丸(12)", "弾丸(12発)", "弾丸1ダース", "弾丸一ダース"] },
+      { group: "まとめ買い", canonical: "矢（12本）", aliases: ["矢12本", "矢(12)", "矢(12本)", "矢1ダース", "矢一ダース"] },
+      { group: "まとめ買い", canonical: "太矢（12本）", aliases: ["太矢12本", "太矢(12)", "太矢(12本)", "太矢1ダース", "太矢一ダース"] },
+      { group: "一般略称", canonical: "スカウト用ツール", aliases: ["スカウトツール"] },
+      { group: "一般略称", canonical: "アウェイクポーション", aliases: ["アウェイクンポーション", "アウェイク"] },
+      { group: "一般略称", canonical: "マギスフィア（小）", aliases: ["マギスフィア小", "マギスフィア(小)"] }
+    ];
+    function compactItemAliasText(value) {
+      return formatYutoText(value).normalize("NFKC")
+        .replace(/[〈〉《》【】]/g, "")
+        .replace(/[　\s]+/g, "")
         .replace(/\((?:半額(?:買取|購入)?|貰い物|もらい物|自作|戦利品|拾得品|購入品)\)$/g, "");
-      if (/^矢(?:\(12本?\)|12本|1ダース|一ダース)$/.test(sourceCompact)) return "矢（12本）";
-      if (/^太矢(?:\(12本?\)|12本|1ダース|一ダース)$/.test(sourceCompact)) return "太矢（12本）";
+    }
+    function findItemAliasCanonical(compact) {
+      const key = String(compact || "");
+      if (!key) return "";
+      for (const rule of ITEM_ALIAS_RULES) {
+        const names = [rule.canonical, ...((rule.aliases || []))];
+        if (names.some(name => compactItemAliasText(name) === key)) return rule.canonical;
+      }
+      return "";
+    }
+    function isItemAliasGroup(value, group) {
+      const key = compactItemAliasText(value);
+      if (!key) return false;
+      return ITEM_ALIAS_RULES.some(rule =>
+        rule.group === group &&
+        [rule.canonical, ...((rule.aliases || []))].some(name => compactItemAliasText(name) === key)
+      );
+    }
+    function canonicalizeKnownItemName(value) {
+      const sourceCompact = compactItemAliasText(value);
+      const sourceAlias = findItemAliasCanonical(sourceCompact);
+      if (sourceAlias) return sourceAlias;
       const normalized = normalizeName(value).normalize("NFKC");
       if (!normalized) return "";
-      let compact = normalized.replace(/[〈〉《》【】]/g, "").replace(/[　\s]+/g, "");
-      compact = compact.replace(/\((?:半額(?:買取|購入)?|貰い物|もらい物|自作|戦利品|拾得品|購入品)\)$/g, "");
+      const compact = compactItemAliasText(normalized);
 
       let match = compact.match(/^魔晶石[<(\/_-]?(?:MP)?(\d+)(?:点(?:分)?|分)?[>)]?$/i)
         || compact.match(/^(\d+)点(?:分)?魔晶石$/);
@@ -1542,22 +1546,15 @@
       if (match) return `マテリアルカード${match[1]}${match[2]}`;
 
       if (ABILITY_ITEM_ALIASES[compact]) return ABILITY_ITEM_ALIASES[compact];
-      if (/^スカウト(?:用)?ツール$/.test(compact)) return "スカウト用ツール";
-      if (/^アウェイクン?ポーション$/.test(compact) || compact === "アウェイク") return "アウェイクポーション";
-      if (/^マギスフィア(?:\(小\)|小)$/.test(compact)) return "マギスフィア（小）";
-      if (/^保存食(?:\(1週間分?\)|1週間分?|7日分|一週間分?)$/.test(compact)) return "保存食（1週間分）";
-      if (/^弾丸(?:\(12発?\)|12発|1ダース|一ダース)$/.test(compact)) return "弾丸（12発）";
-      if (/^矢(?:\(12本?\)|12本|1ダース|一ダース)$/.test(compact)) return "矢（12本）";
-      if (/^太矢(?:\(12本?\)|12本|1ダース|一ダース)$/.test(compact)) return "太矢（12本）";
+      const alias = findItemAliasCanonical(compact);
+      if (alias) return alias;
       return normalized.trim();
     }
     function getKnownItemNameInfo(value) {
       const split = splitAbyssCurseDisplayName(value);
       const baseName = normalizeName(split.name);
       const sourceName = formatYutoText(split.name).trim();
-      const sourceCompact = sourceName.normalize("NFKC").replace(/[　\s]+/g, "");
-      const isArrowBundle = /^(?:矢|太矢)(?:\(12本?\)|12本|1ダース|一ダース)$/.test(sourceCompact);
-      const canonicalSource = isArrowBundle ? sourceName : baseName;
+      const canonicalSource = findItemAliasCanonical(compactItemAliasText(sourceName)) ? sourceName : baseName;
       const name = canonicalizeKnownItemName(canonicalSource);
       return { name, alias: name && canonicalSource && name !== canonicalSource ? canonicalSource : "", prefixes: split.prefixes };
     }
@@ -1735,6 +1732,7 @@
       return getPresetPrice(name);
     }
     function applyPresetCandidateToRow(row, context = "") {
+      if (row.historyCovered || row.isTransaction || row.stockOnly) return;
       const before = String(row.name ?? "").trim();
       if (!before) return;
       const item = getAllPriceItems().find(x => priceItemMatchesName(x, before));
@@ -1929,6 +1927,8 @@
     }
     function learnRowPrice(kind, row, source = "自動学習", force = false) {
       if (!row) return false;
+      if (row.historyCovered || row.isTransaction || row.rawOnly || Number(row.sign) === 1) return false;
+      if (isStockOnlyRow(row)) return false;
       const name = source === "手動学習" ? row.name : (row.learnedName || row.name);
       return learnPrice(name, row.price, inferLearnCategory(kind, row), source, force);
     }
@@ -2023,6 +2023,54 @@
       target.textContent = pairs.length
         ? pairs.map(([left, right]) => `重複候補：${left} / ${right}`).join("\n")
         : "重複候補は見つかりませんでした";
+    }
+    function setAllLearnedPriceSelections(checked) {
+      document.querySelectorAll("#learnedPriceTable .learnedPriceSelect")
+        .forEach(input => { input.checked = Boolean(checked); });
+    }
+    function getSelectedLearnedPriceIndexes() {
+      return [...document.querySelectorAll("#learnedPriceTable .learnedPriceSelect:checked")]
+        .map(input => Number(input.dataset.i))
+        .filter(index => Number.isInteger(index) && index >= 0 && index < (state.learnedPriceItems || []).length);
+    }
+    function deleteLearnedPricesByIndexes(indexes) {
+      const unique = [...new Set(indexes)].sort((a, b) => b - a);
+      if (!unique.length) return 0;
+      unique.forEach(index => state.learnedPriceItems.splice(index, 1));
+      saveLearnedPrices();
+      const duplicateResult = el("learnedDuplicateResult");
+      if (duplicateResult) duplicateResult.textContent = "";
+      renderAll();
+      generateOutputs();
+      return unique.length;
+    }
+    async function deleteSelectedLearnedPrices() {
+      const indexes = getSelectedLearnedPriceIndexes();
+      if (!indexes.length) {
+        showToast("削除する価格候補を選択してください");
+        return;
+      }
+      const ok = await showConfirm(`選択した価格候補 ${indexes.length}件を削除します。\n登録済み価格辞書、価格CSV、現在の入力欄は消えません。`, { confirmText: "選択削除" });
+      if (!ok) return;
+      const deleted = deleteLearnedPricesByIndexes(indexes);
+      showToast(`${deleted}件の価格候補を削除しました`);
+    }
+    async function clearAllLearnedPrices() {
+      const count = (state.learnedPriceItems || []).length;
+      if (!count) {
+        showToast("削除する価格候補がありません");
+        return;
+      }
+      const ok = await showConfirm(`整理中の価格候補 ${count}件をすべて削除します。\n登録済み価格辞書、価格CSV、現在の入力欄は消えません。`, { confirmText: "全削除" });
+      if (!ok) return;
+      state.learnedPriceItems = [];
+      localStorage.removeItem("sw25_learned_price_items");
+      const duplicateResult = el("learnedDuplicateResult");
+      if (duplicateResult) duplicateResult.textContent = "";
+      updateLearnedPriceStatus();
+      renderAll();
+      generateOutputs();
+      showToast(`${count}件の価格候補を削除しました`);
     }
 
 
@@ -2198,13 +2246,16 @@
       rebuildProcessMaster();
     }
     function exportMergedProcessCsv() {
-      const headers = ["category", "name", "rank", "price", "weapon", "armor", "nonMetalArmor", "metalArmor", "shield", "multiCountable", "maxCount", "note"];
-      const rows = [headers, ...(state.processMaster || []).map(def => [
+      const rows = [PROCESS_CSV_HEADERS, ...(state.processMaster || []).map(def => [
         def.category || "", def.name, def.rank, def.price,
         def.weapon ? 1 : 0, def.armor ? 1 : 0, def.nonMetalArmor ? 1 : 0,
         def.metalArmor ? 1 : 0, def.shield ? 1 : 0, def.multiCountable ? 1 : 0,
         def.maxCount || 1, def.note || ""
       ])];
+      downloadProcessCsvRows(rows, "data_merged.csv");
+      showToast("統合加工CSVを出力しました");
+    }
+    function downloadProcessCsvRows(rows, filename) {
       const csv = rows.map(cols => cols.map(v => {
         const s = String(v ?? "");
         return /[",\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
@@ -2212,12 +2263,197 @@
       const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" }));
       const a = document.createElement("a");
       a.href = url;
-      a.download = "data_merged.csv";
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      showToast("統合加工CSVを出力しました");
+    }
+    function clonePlain(value) {
+      return JSON.parse(JSON.stringify(value ?? null));
+    }
+    function getTodayText() {
+      return new Date().toISOString().slice(0, 10).replaceAll("-", "");
+    }
+    function getSavedThemeColor() {
+      return localStorage.getItem("sw25_theme_color") || "#eaf2ff";
+    }
+    function getSettingsBackupSummary(data) {
+      const csvTexts = data.csvTexts || {};
+      return [
+        `登録済み価格辞書 ${Array.isArray(data.confirmedPriceItems) ? data.confirmedPriceItems.length : 0}件`,
+        `価格候補 ${Array.isArray(data.learnedPriceItems) ? data.learnedPriceItems.length : 0}件`,
+        `手動加工 ${Array.isArray(data.customProcessItems) ? data.customProcessItems.length : 0}件`,
+        `CSV本文 ${csvTexts.priceCsvText || csvTexts.processCsvText ? "あり" : "なし"}`
+      ].join("、");
+    }
+    function buildSettingsExport(profile = "shared") {
+      const includeCsv = profile === "personal-backup";
+      const data = {
+        confirmedPriceItems: clonePlain(state.confirmedPriceItems || []),
+        learnedPriceItems: clonePlain(state.learnedPriceItems || []),
+        customProcessItems: clonePlain(state.customProcessItems || []),
+        autoLearnPrices: Boolean(state.autoLearnPrices),
+        themeColor: getSavedThemeColor()
+      };
+      if (includeCsv) {
+        data.csvTexts = {
+          priceCsvText: localStorage.getItem("sw25_price_csv_text") || "",
+          processCsvText: localStorage.getItem("sw25_process_csv_text") || ""
+        };
+      }
+      return {
+        kind: SETTINGS_EXPORT_KIND,
+        formatVersion: SETTINGS_EXPORT_FORMAT_VERSION,
+        appVersion: VERSION,
+        exportedAt: new Date().toISOString(),
+        profile,
+        note: includeCsv
+          ? "個人バックアップ用。読み込み済みCSV本文を含むため、公開配布には使わないでください。"
+          : "共有用。CSV本文は含みません。辞書・加工データの公開・再配布の可否は別途確認してください。",
+        data
+      };
+    }
+    function downloadJson(data, filename, message) {
+      const text = JSON.stringify(data, null, 2);
+      const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      showToast(message);
+    }
+    function exportSettingsBackup(profile) {
+      const payload = buildSettingsExport(profile);
+      const label = profile === "personal-backup" ? "personal" : "shared";
+      const filename = `sw25-settings-${VERSION.replaceAll(".", "_")}-${label}-${getTodayText()}.json`;
+      downloadJson(payload, filename, "設定バックアップJSONを出力しました");
+      setSettingsBackupStatus(`出力しました：${getSettingsBackupSummary(payload.data)}`);
+    }
+    function normalizeSettingsPayload(payload) {
+      if (!payload || typeof payload !== "object") throw new Error("JSONの形式を確認してください。");
+      if (payload.kind !== SETTINGS_EXPORT_KIND) throw new Error("このツールの設定JSONではありません。");
+      if (toNumber(payload.formatVersion, 0) > SETTINGS_EXPORT_FORMAT_VERSION) {
+        throw new Error("この設定JSONは新しい形式です。ツールを更新してから読み込んでください。");
+      }
+      const data = payload.data && typeof payload.data === "object" ? payload.data : {};
+      return {
+        confirmedPriceItems: Array.isArray(data.confirmedPriceItems) ? data.confirmedPriceItems : [],
+        learnedPriceItems: Array.isArray(data.learnedPriceItems) ? data.learnedPriceItems : [],
+        customProcessItems: Array.isArray(data.customProcessItems) ? data.customProcessItems : [],
+        autoLearnPrices: typeof data.autoLearnPrices === "boolean" ? data.autoLearnPrices : null,
+        themeColor: typeof data.themeColor === "string" ? data.themeColor : "",
+        csvTexts: data.csvTexts && typeof data.csvTexts === "object" ? data.csvTexts : {}
+      };
+    }
+    function mergeCustomProcessItems(existingItems, importedItems, replace = false) {
+      const map = new Map();
+      const add = item => {
+        const normalized = normalizeCustomProcessItem(item);
+        if (!normalized.name) return;
+        map.set(normalized.name, normalized);
+      };
+      if (!replace) (existingItems || []).forEach(add);
+      (importedItems || []).forEach(add);
+      return [...map.values()];
+    }
+    function applyImportedSettings(payload, options = {}) {
+      const data = normalizeSettingsPayload(payload);
+      const replace = Boolean(options.replace);
+      state.confirmedPriceItems = consolidateLearnedPriceItems([
+        ...(replace ? [] : state.confirmedPriceItems || []),
+        ...data.confirmedPriceItems
+      ]);
+      state.learnedPriceItems = consolidateLearnedPriceItems([
+        ...(replace ? [] : state.learnedPriceItems || []),
+        ...data.learnedPriceItems
+      ]);
+      state.customProcessItems = mergeCustomProcessItems(state.customProcessItems || [], data.customProcessItems, replace);
+
+      localStorage.setItem("sw25_confirmed_price_items", JSON.stringify(state.confirmedPriceItems));
+      localStorage.setItem("sw25_learned_price_items", JSON.stringify(state.learnedPriceItems));
+      localStorage.setItem("sw25_custom_process_items", JSON.stringify(state.customProcessItems));
+
+      if (data.autoLearnPrices !== null) {
+        state.autoLearnPrices = data.autoLearnPrices;
+        localStorage.setItem("sw25_auto_learn_prices", state.autoLearnPrices ? "1" : "0");
+        const toggle = el("autoLearnPriceToggle");
+        if (toggle) toggle.checked = state.autoLearnPrices;
+      }
+      if (/^#[0-9a-fA-F]{6}$/.test(data.themeColor)) applyThemeColor(data.themeColor, true);
+
+      let priceCsvImported = false;
+      let processCsvImported = false;
+      const hasCurrentPriceCsv = Boolean(localStorage.getItem("sw25_price_csv_text"));
+      const hasCurrentProcessCsv = Boolean(localStorage.getItem("sw25_process_csv_text"));
+      if (typeof data.csvTexts.priceCsvText === "string" && data.csvTexts.priceCsvText && (replace || !hasCurrentPriceCsv)) {
+        loadPriceCsvText(data.csvTexts.priceCsvText, true);
+        priceCsvImported = true;
+      }
+      if (typeof data.csvTexts.processCsvText === "string" && data.csvTexts.processCsvText && (replace || !hasCurrentProcessCsv)) {
+        loadProcessCsvText(data.csvTexts.processCsvText, true);
+        processCsvImported = true;
+      }
+
+      pruneLearnedPricesAgainstAuthoritative();
+      rebuildProcessMaster();
+      updateLearnedPriceStatus();
+      updateCsvStatuses();
+      renderAll();
+      generateOutputs();
+
+      return {
+        confirmed: state.confirmedPriceItems.length,
+        learned: state.learnedPriceItems.length,
+        customProcess: state.customProcessItems.length,
+        priceCsvImported,
+        processCsvImported
+      };
+    }
+    function setSettingsBackupStatus(message) {
+      const target = el("settingsBackupStatus");
+      if (target) target.textContent = String(message || "");
+    }
+    function openSettingsBackup() {
+      const headerMenu = document.querySelector(".headerMenu");
+      if (headerMenu) headerMenu.removeAttribute("open");
+      setSettingsBackupStatus("");
+      const modal = el("settingsBackupModal");
+      if (modal) modal.classList.add("isOpen");
+    }
+    function closeSettingsBackup() {
+      const modal = el("settingsBackupModal");
+      if (modal) modal.classList.remove("isOpen");
+    }
+    async function importSettingsBackupFile(file) {
+      if (!file) return;
+      let payload;
+      try {
+        payload = JSON.parse(await file.text());
+        normalizeSettingsPayload(payload);
+      } catch (err) {
+        setSettingsBackupStatus(`読み込みできませんでした：${err.message || err}`);
+        showToast("設定JSONを読み込めませんでした");
+        return;
+      }
+      const replace = Boolean(el("settingsImportReplace") && el("settingsImportReplace").checked);
+      const data = normalizeSettingsPayload(payload);
+      const ok = await showConfirm(
+        `設定JSONを${replace ? "辞書・加工データと置き換えて" : "既存データへ追加・統合して"}読み込みます。\n${getSettingsBackupSummary(data)}\n\nキャラクターJSONや現在の入力欄は変更しません。`,
+        { confirmText: replace ? "置き換えて読込" : "追加・統合", danger: replace }
+      );
+      if (!ok) return;
+      const stats = applyImportedSettings(payload, { replace });
+      const csvNote = [
+        stats.priceCsvImported ? "価格CSV本文を反映" : "",
+        stats.processCsvImported ? "加工CSV本文を反映" : ""
+      ].filter(Boolean).join("、") || "CSV本文の反映なし";
+      setSettingsBackupStatus(`読み込みました：登録済み価格辞書 ${stats.confirmed}件、価格候補 ${stats.learned}件、手動加工 ${stats.customProcess}件\n${csvNote}`);
+      showToast("設定JSONを読み込みました");
     }
     function isWeaponType(type) { return type === "武器"; }
     function getAvailableProcessDefinitions(type) {
@@ -2229,9 +2465,14 @@
         return false;
       });
     }
+    // 加工CSVを読み込んでいない状態でも候補に出したい最低限の加工名。
+    // 本格的な加工データはCSVまたは「武器・防具の加工データ管理」から登録する想定。
     const FALLBACK_PROCESS_NAMES = ["アビス強化", "オーダーメイド", "魔法の武器化", "妖精の武器化", "銀製", "防弾加工", "宿木加工", "宿り木加工", "その他"];
     // CSVがなくても収支履歴の明示数量を正しく扱うための最低限定義。
     const FALLBACK_MULTI_COUNTABLE_PROCESSES = { "オーダーメイド": 3 };
+    // ============================================================
+    // 手動編集しやすい設定エリア ここまで
+    // ============================================================
     function getDistinctProcessNames(type) {
       const names = [...new Set([...getAvailableProcessDefinitions(type).map(d => d.name), ...FALLBACK_PROCESS_NAMES])];
       if (!names.includes("その他")) names.push("その他");
@@ -2259,18 +2500,55 @@
       return FALLBACK_MULTI_COUNTABLE_PROCESSES[name] || 1;
     }
 
-    function blankEquipment() { return { type: "その他", name: "", price: 0, count: 1, note: "", processes: [] }; }
+    function blankEquipment() { return { type: "その他", name: "", price: 0, count: 1, excludeCost: false, note: "", processes: [] }; }
     function blankProcess(type = "武器") {
       const first = getDistinctProcessNames(type)[0] || "その他";
-      return { name: first, customName: "", rank: "B", count: 1, price: getProcessPrice(first, "B"), note: getProcessNote(first, "B") };
+      return { name: first, customName: "", rank: "B", count: 1, price: getProcessPrice(first, "B"), excludeCost: false, note: getProcessNote(first, "B") };
     }
     function blankAccessory(part = "他", child = false, parentPart = "") {
-      return { part: child ? "┗" : part, parentPart, child, hasExtraSlot: false, name: "", price: 0, count: 1, note: "" };
+      return { part: child ? "┗" : part, parentPart, child, hasExtraSlot: false, name: "", price: 0, count: 1, excludeCost: false, note: "" };
     }
-    function blankConsumable() { return { name: "", price: 0, count: 1, includeItemList: true, note: "" }; }
+    function blankConsumable() { return { name: "", price: 0, count: 1, includeItemList: true, excludeCost: false, note: "" }; }
     function blankCard() { return { color: "赤", rank: "A", price: getCardPrice("A", "赤"), count: 1, includeItemList: true, excludeCost: false, note: "" }; }
-    function blankOtherSection(title = "その他", open = true) { return { title, open, memoOutput: false, items: [{ name: "", price: 0, count: 1, includeItemList: false, note: "" }] }; }
+    function blankOtherSection(title = "その他", open = true) { return { title, open, memoOutput: false, items: [{ name: "", price: 0, count: 1, includeItemList: false, excludeCost: false, note: "" }] }; }
+    function markStockOnly(row, note = "所持品欄の現在数（支出計算なし）") {
+      row.source = "stock";
+      row.stockOnly = true;
+      row.excludeCost = true;
+      row.includeItemList = true;
+      if (!row.note) row.note = note;
+      return row;
+    }
+    function isStockOnlyRow(row) {
+      return Boolean(row && row.stockOnly);
+    }
 
+    // ゆとシート同様、符号を省略した ::4000 は収入。数式は実行せず四則演算だけを評価する。
+    function evaluateCashbookExpression(expression) {
+      const text = String(expression).replace(/,/g, "").replace(/\s/g, "").replace(/＋/g, "+").replace(/－/g, "-").replace(/×/g, "*");
+      if (!/^[+\-]?\d+(?:\.\d+)?(?:[+\-*/][+\-]?\d+(?:\.\d+)?)*$/.test(text)) return null;
+      const tokens = text.match(/\d+(?:\.\d+)?|[+\-*/]/g);
+      let position = 0;
+      const number = () => {
+        let sign = 1;
+        if (tokens[position] === "-" || tokens[position] === "+") sign = tokens[position++] === "-" ? -1 : 1;
+        return sign * Number(tokens[position++]);
+      };
+      const term = () => {
+        let value = number();
+        while (tokens[position] === "*" || tokens[position] === "/") {
+          const op = tokens[position++], next = number();
+          value = op === "*" ? value * next : value / next;
+        }
+        return value;
+      };
+      let result = term();
+      while (position < tokens.length) {
+        const op = tokens[position++], next = term();
+        result += op === "-" ? -next : next;
+      }
+      return Number.isFinite(result) ? result : null;
+    }
     function parseCashbookEntries(cashbook) {
       const text = decodeYutoText(cashbook);
       const lines = text.split("\n").map(v => v.trim()).filter(Boolean);
@@ -2302,14 +2580,16 @@
       return entries;
     }
     function parseCashbookLine(line) {
-      const m = line.match(/::\s*([+-]?)\s*([\d,]+(?:[+\-＋－][\d,]+)*)/);
+      const m = line.match(/::\s*([+\-＋－]?\s*[\d,]+(?:\.\d+)?(?:\s*[+\-*/＋－×]\s*[+\-]?\s*[\d,]+(?:\.\d+)?)*)/);
       if (!m) return null;
-      const sign = m[1] === "+" ? 1 : -1;
-      const unitPrice = Math.abs(parseMoneyExpression(m[2]));
-      const countMatch = line.slice(m.index + m[0].length).match(/\*\s*(\d+)/);
-      const count = countMatch ? toNumber(countMatch[1], 1) : 1;
+      const amount = evaluateCashbookExpression(m[1]);
+      if (amount === null) return null;
+      const sign = amount < 0 ? -1 : 1;
+      const countMatch = m[1].replace(/\s/g, "").match(/^[+\-]?\d[\d,]*(?:\.\d+)?\*(\d+)$/);
+      let count = countMatch ? Math.max(1, toNumber(countMatch[1], 1)) : 1;
+      let unitPrice = Math.abs(amount) / count;
       const before = line.slice(0, m.index).replace(/^┗\s*/, "").trim();
-      const after = line.slice(m.index + m[0].length).replace(/\*\s*\d+/, "").trim();
+      const after = line.slice(m.index + m[0].length).trim();
       const labels = ["武器", "非金属鎧", "金属鎧", "盾", "頭", "顔", "耳", "首", "背", "右", "左", "腰", "足", "他"];
       const parts = before.split(/\s+/).filter(Boolean);
       let name = "";
@@ -2324,6 +2604,14 @@
         // 例：頭　::-260 アイテム名 / ┗　::-100 加工名
         name = after.split(/\s+/)[0] || "";
       }
+      const nameCount = name.match(/^(.+?)(?:[*×xX@＠]\s*)(\d+)$/);
+      if (nameCount) {
+        name = nameCount[1].trim();
+        if (!countMatch) {
+          count = Math.max(1, toNumber(nameCount[2], 1));
+          unitPrice = Math.abs(amount) / count;
+        }
+      }
       name = formatYutoText(name);
       return { raw: line, sign, name, cleanName: normalizeName(name), price: unitPrice, count, after, section: "", parentName: "" };
     }
@@ -2337,7 +2625,11 @@
       const exactMatch = entry => getItemLookupKeys(entry.name).some(key => keySet.has(key));
       const partialMatch = entry => {
         const entryKeys = getItemLookupKeys(entry.name);
-        return keys.some(key => entryKeys.some(entryKey => key.includes(entryKey) || entryKey.includes(key)));
+        // 「叡智の腕輪」が「スマルティエの叡智の腕輪」に吸われるような、
+        // より長い別アイテムへの部分一致は避ける。収支側が「腕輪」など短い略記の場合だけ補助一致させる。
+        return keys.some(key => entryKeys.some(entryKey =>
+          entryKey.length >= 2 && key.length > entryKey.length && key.includes(entryKey)
+        ));
       };
       let exact = main.find(exactMatch);
       if (exact) return exact.price;
@@ -2350,6 +2642,36 @@
     }
     function isCardEntry(entry) {
       return /マテリアルカード|マテカ|カード/.test(entry.raw);
+    }
+    function isCashbookEquipmentLikeSection(section) {
+      return ["武器", "武器・防具", "武器防具", "鎧と両手", "装備", "装飾品"].some(x => String(section || "").includes(x));
+    }
+    function getKnownPriceItemCategoryForName(name) {
+      const item = getAllPriceItems().find(x => priceItemMatchesName(x, name));
+      return item ? String(item.category || "").trim() : "";
+    }
+    function isConsumableLikeName(name) {
+      const raw = normalizeName(name);
+      const canonical = getKnownItemNameInfo(name).name || raw;
+      const compact = canonical.normalize("NFKC").replace(/[〈〉《》【】]/g, "").replace(/[　\s]+/g, "");
+      const category = getKnownPriceItemCategoryForName(canonical) || getKnownPriceItemCategoryForName(raw);
+      if (category && ["消耗品", "ポーション", "薬草", "魔晶石", "魔符"].some(x => category.includes(x))) return true;
+      if (isItemAliasGroup(canonical, "まとめ買い") || isItemAliasGroup(raw, "まとめ買い")) return true;
+      return [
+        /魔晶石/,
+        /魔符|魔府/,
+        /薬草|草(?:@\d+|\*\d+|\d+|$)/,
+        /ポーション/,
+        /^保存食/,
+        /^(?:弾丸|矢|太矢)(?:\(|（|12|1|一|$)/
+      ].some(pattern => pattern.test(compact));
+    }
+    function isConsumableCashbookEntry(entry) {
+      if (!entry || entry.sign >= 0 || entry.raw.startsWith("┗")) return false;
+      if (isCardEntry(entry)) return false;
+      if (String(entry.section || "").includes("消耗品")) return true;
+      if (isCashbookEquipmentLikeSection(entry.section)) return false;
+      return isConsumableLikeName(entry.name);
     }
 
     function parseSessionIncome(data) {
@@ -2368,17 +2690,417 @@
 
     function loadJsonText(text, sourceLabel = "JSON") {
       try {
-        state.rawJson = JSON.parse(text);
-        parseJsonToState(state.rawJson);
+        const data = validateCharacterJson(JSON.parse(String(text).replace(/^\uFEFF/, "")));
+        parseJsonToState(data);
+        characterSourceUrl = "";
+        if (data.sheetURL) {
+          try { characterSourceUrl = normalizeCharacterUrl(data.sheetURL); } catch {}
+        }
+        el("characterUrl").value = characterSourceUrl;
+        el("characterLoadStatus").textContent = `${sourceLabel} 読込済み`;
         const status = el("serverJsonStatus");
         if (status) status.textContent = `${sourceLabel} 読込済み`;
         return true;
       } catch (err) {
         const status = el("serverJsonStatus");
         if (status) status.textContent = "読込失敗";
+        el("characterLoadStatus").textContent = `読み込めませんでした：${err.message}`;
         showToast("JSONの読み込みに失敗しました");
         return false;
       }
+    }
+
+    // 元JSONと編集開始時点を残し、辞書照合用の名称補正をそのまま書き戻さない。
+    function validateCharacterJson(data) {
+      if (!data || typeof data !== "object" || Array.isArray(data) ||
+          (!Object.hasOwn(data, "characterName") && !Object.hasOwn(data, "pcName")) ||
+          (data.result && data.result !== "OK")) {
+        throw new Error("有効なキャラクターJSONではありません。ゆとシートのキャラクターを指定してください。");
+      }
+      return data;
+    }
+    function normalizeCharacterUrl(value) {
+      let url;
+      try { url = new URL(String(value || "").trim()); }
+      catch { throw new Error("キャラクターの閲覧URLを入力してください。"); }
+      if (!/^https?:$/.test(url.protocol) || url.username || url.password) throw new Error("http/httpsの閲覧URLを入力してください。");
+      if (!url.searchParams.get("id") && /^\?[a-zA-Z0-9_-]+$/.test(url.search)) {
+        url.searchParams.set("id", url.search.slice(1));
+      }
+      const id = url.searchParams.get("id");
+      if (!id) throw new Error("キャラクターIDがありません。一覧ではなくキャラクターの閲覧URLを指定してください。");
+      url.search = "";
+      url.searchParams.set("id", id);
+      url.hash = "";
+      return url.href;
+    }
+    async function fetchCharacterJson(value) {
+      const url = new URL(normalizeCharacterUrl(value));
+      url.searchParams.set("mode", "json");
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      try {
+        const response = await fetch(url.href, {
+          signal: controller.signal, cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer"
+        });
+        if (!response.ok) throw new Error("サーバー応答 " + response.status + "。URLや閲覧権限を確認してください。");
+        return validateCharacterJson(JSON.parse((await response.text()).replace(/^\uFEFF/, "")));
+      } catch (err) {
+        if (err.name === "AbortError") throw new Error("取得がタイムアウトしました。時間をおいて再試行してください。");
+        if (err instanceof SyntaxError) throw new Error("取得先からキャラクターJSONが返りませんでした。");
+        if (err instanceof TypeError) throw new Error("通信できませんでした。サーバーの外部読込制限・通信状態を確認するか、JSONファイルを使ってください。");
+        throw err;
+      } finally { clearTimeout(timer); }
+    }
+    function characterEditSignature() {
+      return JSON.stringify([state.equipment, state.accessories, state.consumables, state.cards,
+        state.otherSections, el("cashbookOutput").value, el("itemListOutput").value]);
+    }
+    function captureCharacterBaseline() {
+      characterBaseline = {
+        raw: clonePlain(state.rawJson),
+        equipment: clonePlain(state.equipment), accessories: clonePlain(state.accessories),
+        cashbook: el("cashbookOutput").value, items: el("itemListOutput").value,
+        signature: characterEditSignature()
+      };
+      closeCharacterJson();
+    }
+    async function approveCharacterLoad() {
+      if (!characterBaseline || characterEditSignature() === characterBaseline.signature) return true;
+      return showConfirm("未出力の編集があります。別のキャラクターデータを読み込みますか？\n必要なら先にJSON出力またはテキストのコピーをしてください。", { confirmText: "読み込む" });
+    }
+    async function loadCharacterFromUrl() {
+      if (characterReadBusy) return;
+      characterReadBusy = true;
+      el("loadCharacterUrlBtn").disabled = true;
+      const status = el("characterLoadStatus");
+      try {
+        const url = normalizeCharacterUrl(el("characterUrl").value);
+        status.textContent = "キャラクターを取得しています…";
+        const data = await fetchCharacterJson(url);
+        if (!await approveCharacterLoad()) { status.textContent = "読込を取り消しました。"; return; }
+        if (!loadJsonText(JSON.stringify(data), "URL")) return;
+        characterSourceUrl = url;
+        el("characterUrl").value = url;
+        status.textContent = (data.characterName || data.pcName || "キャラクター") + " 読込済み";
+      } catch (err) { status.textContent = "読み込めませんでした：" + err.message; }
+      finally { characterReadBusy = false; el("loadCharacterUrlBtn").disabled = false; }
+    }
+    function characterFieldEqual(a, b) {
+      return decodeYutoText(a).replace(/\r\n/g, "\n") === decodeYutoText(b).replace(/\r\n/g, "\n");
+    }
+    function characterRowFields(data, prefix) {
+      const result = {};
+      const pattern = new RegExp("^" + prefix + (prefix.startsWith("accessory") ? "[A-Z]" : "(?:[A-Z]|_[A-Z])"));
+      Object.keys(data).forEach(key => { if (pattern.test(key)) result[key] = data[key]; });
+      return result;
+    }
+    function editedCharacterName(row, before) {
+      return row.exportName && row.name !== before?.name ? row.exportName : row.name;
+    }
+    function characterFieldLabel(key) {
+      if (key === "cashbook") return "収支履歴";
+      if (key === "items") return "所持品";
+      const labels = { Name: "名称", Note: "備考・効果", Own: "専用化", Add: "追加枠", Category: "種別" };
+      return Object.entries(labels).find(([suffix]) => key.endsWith(suffix))?.[1] || key;
+    }
+    function buildCharacterChanges(latest) {
+      const base = characterBaseline;
+      const groups = [], issues = [];
+      const add = (title, writes, options = {}) => {
+        const keys = Object.keys(writes);
+        if (keys.some(key => !characterFieldEqual(base.raw[key], writes[key])) &&
+            keys.some(key => !characterFieldEqual(latest[key], writes[key]))) {
+          groups.push({ title, writes, ...options });
+        }
+      };
+      const clearRow = prefix => Object.fromEntries(Object.keys(characterRowFields({ ...base.raw, ...latest }, prefix)).map(key => [key, ""]));
+      const oldEquipment = new Map(base.equipment.filter(r => r.sourcePrefix).map(r => [r.sourcePrefix, r]));
+      const remainingEquipment = new Set(), nextNumbers = {};
+      const allocateEquipment = family => {
+        if (!nextNumbers[family]) nextNumbers[family] = Math.max(0, ...Object.keys({ ...base.raw, ...latest })
+          .map(key => Number(key.match(new RegExp("^" + family + "(\\d+)"))?.[1] || 0)),
+          toNumber(latest[family + "Num"], 0)) + 1;
+        return family + nextNumbers[family]++;
+      };
+      state.equipment.forEach(row => {
+        const before = oldEquipment.get(row.sourcePrefix);
+        if (before) remainingEquipment.add(row.sourcePrefix);
+        if (!row.name && !before?.name) return;
+        if (before && (before.type === "武器") !== (row.type === "武器")) {
+          issues.push(row.name + "：武器と防具をまたぐ種別変更はJSONの装備欄には反映しません。ゆとシート側で設定してください。");
+          return;
+        }
+        const family = row.type === "武器" ? "weapon" : "armour";
+        const prefix = row.sourcePrefix || allocateEquipment(family);
+        const nameKey = row.sourceNameKey || prefix + "Name";
+        const writes = {};
+        if (before && !row.name) Object.assign(writes, clearRow(prefix));
+        else {
+          if (!before || row.name !== before.name) writes[nameKey] = editedCharacterName(row, before);
+          if (!before || row.note !== before.note) writes[nameKey.replace(/Name$/, "Note")] = row.note;
+          if (row.type !== "武器" && (!before || row.type !== before.type)) writes[prefix + "Category"] = row.type;
+        }
+        add("武器・防具：" + (before?.name || "新規") + " → " + (row.name || "削除"), writes,
+          { equipment: { prefix, family } });
+      });
+      oldEquipment.forEach((row, prefix) => {
+        if (!remainingEquipment.has(prefix)) add("武器・防具を削除：" + row.name, clearRow(prefix));
+      });
+      const oldAccessories = new Map(base.accessories.map(r => [r.sourcePrefix, r]));
+      const currentSources = new Set(state.accessories.map(r => r.sourcePrefix).filter(Boolean));
+      const targets = new Map(), children = new Map(), accessoryOps = [];
+      const accessoryRows = state.accessories.map(row => ({ ...row }));
+      const movedParents = new Map();
+      accessoryRows.filter(row => !row.child).forEach(row => {
+        const before = oldAccessories.get(row.sourcePrefix);
+        if (before && before.part !== row.part) movedParents.set(before.part, row.part);
+      });
+      accessoryRows.filter(row => row.child).forEach(row => {
+        if (movedParents.has(row.parentPart)) row.parentPart = movedParents.get(row.parentPart);
+      });
+      accessoryRows.forEach(row => {
+        const before = oldAccessories.get(row.sourcePrefix);
+        if (!row.name && !before?.name && row.hasExtraSlot === Boolean(before?.hasExtraSlot)) return;
+        const part = row.child ? row.parentPart : row.part;
+        const code = ACCESSORY_CODES[part];
+        if (!code) { issues.push("装飾品 " + row.name + "：装備部位を指定してください。"); return; }
+        let prefix = "accessory" + code;
+        if (row.child) {
+          if (before && before.parentPart === part) prefix = row.sourcePrefix;
+          else if (before && movedParents.get(before.parentPart) === part) prefix += row.sourcePrefix.match(/_+$/)?.[0] || "_";
+          else {
+            let count = (children.get(part) || 0) + 1;
+            while (count <= 3 && (base.raw[prefix + "_".repeat(count) + "Name"] || latest[prefix + "_".repeat(count) + "Name"])) count++;
+            if (count > 3) { issues.push("装飾品の" + part + "追加枠が足りません。ゆとシート側で装備先を確認してください。"); targets.set("invalid", null); return; }
+            children.set(part, count);
+            prefix += "_".repeat(count);
+          }
+        }
+        if (row.name && targets.has(prefix) && (targets.get(prefix) === null || targets.get(prefix)?.name)) {
+          issues.push("装飾品の" + part + "枠に複数のアイテムがあります。装備欄に反映する行の部位を整理してください。");
+          targets.set(prefix, null);
+        } else if (!targets.has(prefix) || row.name) targets.set(prefix, row);
+        accessoryOps.push({ row, before, prefix, part });
+      });
+      accessoryOps.filter(op => op.row.child && op.row.name).forEach(op => {
+        if (!accessoryRows.some(parent => !parent.child && parent.part === op.part && parent.name && parent.hasExtraSlot)) {
+          issues.push("装飾品の" + op.part + "追加枠にアイテムがあります。親の装備と追加枠のチェックを確認してください。");
+          targets.set("invalid", null);
+        }
+      });
+      if (![...targets.values()].includes(null)) {
+        // 先に移動元・削除元を消す操作を作り、移動先への書き込みを後に適用する。
+        const removals = {};
+        oldAccessories.forEach((row, prefix) => {
+          const op = accessoryOps.find(x => x.row.sourcePrefix === prefix);
+          if ((!currentSources.has(prefix) || (op && (op.prefix !== prefix || !op.row.name))) && (row.name || row.hasExtraSlot)) {
+            Object.assign(removals, clearRow(prefix));
+          }
+        });
+        accessoryOps.forEach(({ row, before, prefix, part }) => {
+          if (!row.name && before?.name) return; // 削除は先にremovalsへ収集済み
+          const writes = {};
+          const moved = before && row.sourcePrefix !== prefix;
+          if (moved && row.name) {
+            Object.entries(characterRowFields(base.raw, row.sourcePrefix)).forEach(([key, value]) => {
+              writes[prefix + key.slice(row.sourcePrefix.length)] = value;
+            });
+            ["Name", "Note", "Own", "Add"].forEach(suffix => {
+              writes[prefix + suffix] = base.raw[row.sourcePrefix + suffix] || "";
+            });
+          }
+          if (!row.name && before?.name) Object.assign(writes, clearRow(row.sourcePrefix));
+          else {
+            const nameChanged = !before || row.name !== before.name;
+            if (nameChanged) writes[prefix + "Name"] = editedCharacterName(row, before);
+            if (!before || row.note !== before.note) writes[prefix + "Note"] = row.note;
+            if (!before || row.hasExtraSlot !== before.hasExtraSlot) writes[prefix + "Add"] = row.hasExtraSlot ? "1" : "";
+            if (nameChanged && (!before?.name || normalizeItemKey(row.name) !== normalizeItemKey(before.name))) {
+              writes[prefix + "Own"] = "";
+              if (before && row.note === before.note) writes[prefix + "Note"] = "";
+            }
+          }
+          // 枠移動は全移動をひとまとめにして、片側だけの削除・複製を防ぐ。
+          if (Object.keys(removals).length) Object.assign(removals, writes);
+          else add("装飾品 " + part + "：" + (before?.name || "空欄") + " → " + (row.name || "削除"), writes);
+        });
+        if (Object.keys(removals).length) add("装飾品の削除・枠移動（関連する変更をまとめて反映）", removals);
+      }
+      // 元JSONとの差に加え、読込直後の生成結果から編集されたかも判定する。
+      // 未編集の再構成案は任意の折りたたみへ分離し、実際の編集と誤認させない。
+      for (const [key, outputId, label] of [["cashbook", "cashbookOutput", "収支履歴"], ["items", "itemListOutput", "所持品欄"]]) {
+        const value = el(outputId).value;
+        add(label + "を出力テキストで置き換える", { [key]: value }, {
+          defaultOff: true, automatic: characterFieldEqual(base[key], value)
+        });
+      }
+      groups.forEach(group => {
+        group.conflict = Object.keys(group.writes).some(key =>
+          !characterFieldEqual(latest[key], base.raw[key]) && !characterFieldEqual(latest[key], group.writes[key]));
+      });
+      return { groups, issues };
+    }
+    function mergeCharacterChanges(latest, groups, indexes) {
+      const output = clonePlain(latest);
+      indexes.forEach(i => {
+        const group = groups[i];
+        if (!group) return;
+        Object.assign(output, group.writes);
+        if (group.equipment) {
+          const { prefix, family } = group.equipment;
+          output[family + "Num"] = String(Math.max(toNumber(output[family + "Num"], 0), Number(prefix.match(/\d+$/)[0])));
+        }
+      });
+      return output;
+    }
+    // 表示用の行差分。書き出すJSONや取引データ自体は変更しない。
+    function getCharacterTextDiff(before, after) {
+      const oldLines = before ? before.split("\n") : [], newLines = after ? after.split("\n") : [];
+      let start = 0, oldEnd = oldLines.length, newEnd = newLines.length;
+      while (start < oldEnd && start < newEnd && oldLines[start] === newLines[start]) start++;
+      while (oldEnd > start && newEnd > start && oldLines[oldEnd - 1] === newLines[newEnd - 1]) { oldEnd--; newEnd--; }
+      const hunks = [];
+      let current = null;
+      const append = (side, lines, index) => {
+        if (!current) { current = { before: [], after: [] }; hunks.push(current); }
+        current[side].push({ text: lines[index], line: index + 1 });
+      };
+      const n = oldEnd - start, m = newEnd - start;
+      // 極端な長文で比較用メモリが増え続けないよう、共通の前後を除いた範囲で代替する。
+      if (n * m > 1000000) {
+        for (let i = start; i < oldEnd; i++) append("before", oldLines, i);
+        for (let j = start; j < newEnd; j++) append("after", newLines, j);
+        return { hunks, oldLines, newLines, simplified: true };
+      }
+      const width = m + 1, lcs = new Uint32Array((n + 1) * width);
+      for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) {
+        lcs[i * width + j] = oldLines[start + i] === newLines[start + j]
+          ? 1 + lcs[(i + 1) * width + j + 1] : Math.max(lcs[(i + 1) * width + j], lcs[i * width + j + 1]);
+      }
+      let i = 0, j = 0;
+      while (i < n || j < m) {
+        if (i < n && j < m && oldLines[start + i] === newLines[start + j]) { current = null; i++; j++; }
+        else if (i < n && (j === m || lcs[(i + 1) * width + j] >= lcs[i * width + j + 1])) append("before", oldLines, start + i++);
+        else append("after", newLines, start + j++);
+      }
+      return { hunks, oldLines, newLines, simplified: false };
+    }
+    function highlightCharacterLine(before, after) {
+      if (before === after) return [esc(before), esc(after)];
+      const oldChars = Array.from(before), newChars = Array.from(after);
+      let start = 0, suffix = 0;
+      while (start < oldChars.length && start < newChars.length && oldChars[start] === newChars[start]) start++;
+      while (suffix < oldChars.length - start && suffix < newChars.length - start &&
+        oldChars[oldChars.length - 1 - suffix] === newChars[newChars.length - 1 - suffix]) suffix++;
+      let oldEnd = oldChars.length - suffix, newEnd = newChars.length - suffix;
+      const digit = char => /[0-9０-９.,，]/.test(char || "");
+      // 100→1000を「0が一文字増えた」だけにせず、金額全体を強調する。
+      while (start > 0 && digit(oldChars[start - 1]) && digit(newChars[start - 1])) start--;
+      while (oldEnd < oldChars.length && newEnd < newChars.length && digit(oldChars[oldEnd]) && digit(newChars[newEnd])) { oldEnd++; newEnd++; }
+      const mark = (chars, end, tag) => esc(chars.slice(0, start).join("")) +
+        (end > start ? `<${tag}>${esc(chars.slice(start, end).join(""))}</${tag}>` : "") + esc(chars.slice(end).join(""));
+      return [mark(oldChars, oldEnd, "del"), mark(newChars, newEnd, "ins")];
+    }
+    function characterDiffSection(lines, line) {
+      for (let i = line - 1; i >= 0; i--) {
+        if (/^\s*\[---+\]/.test(lines[i])) break;
+        const heading = lines[i].match(/^\s*\[[>vVＶｖ]\](.*)$/);
+        if (heading) return heading[1].trim();
+      }
+      return "";
+    }
+    function renderCharacterFieldDiff(key, beforeValue, afterValue) {
+      const before = decodeYutoText(beforeValue ?? ""), after = decodeYutoText(afterValue ?? "");
+      const label = '<small>' + esc(characterFieldLabel(key)) + '</small>';
+      if (!["cashbook", "items"].includes(key) && !before.includes("\n") && !after.includes("\n")) {
+        const [oldHtml, newHtml] = highlightCharacterLine(before, after);
+        return '<div>' + label + '<pre>変更前：' + (oldHtml || "（空欄）") + '\n変更後：' + (newHtml || "（空欄）") + '</pre></div>';
+      }
+      const diff = getCharacterTextDiff(before, after);
+      const blocks = diff.hunks.map(hunk => {
+        const section = hunk.after.length ? characterDiffSection(diff.newLines, hunk.after[0].line)
+          : characterDiffSection(diff.oldLines, hunk.before[0].line);
+        let html = '<div class="jsonDiffBlock">' + (section ? '<small>見出し：' + esc(section) + '</small>' : "");
+        const count = Math.max(hunk.before.length, hunk.after.length);
+        for (let i = 0; i < Math.min(count, 20); i++) {
+          const oldLine = hunk.before[i], newLine = hunk.after[i];
+          const [oldHtml, newHtml] = oldLine && newLine ? highlightCharacterLine(oldLine.text, newLine.text)
+            : [oldLine ? '<del>' + esc(oldLine.text) + '</del>' : "", newLine ? '<ins>' + esc(newLine.text) + '</ins>' : ""];
+          if (oldLine) html += '<pre><span class="jsonDiffLineLabel">変更前 ' + oldLine.line + '行目：</span> ' + (oldHtml || "（空行）") + '</pre>';
+          if (newLine) html += '<pre><span class="jsonDiffLineLabel">変更後 ' + newLine.line + '行目：</span> ' + (newHtml || "（空行）") + '</pre>';
+        }
+        if (count > 20) html += '<p class="hint">以降' + (count - 20) + '行の比較は省略しています。全文を開いて確認してください。</p>';
+        return html + '</div>';
+      }).join("");
+      return '<div class="jsonTextDiff">' + label + '<p class="hint">変更箇所のみ：' + diff.hunks.length + 'か所' +
+        (diff.simplified ? '（長文のため変更範囲をまとめて表示）' : '') + '</p>' + blocks +
+        '<details class="jsonDiffFull"><summary>全文を確認（欄全体を置換）</summary><small>変更前</small><pre>' +
+        esc(before || "（空欄）") + '</pre><small>変更後</small><pre>' + esc(after || "（空欄）") + '</pre></details></div>';
+    }
+    function closeCharacterJson() {
+      characterExportDraft = null;
+      el("characterJsonModal").classList.remove("isOpen");
+    }
+    async function openCharacterJson() {
+      if (!characterBaseline) { showToast("先にキャラクターを読み込んでください"); return; }
+      if (el("characterJsonModal").classList.contains("isOpen")) return;
+      el("characterJsonModal").classList.add("isOpen");
+      const token = {}, signature = characterEditSignature();
+      characterExportDraft = token;
+      el("characterJsonChanges").textContent = "";
+      el("characterJsonStatus").textContent = characterSourceUrl ? "保存済みの最新版を確認しています…" : "元のJSONファイルを土台に出力します（URLによる最新版確認なし）。";
+      el("downloadCharacterJsonBtn").disabled = true;
+      el("characterJsonFallbackLabel").hidden = true;
+      el("characterJsonFallback").checked = false;
+      let latest = clonePlain(characterBaseline.raw), failed = false, statusText = "";
+      if (characterSourceUrl) {
+        try {
+          latest = await fetchCharacterJson(characterSourceUrl);
+          statusText = "ゆとシートの保存済み最新版を確認しました。選択しない箇所は最新版を維持します。";
+        } catch (err) { failed = true; statusText = "最新版を確認できませんでした：" + err.message; }
+      }
+      if (characterExportDraft !== token) return;
+      if (statusText) el("characterJsonStatus").textContent = statusText;
+      const { groups, issues } = buildCharacterChanges(latest);
+      characterExportDraft = { latest, groups, failed, signature };
+      el("characterJsonFallbackLabel").hidden = !failed;
+      const groupHtml = (group, i) => '<div class="jsonChange ' + (group.conflict ? "conflict" : "") + '">' +
+          '<label><input type="checkbox" class="checkBig characterChangeSelect" data-i="' + i + '" ' +
+          (!group.conflict && !group.defaultOff ? "checked" : "") + '>' + esc(group.title) + '</label>' +
+          (group.conflict ? "<p>ゆとシート側でも変更されています。チェックすると、以下の変更はツール側を採用します。</p>" : "") +
+          Object.entries(group.writes).map(([key, value]) => renderCharacterFieldDiff(key, latest[key], value)).join("") +
+          (Object.hasOwn(group.writes, "cashbook") || Object.hasOwn(group.writes, "items") ?
+            '<p class="hint">欄全体を置き換えます。売却・返金・自由記述・現在所持数など、元の記載が消えないか確認してください。</p>' : "") +
+          '</div>';
+      const edited = groups.map((group, i) => group.automatic ? "" : groupHtml(group, i)).join("");
+      const automatic = groups.map((group, i) => group.automatic ? groupHtml(group, i) : "").join("");
+      el("characterJsonChanges").innerHTML = issues.map(message => '<p class="jsonChange conflict">' + esc(message) + '</p>').join("") +
+        (edited || '<p id="characterNoEditMessage">反映する編集差分はありません。変更せずにJSONを出力できます。</p>') +
+        (automatic ? '<details id="characterAutoFormatChanges"><summary>自動生成テキストへの置換（任意・' + groups.filter(g => g.automatic).length + '件）</summary>' +
+          '<p class="hint">手動編集ではなく、読込時にツールが再構成した文章との差です。元の自由記述・未分類の所持品などを含まない場合があります。置き換えたい場合だけ、内容を確認してチェックしてください。未チェックなら元の記載を保持します。</p>' +
+          automatic + '</details>' : "");
+      updateCharacterDownloadButton();
+    }
+    function updateCharacterDownloadButton() {
+      el("downloadCharacterJsonBtn").disabled = !characterExportDraft?.groups ||
+        (characterExportDraft.failed && !el("characterJsonFallback").checked);
+      const count = document.querySelectorAll(".characterChangeSelect:checked").length;
+      el("downloadCharacterJsonBtn").textContent = count ? `選択した${count}件を反映してJSONを出力` : "変更せずJSONを出力";
+    }
+    function downloadCharacterJson() {
+      const draft = characterExportDraft;
+      if (!draft?.groups || (draft.failed && !el("characterJsonFallback").checked)) return;
+      if (draft.signature !== characterEditSignature()) {
+        el("characterJsonStatus").textContent = "確認画面を開いた後に編集されています。閉じて「JSON出力・変更確認」を開き直してください。";
+        el("downloadCharacterJsonBtn").disabled = true;
+        return;
+      }
+      const indexes = [...document.querySelectorAll(".characterChangeSelect:checked")].map(input => Number(input.dataset.i));
+      const output = mergeCharacterChanges(draft.latest, draft.groups, indexes);
+      const name = String(output.characterName || output.pcName || "character").replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").slice(0, 80);
+      downloadJson(output, name + "_edited_" + getTodayText() + ".json", "キャラクターJSONを出力しました");
+      el("characterJsonStatus").textContent = (indexes.length ? indexes.length + "件の変更を反映して出力しました。" : "ツールの変更を加えずに出力しました。") + "ゆとシート側で取り込み、内容を確認して保存してください。";
     }
 
     function isLocalHttpServer() {
@@ -2435,7 +3157,9 @@
         if (status) status.textContent = "読込中";
         const response = await fetch(url.href, { cache: "no-store" });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        loadJsonText(await response.text(), decodeURIComponent(url.pathname.split("/").pop() || "JSON"));
+        const text = await response.text();
+        validateCharacterJson(JSON.parse(text.replace(/^\uFEFF/, "")));
+        if (await approveCharacterLoad()) loadJsonText(text, decodeURIComponent(url.pathname.split("/").pop() || "JSON"));
       } catch (err) {
         if (status) status.textContent = "読込失敗";
         showToast("サーバー上のJSONを読み込めませんでした");
@@ -2448,7 +3172,11 @@
       state.sessionIncome = parseSessionIncome(data);
       state.sheetRemaining = data.moneyTotal !== undefined || data.money !== undefined ? parseMoneyExpression(data.moneyTotal || data.money || 0) : null;
       state.cashbookEntries = parseCashbookEntries(data.cashbook || "");
+      state.ledgerMode = state.cashbookEntries.length > 0 || /::|:>|:</.test(decodeYutoText(data.cashbook || ""));
       state.hasCashbookCardPurchase = state.cashbookEntries.some(e => e.sign < 0 && isCardEntry(e));
+      const consumableStockRows = parseConsumableStockFromItems(data.items || "");
+      state.hasCashbookConsumablePurchase = state.cashbookEntries.some(e => isConsumableCashbookEntry(e));
+      state.hasConsumableStockRows = consumableStockRows.length > 0;
 
       el("characterName").value = data.characterName || data.pcName || "";
       el("initialBudget").value = state.initialMoney;
@@ -2459,9 +3187,18 @@
 
       state.equipment = parseEquipment(data);
       state.accessories = parseAccessories(data);
-      state.consumables = parseConsumablesFromCashbook(data.cashbook || "");
+      state.consumables = parseConsumablesFromCashbook(data.cashbook || "", consumableStockRows);
       state.cards = parseCards(data);
       state.otherSections = parseOtherSectionsFromCashbook(data.cashbook || "");
+      if (state.ledgerMode) {
+        // 装備と購入取引は別。履歴にない装備も、持っているだけでは新たな支出にしない。
+        const cover = row => { row.historyCovered = true; row.importedFromLedger = true; row.excludeCost = true; row.price = 0; return row; };
+        state.equipment.forEach(row => { cover(row); row.processes.forEach(cover); });
+        state.accessories.forEach(cover);
+        state.consumables = consumableStockRows.map(row => markStockOnly(row));
+        state.cards = parseCardStockRows(data).map(row => { row.price = 0; return markStockOnly(row, ""); });
+        el("cardPurchaseHistory").open = false;
+      }
 
       if (!state.equipment.length) state.equipment.push(blankEquipment());
       if (!state.consumables.length) state.consumables.push(blankConsumable());
@@ -2473,6 +3210,7 @@
       generateOutputs();
       if (learnedStats.total) showToast(`価格候補：追加${learnedStats.added}件、更新${learnedStats.updated}件`);
       else if (state.autoLearnPrices) showToast("新しく保存した価格はありません");
+      captureCharacterBaseline();
     }
 
     function parseEquipment(data) {
@@ -2480,13 +3218,14 @@
       for (let i = 1; i <= 40; i++) {
         const nameInfo = getKnownItemNameInfo(data[`weapon${i}Name`] || data[`weapon${i}_Name`] || "");
         if (!nameInfo.name) continue;
-        rows.push({ type: "武器", name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, abyssCursePrefixes: nameInfo.prefixes, price: 0, count: 1, note: formatYutoText(data[`weapon${i}Note`] || ""), processes: [] });
+        rows.push({ sourcePrefix: `weapon${i}`, sourceNameKey: data[`weapon${i}Name`] !== undefined ? `weapon${i}Name` : `weapon${i}_Name`, type: "武器", name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, abyssCursePrefixes: nameInfo.prefixes, price: 0, count: 1, excludeCost: false, note: formatYutoText(data[`weapon${i}Note`] || ""), processes: [] });
       }
       for (let i = 1; i <= 40; i++) {
         const nameInfo = getKnownItemNameInfo(data[`armour${i}Name`] || data[`armor${i}Name`] || "");
         if (!nameInfo.name) continue;
         const category = data[`armour${i}Category`] || data[`armor${i}Category`] || "その他";
-        rows.push({ type: mapArmourCategory(category), name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, abyssCursePrefixes: nameInfo.prefixes, price: 0, count: 1, note: formatYutoText(data[`armour${i}Note`] || data[`armor${i}Note`] || ""), processes: [] });
+        const sourcePrefix = data[`armour${i}Name`] !== undefined ? `armour${i}` : `armor${i}`;
+        rows.push({ sourcePrefix, sourceNameKey: `${sourcePrefix}Name`, type: mapArmourCategory(category), name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, abyssCursePrefixes: nameInfo.prefixes, price: 0, count: 1, excludeCost: false, note: formatYutoText(data[`armour${i}Note`] || data[`armor${i}Note`] || ""), processes: [] });
       }
       // 収支履歴の加工行を可能な範囲で紐づける
       rows.forEach(row => {
@@ -2545,7 +3284,7 @@
         const withoutName = text.replace(name, "");
         note = stripProcessRankText(withoutName);
       }
-      return { name, customName, rank, rankOutput: Boolean(rankMatch), count: entry.count, price: entry.price, note };
+      return { name, customName, rank, rankOutput: Boolean(rankMatch), count: entry.count, price: entry.price, excludeCost: false, note };
     }
 
     function parseAccessories(data) {
@@ -2557,7 +3296,7 @@
       for (const [part, code] of defs) {
         const nameInfo = getKnownItemNameInfo(data[`accessory${code}Name`] || "");
         const note = formatYutoText(data[`accessory${code}Note`] || "");
-        rows.push({ part, parentPart: "", child: false, hasExtraSlot: data[`accessory${code}Add`] === "1", name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, price: 0, count: 1, note });
+        rows.push({ sourcePrefix: `accessory${code}`, part, parentPart: "", child: false, hasExtraSlot: data[`accessory${code}Add`] === "1", name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, price: 0, count: 1, excludeCost: false, note });
         const extraKeys = [
           `accessory${code}_Name`,
           `accessory${code}__Name`,
@@ -2567,70 +3306,294 @@
           if (!data[key]) return;
           const noteKey = key.replace(/Name$/, "Note");
           const extraNameInfo = getKnownItemNameInfo(data[key]);
-          rows.push({ part: "┗", parentPart: part, child: true, hasExtraSlot: false, name: extraNameInfo.name, learnedName: extraNameInfo.alias || extraNameInfo.name, price: 0, count: 1, note: formatYutoText(data[noteKey] || "") });
+          rows.push({ sourcePrefix: key.replace(/Name$/, ""), part: "┗", parentPart: part, child: true, hasExtraSlot: data[key.replace(/Name$/, "Add")] === "1", name: extraNameInfo.name, learnedName: extraNameInfo.alias || extraNameInfo.name, price: 0, count: 1, excludeCost: false, note: formatYutoText(data[noteKey] || "") });
         });
       }
       return rows;
     }
 
-    function parseConsumablesFromCashbook(cashbook) {
-      const rows = [];
-      state.cashbookEntries.forEach(entry => {
-        if (entry.sign >= 0) return;
-        if (!entry.section.includes("消耗品")) return;
-        const nameInfo = getKnownItemNameInfo(entry.name);
-        rows.push({ name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, price: entry.price, count: entry.count, includeItemList: true, note: "" });
+    function makeConsumableRow(name, count = 1, options = {}) {
+      const nameInfo = getKnownItemNameInfo(name);
+      if (!nameInfo.name) return null;
+      return {
+        name: nameInfo.name,
+        learnedName: nameInfo.alias || nameInfo.name,
+        price: options.price !== undefined ? toNumber(options.price, 0) : getPresetPrice(nameInfo.name),
+        count: Math.max(1, toNumber(count, 1)),
+        includeItemList: options.includeItemList !== undefined ? Boolean(options.includeItemList) : true,
+        excludeCost: Boolean(options.excludeCost),
+        note: options.note || "",
+        source: options.source || "",
+        stockOnly: Boolean(options.stockOnly)
+      };
+    }
+    function expandStockItemLine(rawLine) {
+      const raw = formatYutoText(rawLine).replace(/^[-・\s]+/, "").trim();
+      if (!raw) return [];
+      const grouped = raw.match(/^(.+?)[（(]([^（）()]+)[）)]$/);
+      if (grouped && /[*×xX@＠]\s*\d+/.test(grouped[2]) && /[、,，]/.test(grouped[2])) {
+        return grouped[2].split(/[、,，]/).map(part => {
+          const text = part.trim();
+          if (!text) return "";
+          return `${grouped[1].trim()}${text}`;
+        }).filter(Boolean);
+      }
+      return [raw];
+    }
+    function parseStockItemNameAndCount(line) {
+      let text = formatYutoText(line).replace(/^[-・\s]+/, "").trim();
+      if (!text) return null;
+      let count = 1;
+      const explicitCount = text.match(/(?:[*×xX@＠]\s*)(\d+)\s*$/);
+      if (explicitCount) {
+        count = toNumber(explicitCount[1], 1);
+        text = text.slice(0, explicitCount.index).trim();
+      } else {
+        const trailingCount = text.match(/^(.+?)(\d+)\s*(個|こ|枚|本|発|つ)$/);
+        if (trailingCount) {
+          text = trailingCount[1].trim();
+          count = toNumber(trailingCount[2], 1);
+        }
+      }
+      return { name: text, count };
+    }
+    function mergeStockRows(rows) {
+      const merged = [];
+      rows.forEach(row => {
+        const key = getCashbookComparableItemKey(row.name);
+        const existing = merged.find(item => getCashbookComparableItemKey(item.name) === key && toNumber(item.price, 0) === toNumber(row.price, 0));
+        if (existing) {
+          existing.count += Math.max(1, toNumber(row.count, 1));
+          if (row.learnedName && row.learnedName !== existing.learnedName) existing.learnedName = existing.learnedName || row.learnedName;
+        } else {
+          merged.push(row);
+        }
       });
-      return rows;
+      return merged;
+    }
+    function parseConsumableStockFromItems(itemsText) {
+      const rows = [];
+      decodeYutoText(itemsText).split("\n").forEach(line => {
+        expandStockItemLine(line).forEach(expanded => {
+          const parsed = parseStockItemNameAndCount(expanded);
+          if (!parsed || isCardEntry({ raw: parsed.name })) return;
+          if (!isConsumableLikeName(parsed.name)) return;
+          const row = makeConsumableRow(parsed.name, parsed.count, { source: "stock", note: "所持品欄の現在数" });
+          if (row) rows.push(row);
+        });
+      });
+      return mergeStockRows(rows);
+    }
+    function parseConsumablesFromCashbook(cashbook, stockRows = []) {
+      const purchaseRows = [];
+      const stockKeys = new Set(stockRows.map(row => getCashbookComparableItemKey(row.name)));
+      state.cashbookEntries.forEach(entry => {
+        if (!isConsumableCashbookEntry(entry)) return;
+        const entryKey = getCashbookComparableItemKey(entry.name);
+        const row = makeConsumableRow(entry.name, entry.count, {
+          price: entry.price,
+          includeItemList: !stockKeys.has(entryKey),
+          source: "cashbook",
+          note: stockKeys.has(entryKey) ? "購入履歴" : ""
+        });
+        if (row) purchaseRows.push(row);
+      });
+      if (!stockRows.length) return purchaseRows;
+      if (purchaseRows.length) {
+        return [
+          ...purchaseRows,
+          ...stockRows.map(row => markStockOnly(row))
+        ];
+      }
+      return stockRows.map(row => {
+        row.source = "stock";
+        row.stockOnly = false;
+        row.excludeCost = false;
+        row.includeItemList = true;
+        if (!row.note) row.note = "所持品欄から読込";
+        return row;
+      });
     }
     function getCardPrice(rank, color = "赤") {
       return getPresetPrice(`マテリアルカード${color}${rank}`) || getPresetPrice(`${color}${rank}`) || 0;
     }
-    function parseCards(data) {
+    function findCardCashbookPrice(rank, color = "") {
+      const rankText = String(rank || "").toUpperCase();
+      if (!rankText) return 0;
+      const colorText = String(color || "");
+      const otherColors = CARD_COLORS.map(v => v[0]).filter(v => v !== colorText);
+      const entries = state.cashbookEntries.filter(e => e.sign < 0 && isCardEntry(e));
+      const match = entries.find(entry => {
+        const raw = normalizeName(entry.raw).normalize("NFKC").replace(/[　\s]+/g, "");
+        if (!raw.includes(rankText)) return false;
+        if (colorText && raw.includes(colorText)) return true;
+        if (otherColors.some(c => raw.includes(c))) return false;
+        return /(?:マテリアルカード|マテカ|カード)/.test(raw);
+      });
+      return match ? match.price : 0;
+    }
+    function parseCardStockRows(data) {
       const rows = [];
       for (const [jp, code] of CARD_COLORS) {
         for (const rank of CARD_RANKS) {
           const key = `card${code}${rank}`;
           const count = toNumber(data[key], 0);
           if (!count) continue;
-          rows.push({ color: jp, rank, price: getCardPrice(rank, jp), count, includeItemList: true, excludeCost: state.hasCashbookCardPurchase, note: "" });
+          rows.push({ color: jp, rank, price: getCardPrice(rank, jp) || findCardCashbookPrice(rank, jp), count, includeItemList: true, excludeCost: false, note: "", source: "stock", stockOnly: false });
         }
       }
       return rows;
     }
+    function getCardInfoFromText(text, stockRows = []) {
+      const raw = normalizeName(text).normalize("NFKC").replace(/[　\s]+/g, "");
+      const rankMatch = raw.toUpperCase().match(/SS|S|A|B/);
+      if (!rankMatch) return null;
+      const rank = rankMatch[0];
+      let color = (CARD_COLORS.find(([jp]) => raw.includes(jp)) || [])[0] || "";
+      let inferred = false;
+      if (!color) {
+        const stockColors = [...new Set(stockRows.filter(row => row.rank === rank && toNumber(row.count, 0) > 0).map(row => row.color))];
+        if (stockColors.length === 1) {
+          color = stockColors[0];
+          inferred = true;
+        }
+      }
+      return { color: color || "赤", rank, inferred, genericLabel: color ? "" : `カード${rank}` };
+    }
+    function parseCardPurchasesFromCashbook(stockRows = []) {
+      const rows = [];
+      state.cashbookEntries.forEach(entry => {
+        if (entry.sign >= 0 || !isCardEntry(entry)) return;
+        const info = getCardInfoFromText(entry.name || entry.raw, stockRows);
+        if (!info) return;
+        rows.push({
+          color: info.color,
+          rank: info.rank,
+          price: entry.price,
+          count: entry.count,
+          includeItemList: false,
+          excludeCost: false,
+          note: info.genericLabel ? "購入履歴（色未判定）" : "購入履歴",
+          source: "cashbook",
+          stockOnly: false,
+          genericLabel: info.genericLabel
+        });
+      });
+      return rows;
+    }
+    function parseCards(data) {
+      const stockRows = parseCardStockRows(data);
+      const purchaseRows = parseCardPurchasesFromCashbook(stockRows);
+      if (purchaseRows.length) {
+        return [
+          ...purchaseRows,
+          ...stockRows.map(row => markStockOnly(row, "カード欄の現在数（支出計算なし）"))
+        ];
+      }
+      return stockRows;
+    }
 
+    function getCashbookComparableItemKey(name) {
+      return getKnownItemNameInfo(name).name || normalizeItemKey(name) || normalizeName(name);
+    }
+    function buildRepresentedCashbookItemCounts() {
+      const counts = new Map();
+      const add = row => {
+        const key = getCashbookComparableItemKey(row && row.name);
+        if (!key) return;
+        counts.set(key, (counts.get(key) || 0) + Math.max(1, toNumber(row.count, 1)));
+      };
+      (state.equipment || []).forEach(add);
+      (state.accessories || []).forEach(add);
+      return counts;
+    }
+    function getOtherCashbookEntryAfterRepresentedItems(entry, representedCounts) {
+      if (!entry || entry.sign >= 0 || entry.raw.startsWith("┗")) return entry;
+      const key = getCashbookComparableItemKey(entry.name);
+      if (!key || !representedCounts.has(key)) return entry;
+      const count = Math.max(1, toNumber(entry.count, 1));
+      const available = Math.max(0, toNumber(representedCounts.get(key), 0));
+      if (!available) return entry;
+      const consumed = Math.min(count, available);
+      representedCounts.set(key, available - consumed);
+      const remaining = count - consumed;
+      return remaining > 0 ? { ...entry, count: remaining } : null;
+    }
+
+    function transactionSignature(row) {
+      return JSON.stringify([row.name, row.price, row.count, row.sign, row.note, row.transferAccount || ""]);
+    }
+    // :> は預金・貸付、:< は借金の増減。商品価格の照合には使わず、履歴だけで扱う。
+    function parseLedgerLine(line) {
+      const operators = [...line.matchAll(/::|:>|:</g)];
+      if (operators.length !== 1) return null; // 複数式を一部だけ計算しない
+      const operator = operators[0];
+      const parsed = parseCashbookLine(line.slice(0, operator.index) + "::" + line.slice(operator.index + 2));
+      if (!parsed) return null;
+      parsed.transferAccount = operator[0] === ":>" ? "deposit" : operator[0] === ":<" ? "debt" : "";
+      return parsed;
+    }
+    function parseLedgerSections(cashbook) {
+      const sections = [];
+      let current = null;
+      const section = title => { current = { title, open: true, memoOutput: true, ledger: true, items: [] }; sections.push(current); };
+      for (const raw of decodeYutoText(cashbook).split("\n")) {
+        const line = raw.trim();
+        if (!line) continue;
+        const heading = line.match(/^\[[>vVＶｖ]\](.*)$/);
+        if (heading) { section(heading[1].trim() || "詳細"); continue; }
+        if (/^\[---+\]/.test(line)) { current = null; continue; }
+        if (!current) section("未分類");
+        const parsed = parseLedgerLine(line);
+        if (!parsed || /^\/\/|^\||^\*+/.test(line)) {
+          current.items.push({ name: raw, price: 0, count: 1, sign: -1, note: "",
+            rawOnly: true, uncalculated: /::|:>|:</.test(line), includeItemList: false, excludeCost: false });
+          continue;
+        }
+        const row = { name: parsed.name || "名称なし", price: parsed.price, count: parsed.count, sign: parsed.sign,
+          note: "", transferAccount: parsed.transferAccount, isTransaction: true, includeItemList: false, excludeCost: false, sourceRaw: raw };
+        row.sourceSignature = transactionSignature(row);
+        current.items.push(row);
+      }
+      return sections.filter(sec => sec.items.length);
+    }
     function parseOtherSectionsFromCashbook(cashbook) {
+      if (state.ledgerMode) return parseLedgerSections(cashbook);
       const ignore = ["武器・防具等", "鎧と両手", "装備", "装飾品", "消耗品", "マテリアルカード"];
       const bySection = new Map();
-      state.cashbookEntries.forEach(entry => {
+      const representedCounts = buildRepresentedCashbookItemCounts();
+      state.cashbookEntries.forEach(rawEntry => {
+        const entry = getOtherCashbookEntryAfterRepresentedItems(rawEntry, representedCounts);
+        if (!entry) return;
         if (entry.sign >= 0) return;
+        if (isCardEntry(entry) || isConsumableCashbookEntry(entry)) return;
         if (ignore.some(x => entry.section.includes(x))) return;
         if (entry.section === "未分類" && !entry.name) return;
         const baseSection = entry.section || "未分類";
         const title = baseSection.startsWith("その他") ? baseSection : `その他_${baseSection}`;
         if (!bySection.has(title)) bySection.set(title, []);
         const nameInfo = getKnownItemNameInfo(entry.name);
-        bySection.get(title).push({ name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, price: entry.price, count: entry.count, includeItemList: false, note: "" });
+        bySection.get(title).push({ name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, price: entry.price, count: entry.count, includeItemList: false, excludeCost: false, note: "" });
       });
-      return [...bySection.entries()].map(([title, items]) => ({ title, items, open: false, memoOutput: false }));
+      return [...bySection.entries()].map(([title, items]) => ({ title, items, open: items.length > 0, memoOutput: false }));
     }
 
     function applyPresetAndCashbookPrices() {
       state.equipment.forEach(row => {
-        if (!row.price) row.price = findCashbookPrice(row.name) || getPresetPrice(row.name);
+        if (!row.price && !row.historyCovered) row.price = findCashbookPrice(row.name) || getPresetPrice(row.name);
         row.processes.forEach(proc => {
-          if (!proc.price) proc.price = getProcessPrice(proc.name, proc.rank);
+          if (!proc.price && !proc.historyCovered) proc.price = getProcessPrice(proc.name, proc.rank);
           if (!proc.note) proc.note = getProcessNote(proc.name, proc.rank);
           // 収支履歴の *N はユーザーが明示した値。CSVの有無や定義不足で上書きしない。
           proc.count = Math.max(1, toNumber(proc.count, 1));
         });
       });
       state.accessories.forEach(row => {
-        if (!row.price && row.name) row.price = findCashbookPrice(row.name) || getPresetPrice(row.name);
+        if (!row.price && row.name && !row.historyCovered) row.price = findCashbookPrice(row.name) || getPresetPrice(row.name);
       });
-      state.consumables.forEach(row => { if (!row.price && row.name) row.price = getPresetPrice(row.name); });
-      state.otherSections.forEach(sec => sec.items.forEach(row => { if (!row.price && row.name) row.price = getPresetPrice(row.name); }));
-      state.cards.forEach(row => { if (!row.price) row.price = getCardPrice(row.rank); });
+      state.consumables.forEach(row => { if (!row.price && row.name && !row.stockOnly) row.price = getPresetPrice(row.name); });
+      state.otherSections.forEach(sec => sec.items.forEach(row => { if (!row.price && row.name && !row.isTransaction && !row.rawOnly) row.price = getPresetPrice(row.name); }));
+      state.cards.forEach(row => { if (!row.price && !row.stockOnly) row.price = getCardPrice(row.rank, row.color) || findCardCashbookPrice(row.rank, row.color); });
     }
 
     function td(label, html, cls = "") { return `<td data-label="${esc(label)}" class="${cls}">${html}</td>`; }
@@ -2653,13 +3616,14 @@
       const items = state.learnedPriceItems || [];
       if (!items.length) {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td colspan="6" class="hint">価格候補はまだありません。JSONを読み込むか、「現在の入力価格を候補へ追加」を押すと保存されます。</td>`;
+        tr.innerHTML = `<td colspan="7" class="hint">価格候補はまだありません。JSONを読み込むか、「現在の入力価格を候補へ追加」を押すと保存されます。</td>`;
         tbody.appendChild(tr);
         return;
       }
       items.forEach((item, i) => {
         const tr = document.createElement("tr");
         tr.innerHTML =
+          td("選択", `<input type="checkbox" class="checkBig learnedPriceSelect" data-i="${i}" aria-label="価格候補${i + 1}を選択">`, "mobileNoLabel selectCell") +
           td("アイテム名", inputHtml(item.name, "learnedField", `data-i="${i}" data-key="name"`)) +
           td("価格", inputHtml(item.price, "learnedField", `data-i="${i}" data-key="price"`, "number")) +
           td("略称", inputHtml((item.aliases || []).join("|"), "learnedField", `data-i="${i}" data-key="aliases"`)) +
@@ -2762,6 +3726,11 @@
     }
 
     function renderAll() {
+      const uncalculated = state.otherSections.flatMap(sec => sec.items).filter(row => row.uncalculated).length;
+      el("ledgerModeHint").textContent = state.ledgerMode
+        ? "収支履歴を基準に計算しています。装備しているだけでは購入費を追加しません。新たに購入する行だけ、価格欄の『別途計上』を選んでください。" +
+          (uncalculated ? " 未対応の式が" + uncalculated + "行あります。原文を残し、計算には含めていません。" : "")
+        : "";
       renderEquipmentTable();
       renderAccessoryTable();
       renderConsumableTable();
@@ -2774,15 +3743,25 @@
       updateTotals();
     }
 
+    function purchaseCostControl(row, kind, i, p = "") {
+      if (!row.importedFromLedger) return "";
+      return '<label class="hint purchaseCostControl" title="収支履歴とは別に、この行の購入費を追加します">' +
+        '<input type="checkbox" data-action="purchaseCost" data-kind="' + kind + '" data-i="' + i + '" data-p="' + p + '" ' +
+        (!row.historyCovered ? "checked" : "") + '>別途計上</label>';
+    }
+    function priceEditorHtml(row, action, attrs, kind, i, p = "") {
+      return '<div class="priceEditor">' + inputHtml(row.price, action, attrs, "number") + purchaseCostControl(row, kind, i, p) + '</div>';
+    }
     function renderEquipmentTable() {
       const tbody = el("equipmentTable").querySelector("tbody");
       tbody.innerHTML = "";
       state.equipment.forEach((row, i) => {
         const tr = document.createElement("tr");
+        tr.className = row.excludeCost ? "costExcluded" : "";
         tr.innerHTML =
           td("種別", selectHtml(EQUIPMENT_TYPES, row.type, "equipType", `data-i="${i}"`)) +
           td("アイテム名", `<div class="stack">${inputHtml(row.name, "equipField", `data-i="${i}" data-key="name"`)}<div class="toolbar"><button class="small" type="button" data-action="addProcess" data-i="${i}">加工を追加</button><span class="badge">加工数: ${row.processes.length}</span></div></div>`) +
-          td("価格", inputHtml(row.price, "equipField", `data-i="${i}" data-key="price"`, "number")) +
+          td("価格", priceEditorHtml(row, "equipField", `data-i="${i}" data-key="price"`, "equipment", i)) +
           td("数量", inputHtml(row.count, "equipField", `data-i="${i}" data-key="count" min="1"`, "number")) +
           td("メモ", inputHtml(row.note, "equipField", `data-i="${i}" data-key="note"`)) +
           td("", `<button class="small danger deleteBtn" type="button" data-action="removeEquipment" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
@@ -2794,11 +3773,11 @@
           const max = getMaxProcessCount(proc.name);
           const countOptions = Array.from({ length: max }, (_, idx) => String(idx + 1));
           const sub = document.createElement("tr");
-          sub.className = "subRow";
+          sub.className = proc.excludeCost ? "subRow costExcluded" : "subRow";
           sub.innerHTML =
             td("種別", `<div class="partMark">┗ 加工</div>`) +
             td("アイテム名", `<div class="stack">${selectHtml(names, proc.name, "processName", `data-i="${i}" data-p="${p}"`)}${proc.name === "その他" ? inputHtml(proc.customName, "processField", `data-i="${i}" data-p="${p}" data-key="customName"`) : ""}<div class="row" style="grid-template-columns: 1fr 1fr; gap: 6px;"><div>${selectHtml(PROCESS_RANKS, proc.rank, "processRank", `data-i="${i}" data-p="${p}"`)}</div><div>${multi ? selectHtml(countOptions, String(proc.count), "processCount", `data-i="${i}" data-p="${p}"`) : `<select disabled><option>1</option></select>`}</div></div></div>`) +
-            td("価格", inputHtml(proc.price, "processField", `data-i="${i}" data-p="${p}" data-key="price"`, "number")) +
+            td("価格", priceEditorHtml(proc, "processField", `data-i="${i}" data-p="${p}" data-key="price"`, "process", i, p)) +
             td("数量", `<span class="badge">${Math.max(1, toNumber(proc.count, 1))}</span>`) +
             td("メモ", inputHtml(proc.note, "processField", `data-i="${i}" data-p="${p}" data-key="note"`)) +
             td("", `<button class="small danger deleteBtn" type="button" data-action="removeProcess" data-i="${i}" data-p="${p}">加工を削除</button>`, "mobileNoLabel deleteCell");
@@ -2812,12 +3791,13 @@
       tbody.innerHTML = "";
       state.accessories.forEach((row, i) => {
         const tr = document.createElement("tr");
+        tr.className = row.excludeCost ? "costExcluded" : "";
         const partCell = row.child ? `<div class="partMark">┗</div>` : selectHtml(ACCESSORY_PARTS, row.part, "accessoryField", `data-i="${i}" data-key="part"`);
         tr.innerHTML =
           td("部位", partCell) +
           td("追加枠", `<div class="center">${checkboxHtml(row.hasExtraSlot, "extraSlot", `data-i="${i}"`)}</div>`) +
           td("アイテム名", inputHtml(row.name, "accessoryField", `data-i="${i}" data-key="name"`)) +
-          td("価格", inputHtml(row.price, "accessoryField", `data-i="${i}" data-key="price"`, "number")) +
+          td("価格", priceEditorHtml(row, "accessoryField", `data-i="${i}" data-key="price"`, "accessory", i)) +
           td("数量", inputHtml(row.count, "accessoryField", `data-i="${i}" data-key="count" min="1"`, "number")) +
           td("メモ", inputHtml(row.note, "accessoryField", `data-i="${i}" data-key="note"`)) +
           td("", `<button class="small danger deleteBtn" type="button" data-action="removeAccessory" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
@@ -2828,8 +3808,13 @@
     function renderConsumableTable() {
       const tbody = el("consumableTable").querySelector("tbody");
       tbody.innerHTML = "";
+      const hasStockOnly = state.consumables.some(row => row.stockOnly);
+      el("consumableCostHint").textContent = state.ledgerMode ? "購入取引は日付別の収支履歴に表示しています。この欄は現在の所持品の整理用で、読込時の所持数は支出に加えません。" : hasStockOnly
+        ? "収支履歴の購入行と、所持品欄の現在数を分けて読み込みました。『所持品欄の現在数』行は所持品出力用で、支出計算には入れません。"
+        : "";
       state.consumables.forEach((row, i) => {
         const tr = document.createElement("tr");
+        tr.className = row.excludeCost ? "costExcluded" : "";
         tr.innerHTML =
           td("所持品に含める", `<div class="center">${checkboxHtml(row.includeItemList, "consumableField", `data-i="${i}" data-key="includeItemList"`)}</div>`) +
           td("アイテム名", inputHtml(row.name, "consumableField", `data-i="${i}" data-key="name"`)) +
@@ -2844,25 +3829,79 @@
     function renderCardTable() {
       const tbody = el("cardTable").querySelector("tbody");
       tbody.innerHTML = "";
-      el("cardCostHint").textContent = state.hasCashbookCardPurchase ? "収支履歴にカード購入記録があるため、シート上の所持カードは支出計算から除外しています。" : "";
+      el("cardTable").classList.toggle("cardStockMode", Boolean(state.ledgerMode));
+      el("cardMemoTools").hidden = Boolean(state.ledgerMode);
+      el("cardCountHeader").textContent = state.ledgerMode ? "現在数" : "数量";
+      el("addCardBtn").textContent = state.ledgerMode ? "現在数を追加" : "行を追加";
+      el("addCardPurchaseBtn").hidden = !state.ledgerMode;
+      el("cardCostHint").textContent = state.ledgerMode ? "上の表は現在所持数です（支出なし）。購入・売却の金額は下の履歴で確認できます。" : state.cards.some(row => row.stockOnly)
+        ? "収支履歴のカード購入行と、カード欄の現在数を分けて読み込みました。『カード欄の現在数』行は所持品出力用で、支出計算には入れません。"
+        : (state.hasCashbookCardPurchase ? "収支履歴にカード購入記録があります。重複している場合は差額の原因候補から除外できます。" : "");
       state.cards.forEach((row, i) => {
         const tr = document.createElement("tr");
+        tr.className = row.excludeCost ? "costExcluded" : "";
         tr.innerHTML =
           td("所持品に含める", `<div class="center">${checkboxHtml(row.includeItemList, "cardField", `data-i="${i}" data-key="includeItemList"`)}</div>`) +
           td("色", selectHtml(CARD_COLORS.map(v => v[0]), row.color, "cardField", `data-i="${i}" data-key="color"`)) +
           td("ランク", selectHtml(CARD_RANKS, row.rank, "cardRank", `data-i="${i}"`)) +
-          td("価格", inputHtml(row.price, "cardField", `data-i="${i}" data-key="price"`, "number")) +
+          td("価格", inputHtml(row.price, "cardField", `data-i="${i}" data-key="price"`, "number"), "cardPriceCell") +
           td("数量", inputHtml(row.count, "cardField", `data-i="${i}" data-key="count" min="1"`, "number")) +
           td("メモ", inputHtml(row.note || "", "cardField", `data-i="${i}" data-key="note"`)) +
           td("", `<button class="small danger deleteBtn" type="button" data-action="removeCard" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
         tbody.appendChild(tr);
       });
+      const groups = getCardLedgerGroups();
+      el("cardPurchaseHistory").hidden = !state.ledgerMode || !groups.length;
+      el("cardPurchaseCount").textContent = groups.reduce((sum, group) => sum + group.items.length, 0) + "件";
+      el("cardPurchaseRows").innerHTML = groups.map(({ section, s, items }) =>
+        `<div class="cardHistoryGroup"><div class="toolbar"><strong>${esc(section.title)}</strong>
+          <label><input type="checkbox" class="checkBig" data-action="otherMemoOutput" data-s="${s}" ${section.memoOutput ? "checked" : ""}> メモ出力</label></div>
+          <div class="ledgerScroll">${ledgerTableHtml(items, s)}</div></div>`).join("");
     }
 
+    // カードの表示場所だけを集約する。元の取引・日付・金額は動かさず、集計と出力を維持。
+    function isCardLedgerRow(row) {
+      if (!state.ledgerMode || !row.isTransaction || row.transferAccount) return false;
+      const name = getKnownItemNameInfo(row.name).name.normalize("NFKC").replace(/\s/g, "");
+      return /^(?:マテリアルカード|マテカ|カード)(?:[（(]?[赤緑黒白金][）)]?)?(?:SS|S|A|B|\d)/i.test(name);
+    }
+    function getCardLedgerGroups() {
+      return state.otherSections.map((section, s) => ({ section, s,
+        items: section.items.map((item, i) => ({ item, i })).filter(({ item }) => isCardLedgerRow(item))
+      })).filter(group => group.items.length);
+    }
+    function ledgerTableHtml(items, s) {
+      return `<table class="gridTable ledgerTable">
+        <thead><tr><th>収支</th><th>所持品に含める</th><th>アイテム名／摘要</th><th>金額（単価）</th><th>数量</th><th>メモ</th><th></th></tr></thead>
+        <tbody>${items.map(({ item, i }) => renderOtherItemRow(item, s, i)).join("")}</tbody></table>`;
+    }
+
+    function renderOtherItemRow(item, s, i) {
+      const data = 'data-s="' + s + '" data-i="' + i + '"';
+      const plainName = '<input type="text" data-action="otherField" data-key="name" ' + data + ' value="' + esc(item.name) + '">';
+      if (item.rawOnly) return '<tr><td colspan="7"><span class="hint">' +
+        (item.uncalculated ? "未対応の式：原文を保持（計算対象外）" : "メモ：原文を保持") + '</span>' + plainName + '</td></tr>';
+      const account = item.transferAccount || "";
+      const selected = account ? account + ":" + item.sign : String(Number(item.sign) === 1 ? 1 : -1);
+      const direction = '<select aria-label="取引種別" data-action="otherField" data-key="sign" ' + data + '>' +
+        [["-1", "支出"], ["1", "収入"], ["deposit:1", "預金・貸付"], ["deposit:-1", "引出・回収"], ["debt:1", "借入"], ["debt:-1", "返済"]]
+          .map(([value, label]) => '<option value="' + value + '"' + (selected === value ? ' selected' : '') + '>' + label + '</option>').join("") + '</select>';
+      return '<tr class="' + (item.excludeCost ? 'costExcluded' : '') + (account ? ' transferRow' : Number(item.sign) === 1 ? ' incomeRow' : '') + '">' +
+        td("収支", direction) +
+        td("所持品に含める", checkboxHtml(item.includeItemList, "otherField", data + ' data-key="includeItemList"' + (account || Number(item.sign) === 1 ? ' disabled' : ''))) +
+        td("アイテム名／摘要", item.isTransaction || Number(item.sign) === 1 ? plainName : inputHtml(item.name, "otherField", data + ' data-key="name"')) +
+        td("金額（単価）", inputHtml(item.price, "otherField", data + ' data-key="price" min="0"', "number")) +
+        td("数量", inputHtml(item.count, "otherField", data + ' data-key="count" min="1"', "number")) +
+        td("メモ", inputHtml(item.note, "otherField", data + ' data-key="note"')) +
+        td("", '<button class="small danger deleteBtn" type="button" data-action="removeOtherItem" ' + data + '>削除</button>', "mobileNoLabel deleteCell") +
+        '</tr>';
+    }
     function renderOtherSections() {
       const root = el("otherSections");
       root.innerHTML = "";
       state.otherSections.forEach((section, s) => {
+        const visibleItems = section.items.map((item, i) => ({ item, i })).filter(({ item }) => !isCardLedgerRow(item));
+        if (!visibleItems.length && (section.items.length || state.ledgerMode && section.title === "マテリアルカード")) return;
         const details = document.createElement("details");
         details.className = "section";
         details.dataset.otherIndex = String(s);
@@ -2879,18 +3918,7 @@
               <button type="button" data-action="addOtherItem" data-s="${s}">行を追加</button>
               <button type="button" class="danger" data-action="removeOtherSection" data-s="${s}">この枠を削除</button>
             </div>
-            <table class="gridTable">
-              <thead><tr><th>所持品に含める</th><th>アイテム名</th><th>価格</th><th>数量</th><th>メモ</th><th></th></tr></thead>
-              <tbody>${section.items.map((item, i) => `
-                <tr>
-                  ${td("所持品に含める", `<div class="center">${checkboxHtml(item.includeItemList, "otherField", `data-s="${s}" data-i="${i}" data-key="includeItemList"`)}</div>`)}
-                  ${td("アイテム名", inputHtml(item.name, "otherField", `data-s="${s}" data-i="${i}" data-key="name"`))}
-                  ${td("価格", inputHtml(item.price, "otherField", `data-s="${s}" data-i="${i}" data-key="price"`, "number"))}
-                  ${td("数量", inputHtml(item.count, "otherField", `data-s="${s}" data-i="${i}" data-key="count" min="1"`, "number"))}
-                  ${td("メモ", inputHtml(item.note, "otherField", `data-s="${s}" data-i="${i}" data-key="note"`))}
-                  ${td("", `<button class="small danger deleteBtn" type="button" data-action="removeOtherItem" data-s="${s}" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell")}
-                </tr>`).join("")}</tbody>
-            </table>
+            ${ledgerTableHtml(visibleItems, s)}
           </div>`;
         root.appendChild(details);
       });
@@ -2901,36 +3929,208 @@
       root.appendChild(add);
     }
 
-    function updateTotals() {
-      let cost = 0;
-      state.equipment.forEach(row => {
-        cost += toNumber(row.price) * Math.max(1, toNumber(row.count, 1));
-        row.processes.forEach(proc => cost += toNumber(proc.price) * Math.max(1, toNumber(proc.count, 1)));
+    function costAmount(row) {
+      return toNumber(row && row.price, 0) * Math.max(1, toNumber(row && row.count, 1));
+    }
+    function processDisplayName(proc) {
+      const label = proc && proc.name === "その他" ? normalizeName(proc.customName) || "その他" : (proc && proc.name) || "";
+      return stripProcessRankText(label) || "加工";
+    }
+    function collectCostRows() {
+      const rows = [];
+      const push = row => {
+        if (!row || !(row.ref?.isTransaction ? String(row.name || "").trim() : normalizeName(row.name))) return;
+        if (isStockOnlyRow(row.ref) || row.ref?.historyCovered || row.ref?.rawOnly) return;
+        row.amount = costAmount(row.ref);
+        row.transferAccount = row.ref?.transferAccount || "";
+        row.income = !row.transferAccount && Number(row.ref?.sign) === 1;
+        row.key = row.key || getCashbookComparableItemKey(row.name);
+        row.excluded = Boolean(row.ref && row.ref.excludeCost);
+        rows.push(row);
+      };
+      (state.equipment || []).forEach((row, i) => {
+        push({ kind: "equipment", i, label: row.type || "武器・防具", location: "武器・防具", name: row.name, ref: row });
+        (row.processes || []).forEach((proc, p) => {
+          const name = `${row.name || "装備"} / ${processDisplayName(proc)}`;
+          push({ kind: "process", i, p, label: "加工", location: row.name || "武器・防具", name, key: `process:${getCashbookComparableItemKey(row.name)}:${normalizeName(processDisplayName(proc))}`, ref: proc });
+        });
       });
-      state.accessories.forEach(row => cost += toNumber(row.price) * Math.max(1, toNumber(row.count, 1)));
-      state.consumables.forEach(row => cost += toNumber(row.price) * Math.max(1, toNumber(row.count, 1)));
-      state.cards.forEach(row => {
-        if (!row.excludeCost) cost += toNumber(row.price) * Math.max(1, toNumber(row.count, 1));
-      });
-      state.otherSections.forEach(sec => sec.items.forEach(row => cost += toNumber(row.price) * Math.max(1, toNumber(row.count, 1))));
+      (state.accessories || []).forEach((row, i) => push({
+        kind: "accessory", i, label: row.child ? "装飾品（追加枠）" : `装飾品 ${row.part || ""}`.trim(),
+        location: "装飾品", name: row.name, ref: row
+      }));
+      (state.consumables || []).forEach((row, i) => push({
+        kind: "consumable", i, label: "消耗品", location: "消耗品", name: row.name, ref: row
+      }));
+      (state.cards || []).forEach((row, i) => push({
+        kind: "card", i, label: "マテリアルカード", location: "マテリアルカード",
+        name: `マテリアルカード${row.color || ""}${row.rank || ""}`, key: getCashbookComparableItemKey(`マテリアルカード${row.color || ""}${row.rank || ""}`), ref: row
+      }));
+      (state.otherSections || []).forEach((section, s) => (section.items || []).forEach((row, i) => push({
+        kind: "other", s, i, label: section.title || "その他", location: section.title || "その他", name: row.name, ref: row
+      })));
+      return rows;
+    }
+    function calculateCurrentMoneySummary() {
+      const rows = collectCostRows();
+      const cost = rows.filter(row => !row.excluded && !row.income && !row.transferAccount).reduce((sum, row) => sum + row.amount, 0);
       const money = parseMoneyExpression(el("initialBudget").value || state.initialMoney);
-      const income = state.sessionIncome;
+      const income = state.sessionIncome + rows.filter(row => !row.excluded && row.income).reduce((sum, row) => sum + row.amount, 0);
+      const transfers = rows.filter(row => !row.excluded && row.transferAccount);
+      const accountTotal = account => transfers.filter(row => row.transferAccount === account)
+        .reduce((sum, row) => sum + Number(row.ref.sign) * row.amount, 0);
+      const deposit = accountTotal("deposit");
+      const debt = accountTotal("debt");
+      const remaining = money + income - cost - deposit + debt;
+      const diff = state.sheetRemaining !== null && Number.isFinite(state.sheetRemaining) ? remaining - state.sheetRemaining : null;
+      return { rows, money, income, cost, remaining, diff, deposit, debt, hasTransfers: transfers.length > 0 };
+    }
+    function setCostRowExcluded(kind, indexes, excluded) {
+      const i = toNumber(indexes && indexes.i, -1);
+      const p = toNumber(indexes && indexes.p, -1);
+      const s = toNumber(indexes && indexes.s, -1);
+      let row = null;
+      if (kind === "equipment") row = state.equipment[i];
+      if (kind === "process") row = state.equipment[i] && state.equipment[i].processes[p];
+      if (kind === "accessory") row = state.accessories[i];
+      if (kind === "consumable") row = state.consumables[i];
+      if (kind === "card") row = state.cards[i];
+      if (kind === "other") row = state.otherSections[s] && state.otherSections[s].items[i];
+      if (!row) return false;
+      row.excludeCost = Boolean(excluded);
+      return true;
+    }
+    function findDiscrepancyCandidates(summary = calculateCurrentMoneySummary()) {
+      const activeRows = summary.rows.filter(row => !row.excluded && !row.income && !row.transferAccount);
+      const candidates = [];
+      const byKey = new Map();
+      activeRows.forEach(row => {
+        if (!row.key || row.key.startsWith("process:")) return;
+        if (!byKey.has(row.key)) byKey.set(row.key, []);
+        byKey.get(row.key).push(row);
+      });
+      byKey.forEach((group, key) => {
+        const kinds = new Set(group.map(row => row.kind));
+        const labels = new Set(group.map(row => row.location));
+        const hasOther = group.some(row => row.kind === "other");
+        if (group.length >= 2 && (hasOther || kinds.size >= 2 || labels.size >= 2)) {
+          candidates.push({
+            type: "duplicate",
+            title: `重複候補：${key}`,
+            reason: "同じアイテムらしき行が複数の欄にあります。古い収支履歴と装備・装飾品欄などを両方読んだ場合、余分にマイナスされることがあります。",
+            rows: group
+          });
+        }
+      });
+      const overCost = summary.diff !== null && summary.diff < 0 ? Math.abs(Math.round(summary.diff)) : 0;
+      if (overCost > 0) {
+        const sameAmountRows = activeRows.filter(row => Math.round(row.amount) === overCost);
+        if (sameAmountRows.length) {
+          candidates.push({
+            type: "sameAmount",
+            title: `差額と同額の支出：${moneyFormat(overCost)}`,
+            reason: "差額と同じ金額の支出行です。これが重複計上された1行であれば、除外すると残金が一致する可能性があります。",
+            rows: sameAmountRows
+          });
+        }
+      }
+      const zeroRows = activeRows.filter(row => normalizeName(row.name) && toNumber(row.ref && row.ref.price, 0) <= 0);
+      if (zeroRows.length) {
+        candidates.push({
+          type: "zeroPrice",
+          title: `価格未確定：${zeroRows.length}件`,
+          reason: "価格が0Gの行です。価格CSVや登録済み価格辞書が未読込の場合、ツール側の計算がゆとシートとずれることがあります。",
+          rows: zeroRows,
+          readOnly: true
+        });
+      }
+      const excludedRows = summary.rows.filter(row => row.excluded);
+      if (excludedRows.length) {
+        candidates.push({
+          type: "excluded",
+          title: `現在除外中：${excludedRows.length}件`,
+          reason: "残金計算と収支履歴出力から除外している行です。誤って除外した場合はここから戻せます。",
+          rows: excludedRows,
+          restore: true
+        });
+      }
+      return candidates;
+    }
+    function costRowActionAttributes(row) {
+      return `data-kind="${esc(row.kind)}" data-i="${row.i ?? ""}" data-p="${row.p ?? ""}" data-s="${row.s ?? ""}"`;
+    }
+    function renderDiffRows(rows, options = {}) {
+      return `<table class="diffRows">
+        <thead><tr><th>欄</th><th>アイテム</th><th>単価</th><th>数量</th><th>金額</th><th>操作</th></tr></thead>
+        <tbody>${rows.map(row => {
+          const action = options.readOnly ? `<span class="hint">確認</span>` :
+            row.excluded || options.restore
+              ? `<button type="button" class="small" data-action="includeCostRow" ${costRowActionAttributes(row)}>除外を解除</button>`
+              : `<button type="button" class="small danger" data-action="excludeCostRow" ${costRowActionAttributes(row)}>この行を除外</button>`;
+          return `<tr class="${row.excluded ? "costExcluded" : ""}">
+            <td>${esc(row.label)}</td>
+            <td>${esc(row.name)}</td>
+            <td>${esc(moneyFormat(toNumber(row.ref && row.ref.price, 0)))}</td>
+            <td>${esc(Math.max(1, toNumber(row.ref && row.ref.count, 1)))}</td>
+            <td>${esc(moneyFormat(row.amount))}</td>
+            <td>${action}</td>
+          </tr>`;
+        }).join("")}</tbody>
+      </table>`;
+    }
+    function renderDiffCheck() {
+      const summary = calculateCurrentMoneySummary();
+      const target = el("diffCheckSummary");
+      const content = el("diffCheckContent");
+      const diffText = summary.diff === null ? "差額は未計算です" : `差額：${moneyFormat(summary.diff)}（ツール計算 − ゆとシート残り）`;
+      target.textContent = `${diffText}。候補は自動推定です。迷う場合は除外せず、元の収支履歴と各編集欄を見比べてください。`;
+      const candidates = findDiscrepancyCandidates(summary);
+      if (!candidates.length) {
+        content.innerHTML = `<p class="hint">原因候補は見つかりませんでした。価格CSV未読込、加工費、売却・返金・預金など、ツールがまだ読み切れていない形式を確認してください。</p>`;
+        return;
+      }
+      content.innerHTML = candidates.map(candidate => `
+        <div class="diffCandidate">
+          <div class="diffCandidateTitle"><span>${esc(candidate.title)}</span><span class="badge">${candidate.rows.length}件</span></div>
+          <div class="diffCandidateBody">
+            <p class="diffCandidateReason">${esc(candidate.reason)}</p>
+            ${renderDiffRows(candidate.rows, candidate)}
+          </div>
+        </div>
+      `).join("");
+    }
+    function openDiffCheck() {
+      renderDiffCheck();
+      const modal = el("diffCheckModal");
+      if (modal) modal.classList.add("isOpen");
+    }
+    function closeDiffCheck() {
+      const modal = el("diffCheckModal");
+      if (modal) modal.classList.remove("isOpen");
+    }
+
+    function updateTotals() {
+      const summary = calculateCurrentMoneySummary();
+      const { cost, money, income, remaining } = summary;
       el("totalMoney").textContent = moneyFormat(money);
       el("totalCost").textContent = moneyFormat(cost);
       el("totalIncome").textContent = moneyFormat(income);
-      const remaining = money + income - cost;
       el("remainingBudget").textContent = moneyFormat(remaining);
+      const transferSummary = el("transferSummary");
+      transferSummary.hidden = !summary.hasTransfers;
+      transferSummary.textContent = summary.hasTransfers
+        ? `履歴合計：預金・貸付 ${moneyFormat(summary.deposit)} ／ 借金 ${moneyFormat(summary.debt)}` : "";
       const floating = el("floatingRemainingBudget");
       if (floating) floating.textContent = moneyFormat(remaining);
       const warn = el("calcWarning");
       if (warn) {
-        if (state.sheetRemaining !== null && Number.isFinite(state.sheetRemaining) && Math.round(remaining) !== Math.round(state.sheetRemaining)) {
-          const diff = remaining - state.sheetRemaining;
+        if (summary.diff !== null && Math.round(summary.diff) !== 0) {
+          const diff = summary.diff;
           warn.style.display = "block";
-          warn.textContent = `警告：ゆとシート上の残り（${moneyFormat(state.sheetRemaining)}）とツール計算の残り（${moneyFormat(remaining)}）が一致していません。差額：${moneyFormat(diff)}`;
+          warn.innerHTML = `${esc(`確認：ゆとシート上の残り（${moneyFormat(state.sheetRemaining)}）と、ツールが読み取って計算した残り（${moneyFormat(remaining)}）に差があります。ツールが未対応の書式・価格・加工・個数、または重複計上の可能性があります（入力ミスとは限りません）。差額：${moneyFormat(diff)}`)} <button type="button" class="small inlineAction" data-action="openDiffCheck">原因候補を確認</button>`;
         } else {
           warn.style.display = "none";
-          warn.textContent = "";
+          warn.innerHTML = "";
         }
       }
       updateFloatingRemainingVisibility();
@@ -2950,6 +4150,7 @@
       return `[>]${title}\n${body.join("\n")}\n[---]`;
     }
     function cashbookLineForEquipment(row) {
+      if (row.excludeCost || row.historyCovered) return "";
       const name = normalizeName(row.name);
       if (!name) return "";
       const multi = toNumber(row.count, 1) > 1 ? `*${toNumber(row.count, 1)}` : "";
@@ -2957,6 +4158,7 @@
       return `${row.type}　${name}　::-${toNumber(row.price)}${multi}${note}`;
     }
     function cashbookLineForProcess(proc) {
+      if (proc.excludeCost || proc.historyCovered) return "";
       const rawLabel = proc.name === "その他" ? normalizeName(proc.customName) || "その他" : proc.name;
       const label = stripProcessRankText(rawLabel);
       if (!label) return "";
@@ -2969,6 +4171,7 @@
       return `┗　::-${toNumber(proc.price)}${multi} ${label}${parts.length ? " " + parts.join(" ") : ""}`;
     }
     function cashbookLineForAccessory(row) {
+      if (row.excludeCost || row.historyCovered) return "";
       const name = normalizeName(row.name);
       if (!name) return "";
       const part = row.child ? "┗" : row.part;
@@ -2977,17 +4180,22 @@
       return `${part}　::-${toNumber(row.price)}${multi} ${name}${note}`;
     }
     function cashbookLineForCommon(row, includeNote = true) {
-      const name = normalizeName(row.name);
+      if (row.excludeCost || isStockOnlyRow(row)) return "";
+      if (row.rawOnly) return row.name;
+      if (row.isTransaction && row.sourceSignature === transactionSignature(row)) return row.sourceRaw;
+      const name = row.isTransaction ? String(row.name).trim() : normalizeName(row.name);
       if (!name) return "";
       const multi = toNumber(row.count, 1) > 1 ? `*${toNumber(row.count, 1)}` : "";
       const note = includeNote && row.note ? ` ${row.note}` : "";
-      return `${name}　::-${toNumber(row.price)}${multi}${note}`;
+      const operator = row.transferAccount === "deposit" ? ":>" : row.transferAccount === "debt" ? ":<" : "::";
+      return `${name}　${operator}${Number(row.sign) === 1 ? "+" : "-"}${toNumber(row.price)}${multi}${note}`;
     }
     function cashbookLineForCard(row) {
-      if (row.excludeCost) return "";
+      if (row.excludeCost || isStockOnlyRow(row)) return "";
       const multi = toNumber(row.count, 1) > 1 ? `*${toNumber(row.count, 1)}` : "";
       const note = el("cardMemoOutput").checked && row.note ? ` ${row.note}` : "";
-      return `${row.color}${row.rank}　::-${toNumber(row.price)}${multi}${note}`;
+      const label = row.genericLabel || `${row.color}${row.rank}`;
+      return `${label}　::-${toNumber(row.price)}${multi}${note}`;
     }
     function itemLine(row) {
       const name = normalizeName(row.name);
@@ -3108,10 +4316,12 @@
       const s = Number(input.dataset.s);
       if (action === "equipField") {
         state.equipment[i].name = name;
-        state.equipment[i].price = toNumber(price, 0);
+        state.equipment[i].exportName = name;
+        if (!state.equipment[i].historyCovered) state.equipment[i].price = toNumber(price, 0);
       } else if (action === "accessoryField") {
         state.accessories[i].name = name;
-        state.accessories[i].price = toNumber(price, 0);
+        state.accessories[i].exportName = name;
+        if (!state.accessories[i].historyCovered) state.accessories[i].price = toNumber(price, 0);
       } else if (action === "consumableField") {
         state.consumables[i].name = name;
         state.consumables[i].price = toNumber(price, 0);
@@ -3127,6 +4337,7 @@
     function commitRowItemName(row, target) {
       const enteredName = String(row.name || "").trim();
       const nameInfo = getKnownItemNameInfo(enteredName);
+      row.exportName = enteredName;
       row.name = nameInfo.name;
       row.learnedName = nameInfo.alias || nameInfo.name;
       if (target) target.value = row.name;
@@ -3150,6 +4361,30 @@
       const key = target.dataset.key;
       const value = target.type === "checkbox" ? target.checked : target.value;
       const numeric = target.type === "number";
+      if (action === "purchaseCost") {
+        const kind = target.dataset.kind;
+        const row = kind === "equipment" ? state.equipment[i] :
+          kind === "accessory" ? state.accessories[i] : state.equipment[i]?.processes[p];
+        if (!row) return;
+        row.historyCovered = !target.checked;
+        row.excludeCost = !target.checked;
+        if (target.checked && !row.price) row.price = kind === "process" ? getProcessPrice(row.name, row.rank) : getPresetPrice(row.name);
+        renderAll(); generateOutputs(); return;
+      }
+      if (action === "otherField") {
+        const row = state.otherSections[s].items[i];
+        if (row.isTransaction || row.rawOnly || Number(row.sign) === 1 || key === "sign") {
+          if (key === "sign") {
+            const parts = String(value).split(":");
+            row.transferAccount = parts.length === 2 && ["deposit", "debt"].includes(parts[0]) ? parts[0] : "";
+            row.sign = toNumber(parts.at(-1), -1) === 1 ? 1 : -1;
+            row.isTransaction = true;
+          } else row[key] = numeric ? Math.max(0, toNumber(value, key === "count" ? 1 : 0)) : value;
+          if (row.transferAccount || Number(row.sign) === 1) row.includeItemList = false;
+          if (key === "sign" || commit && key === "name") { renderCardTable(); renderOtherSections(); }
+          generateOutputs(); return; // 個別取引の価格・摘要を共通辞書へ登録しない
+        }
+      }
 
       if (action === "learnedField") {
         const item = state.learnedPriceItems[i];
@@ -3226,9 +4461,9 @@
         }
         if (key === "name" && commit) {
           commitRowItemName(state.equipment[i], target);
-          setPresetPrice(state.equipment[i].name, state.equipment[i].price);
+          if (!state.equipment[i].historyCovered) setPresetPrice(state.equipment[i].name, state.equipment[i].price);
         } else if (key === "price") {
-          setPresetPrice(state.equipment[i].name, state.equipment[i].price);
+          if (!state.equipment[i].historyCovered) setPresetPrice(state.equipment[i].name, state.equipment[i].price);
         }
       }
       if (action === "processName") {
@@ -3260,9 +4495,9 @@
         }
         if (key === "name" && commit) {
           commitRowItemName(state.accessories[i], target);
-          setPresetPrice(state.accessories[i].name, state.accessories[i].price);
+          if (!state.accessories[i].historyCovered) setPresetPrice(state.accessories[i].name, state.accessories[i].price);
         } else if (key === "price") {
-          setPresetPrice(state.accessories[i].name, state.accessories[i].price);
+          if (!state.accessories[i].historyCovered) setPresetPrice(state.accessories[i].name, state.accessories[i].price);
         }
       }
       if (action === "extraSlot") {
@@ -3318,6 +4553,7 @@
       }
       if (action === "otherMemoOutput") {
         state.otherSections[s].memoOutput = Boolean(value);
+        document.querySelectorAll(`[data-action="otherMemoOutput"][data-s="${s}"]`).forEach(input => { input.checked = Boolean(value); });
       }
 
       generateOutputs();
@@ -3373,13 +4609,24 @@
       const i = Number(t.dataset.i);
       const s = Number(t.dataset.s);
       const p = Number(t.dataset.p);
+      if (action === "openDiffCheck") { openDiffCheck(); return; }
+      if (action === "excludeCostRow" || action === "includeCostRow") {
+        const excluded = action === "excludeCostRow";
+        if (setCostRowExcluded(t.dataset.kind, { i: t.dataset.i, p: t.dataset.p, s: t.dataset.s }, excluded)) {
+          renderAll();
+          generateOutputs();
+          openDiffCheck();
+          showToast(excluded ? "支出計算から除外しました" : "支出計算へ戻しました");
+        }
+        return;
+      }
       if (action === "addProcess") state.equipment[i].processes.push(blankProcess(state.equipment[i].type));
       if (action === "removeProcess") state.equipment[i].processes.splice(p, 1);
       if (action === "removeEquipment") state.equipment.splice(i, 1);
       if (action === "removeAccessory") state.accessories.splice(i, 1);
       if (action === "removeConsumable") state.consumables.splice(i, 1);
       if (action === "removeCard") state.cards.splice(i, 1);
-      if (action === "addOtherItem") state.otherSections[s].items.push({ name: "", price: 0, count: 1, includeItemList: false, note: "" });
+      if (action === "addOtherItem") state.otherSections[s].items.push({ name: "", price: 0, count: 1, sign: -1, isTransaction: Boolean(state.otherSections[s].ledger), includeItemList: false, excludeCost: false, note: "" });
       if (action === "removeOtherItem") state.otherSections[s].items.splice(i, 1);
       if (action === "addOtherSection") state.otherSections.push(blankOtherSection(`その他_${state.otherSections.length + 1}`, true));
       if (action === "removeOtherSection") state.otherSections.splice(s, 1);
@@ -3415,7 +4662,15 @@
     el("addEquipmentBtn").addEventListener("click", () => { state.equipment.push(blankEquipment()); renderAll(); generateOutputs(); });
     el("addAccessoryBtn").addEventListener("click", () => { state.accessories.push(blankAccessory("他")); renderAll(); generateOutputs(); });
     el("addConsumableBtn").addEventListener("click", () => { state.consumables.push(blankConsumable()); renderAll(); generateOutputs(); });
-    el("addCardBtn").addEventListener("click", () => { const row = blankCard(); row.excludeCost = state.hasCashbookCardPurchase; state.cards.push(row); renderAll(); generateOutputs(); });
+    el("addCardBtn").addEventListener("click", () => { const row = blankCard(); if (state.ledgerMode) markStockOnly(row, ""); state.cards.push(row); renderAll(); generateOutputs(); });
+    el("addCardPurchaseBtn").addEventListener("click", () => {
+      if (!state.ledgerMode) return;
+      let section = state.otherSections.find(sec => sec.title === "マテリアルカード");
+      if (!section) { section = { title: "マテリアルカード", open: true, memoOutput: true, ledger: true, items: [] }; state.otherSections.push(section); }
+      section.items.push({ name: "赤A", price: getCardPrice("A", "赤"), count: 1, sign: -1,
+        isTransaction: true, includeItemList: false, excludeCost: false, note: "" });
+      renderAll(); generateOutputs(); el("cardPurchaseHistory").open = true;
+    });
     el("addCustomProcessBtn").addEventListener("click", () => {
       state.customProcessItems.push(blankCustomProcessItem());
       saveCustomProcessItems();
@@ -3423,6 +4678,7 @@
       showToast("加工データ行を追加しました");
     });
     el("exportMergedProcessBtn").addEventListener("click", exportMergedProcessCsv);
+    el("downloadProcessTemplateBtn").addEventListener("click", () => downloadProcessCsvRows([PROCESS_CSV_HEADERS], "data_template.csv"));
     el("copyCashbookBtn").addEventListener("click", () => copyFrom("cashbookOutput"));
     el("copyItemListBtn").addEventListener("click", () => copyFrom("itemListOutput"));
     el("equipmentMemoOutput").addEventListener("change", generateOutputs);
@@ -3469,8 +4725,21 @@
     el("jsonFile").addEventListener("change", async (e) => {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
-      loadJsonText(await file.text(), file.name);
+      try {
+        const text = await file.text();
+        validateCharacterJson(JSON.parse(text.replace(/^\uFEFF/, "")));
+        if (await approveCharacterLoad()) loadJsonText(text, file.name);
+      } catch (err) { el("characterLoadStatus").textContent = "読み込めませんでした：" + err.message; }
+      e.target.value = "";
     });
+    el("loadCharacterUrlBtn").addEventListener("click", loadCharacterFromUrl);
+    el("characterUrl").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); loadCharacterFromUrl(); } });
+    el("exportCharacterJsonBtn").addEventListener("click", openCharacterJson);
+    el("downloadCharacterJsonBtn").addEventListener("click", downloadCharacterJson);
+    el("closeCharacterJsonBtn").addEventListener("click", closeCharacterJson);
+    el("characterJsonModal").addEventListener("click", e => { if (e.target === el("characterJsonModal")) closeCharacterJson(); });
+    el("characterJsonFallback").addEventListener("change", updateCharacterDownloadButton);
+    el("characterJsonChanges").addEventListener("change", e => { if (e.target.classList.contains("characterChangeSelect")) updateCharacterDownloadButton(); });
     el("loadServerJsonBtn").addEventListener("click", loadSelectedServerJson);
     el("refreshServerJsonBtn").addEventListener("click", refreshServerJsonList);
 
@@ -3518,10 +4787,27 @@
     el("helpModal").addEventListener("click", e => {
       if (e.target === el("helpModal")) closeHelp();
     });
+    el("settingsBackupBtn").addEventListener("click", openSettingsBackup);
+    el("closeSettingsBackupBtn").addEventListener("click", closeSettingsBackup);
+    el("settingsBackupModal").addEventListener("click", e => {
+      if (e.target === el("settingsBackupModal")) closeSettingsBackup();
+    });
+    el("exportPersonalSettingsBtn").addEventListener("click", () => exportSettingsBackup("personal-backup"));
+    el("exportSharedSettingsBtn").addEventListener("click", () => exportSettingsBackup("shared"));
+    el("importSettingsBtn").addEventListener("click", () => el("settingsImportFile").click());
+    el("settingsImportFile").addEventListener("change", async e => {
+      const file = e.target.files && e.target.files[0];
+      await importSettingsBackupFile(file);
+      e.target.value = "";
+    });
     el("changelogBtn").addEventListener("click", openChangelog);
     el("closeChangelogBtn").addEventListener("click", closeChangelog);
     el("changelogModal").addEventListener("click", e => {
       if (e.target === el("changelogModal")) closeChangelog();
+    });
+    el("closeDiffCheckBtn").addEventListener("click", closeDiffCheck);
+    el("diffCheckModal").addEventListener("click", e => {
+      if (e.target === el("diffCheckModal")) closeDiffCheck();
     });
     el("confirmCancelBtn").addEventListener("click", () => closeConfirm(false));
     el("confirmOkBtn").addEventListener("click", () => closeConfirm(true));
@@ -3531,7 +4817,10 @@
     document.addEventListener("keydown", e => {
       if (e.key === "Escape") {
         closeHelp();
+        closeCharacterJson();
+        closeSettingsBackup();
         closeChangelog();
+        closeDiffCheck();
         if (el("confirmModal").classList.contains("isOpen")) closeConfirm(false);
       }
     });
@@ -3554,6 +4843,19 @@
     el("exportLearnedPriceBtn").addEventListener("click", exportLearnedPricesCsv);
     el("exportMergedPriceBtn").addEventListener("click", exportMergedPriceCsv);
     el("checkLearnedDuplicatesBtn").addEventListener("click", showLearnedPriceDuplicateCheck);
+    el("selectAllLearnedPricesBtn").addEventListener("click", () => {
+      const items = state.learnedPriceItems || [];
+      if (!items.length) {
+        showToast("選択する価格候補がありません");
+        return;
+      }
+      const selected = getSelectedLearnedPriceIndexes().length;
+      const shouldSelect = selected < items.length;
+      setAllLearnedPriceSelections(shouldSelect);
+      showToast(shouldSelect ? "全候補を選択しました" : "全候補の選択を解除しました");
+    });
+    el("deleteSelectedLearnedPricesBtn").addEventListener("click", deleteSelectedLearnedPrices);
+    el("deleteAllLearnedPricesBtn").addEventListener("click", clearAllLearnedPrices);
     el("confirmAllLearnedPricesBtn").addEventListener("click", async () => {
       const count = (state.learnedPriceItems || []).length;
       if (!count) {
@@ -3567,16 +4869,7 @@
       generateOutputs();
       showToast(`${moved}件を登録済み価格辞書へ移しました`);
     });
-    el("clearLearnedPriceBtn").addEventListener("click", async () => {
-      const ok = await showConfirm("整理中の価格候補をすべて削除します。\nアイテム価格データCSVと現在の入力欄は消えません。", { confirmText: "削除" });
-      if (!ok) return;
-      state.learnedPriceItems = [];
-      localStorage.removeItem("sw25_learned_price_items");
-      updateLearnedPriceStatus();
-      renderAll();
-      generateOutputs();
-      showToast("価格候補を削除しました");
-    });
+    el("clearLearnedPriceBtn").addEventListener("click", clearAllLearnedPrices);
 
     el("themeBtn").addEventListener("click", () => {
       const headerMenu = document.querySelector(".headerMenu");
