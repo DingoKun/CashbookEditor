@@ -1,10 +1,13 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.5.22
+  version: v1.5.25
   date: 2026-10-18
   versioning: previous v26 is treated as 0.26
   notes:
+    - v1.5.25：独自の横移動バーを撤去し、価格辞書を大分類ごとの開閉・通常スクロールへ変更
+    - v1.5.24：表上部の横移動バーを追加し、補助パネルの開閉デザインを統一
+    - v1.5.23：カテゴリ編集を横並びに圧縮し、任意の途中保存・再開を追加
     - v1.5.22：入力時の全件整理を廃止し、名称照合・重複整理・管理表の再描画を軽量化
     - v1.5.19：編集した収支を安全確認後に初期選択し、JSONへの反映漏れを案内
     - v1.5.18：装備情報と取引履歴の表示を分離し、履歴の一括開閉・見出し変更を追加
@@ -30,7 +33,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.5.22</title>
+  <title>SW2.5 収支・持ち物エディタ v1.5.25</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -95,7 +98,7 @@
       cursor: pointer;
       padding: 4px 8px;
       border: 1px solid var(--line);
-      border-radius: 4px;
+      border-radius: 6px;
       background: #fff;
       color: var(--muted);
       font-weight: 700;
@@ -120,7 +123,7 @@
     .card {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 12px;
+      border-radius: 6px;
       padding: 8px;
       margin-bottom: 8px;
     }
@@ -298,32 +301,6 @@
       font-size: 12px;
       font-weight: 700;
     }
-    .miniHelp {
-      margin-top: 6px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: #fafafa;
-      padding: 5px 7px;
-    }
-    .miniHelp > summary {
-      cursor: pointer;
-      font-weight: 800;
-      color: var(--accent);
-      user-select: none;
-    }
-    .readHelp {
-      margin: 8px 0;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fffdf7;
-      padding: 7px 10px;
-    }
-    .readHelp > summary {
-      cursor: pointer;
-      font-weight: 900;
-      color: var(--accent);
-      user-select: none;
-    }
     .readHelp ul {
       margin: 6px 0 0 1.2em;
       padding: 0;
@@ -389,7 +366,7 @@
     #cashbookOutput { min-height: 220px; }
     button {
       border: 1px solid var(--line);
-      border-radius: 4px;
+      border-radius: 6px;
       background: #fff;
       padding: 4px 8px;
       font: inherit;
@@ -475,7 +452,7 @@
       border-radius: 6px;
       background: var(--section-bg);
       margin-bottom: 8px;
-      overflow: hidden;
+      overflow: clip;
     }
     details.section > summary {
       list-style: none;
@@ -534,8 +511,8 @@
       font-weight: 700;
       flex: 0 0 auto;
     }
-    details.section[open] .summaryIcon::before { content: "−"; }
-    details.section:not([open]) .summaryIcon::before { content: "＋"; }
+    details.section[open] > summary .summaryIcon::before { content: "−"; }
+    details.section:not([open]) > summary .summaryIcon::before { content: "＋"; }
     .summaryHint { font-size: 10px; color: var(--muted); white-space: nowrap; font-weight: 700; }
     @media (max-width: 540px) { .summaryHint { display: none; } }
     .sectionBody {
@@ -544,6 +521,21 @@
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
     }
+    /* 横移動は通常のスクロールバーのみ。辞書は大分類ごとに範囲を区切る。 */
+    .sectionBody:has(> .tableScrollViewport) { overflow: visible; }
+    .tableScrollViewport { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .tableScrollViewport:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .dictionaryGroup { margin-top: 5px; border: 1px solid var(--line); border-radius: 4px; overflow: clip; }
+    .dictionaryGroup > summary { display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; padding: 5px 7px; background: var(--section-bg); font-weight: 700; }
+    .dictionaryGroup > summary::-webkit-details-marker { display: none; }
+    .dictionaryGroup > summary::before { content: "›"; display: inline-block; width: 12px; line-height: 16px; font-size: 20px; text-align: center; }
+    .dictionaryGroup[open] > summary::before { transform: rotate(90deg); }
+    .dictionaryGroup > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .dictionaryGroupCount { color: var(--muted); font-size: 11px; font-weight: 400; }
+    .dictionaryGroupViewport { max-height: min(55vh, 420px); overflow: auto; }
+    .dictionaryGroupViewport::-webkit-scrollbar { height: 9px; width: 9px; }
+    .dictionaryGroupViewport::-webkit-scrollbar-thumb { background: #aeb6c2; border-radius: 5px; }
+    .dictionaryGroupViewport::-webkit-scrollbar-track { background: #eef0f3; }
     .gridTable {
       width: 100%;
       min-width: 680px;
@@ -555,8 +547,9 @@
     #accessoryTable { min-width: 900px; }
     #consumableTable { min-width: 760px; }
     #cardTable { min-width: 760px; }
-    #learnedPriceTable { min-width: 960px; }
-    #confirmedPriceTable { min-width: 900px; }
+    #learnedPriceTable { min-width: 1150px; }
+    #confirmedPriceTable { min-width: 0; }
+    #confirmedPriceTable .gridTable { min-width: 1100px; }
     #processCsvPreviewTable, #customProcessTable { min-width: 1180px; }
     .tableScrollBox {
       max-height: 340px;
@@ -566,20 +559,20 @@
       background: #fff;
     }
     .tableScrollBox .gridTable { margin: 0; }
-    #learnedPriceTable th:nth-child(1), #learnedPriceTable td:nth-child(1) { width: 6%; text-align: center; }
-    #learnedPriceTable th:nth-child(2), #learnedPriceTable td:nth-child(2) { width: 32%; }
-    #learnedPriceTable th:nth-child(3), #learnedPriceTable td:nth-child(3) { width: 9%; }
-    #learnedPriceTable th:nth-child(4), #learnedPriceTable td:nth-child(4) { width: 23%; }
-    #learnedPriceTable th:nth-child(5), #learnedPriceTable td:nth-child(5) { width: 9%; }
+    #learnedPriceTable th:nth-child(1), #learnedPriceTable td:nth-child(1) { width: 4%; text-align: center; }
+    #learnedPriceTable th:nth-child(2), #learnedPriceTable td:nth-child(2) { width: 28%; }
+    #learnedPriceTable th:nth-child(3), #learnedPriceTable td:nth-child(3) { width: 8%; }
+    #learnedPriceTable th:nth-child(4), #learnedPriceTable td:nth-child(4) { width: 20%; }
+    #learnedPriceTable th:nth-child(5), #learnedPriceTable td:nth-child(5) { width: 20%; }
     #learnedPriceTable th:nth-child(6), #learnedPriceTable td:nth-child(6) { width: 11%; }
-    #learnedPriceTable th:nth-child(7), #learnedPriceTable td:nth-child(7) { width: 10%; }
-    #confirmedPriceTable th:nth-child(1), #confirmedPriceTable td:nth-child(1) { width: 34%; }
-    #confirmedPriceTable th:nth-child(2), #confirmedPriceTable td:nth-child(2) { width: 10%; }
-    #confirmedPriceTable th:nth-child(3), #confirmedPriceTable td:nth-child(3) { width: 18%; }
-    #confirmedPriceTable th:nth-child(4), #confirmedPriceTable td:nth-child(4) { width: 10%; }
-    #confirmedPriceTable th:nth-child(5), #confirmedPriceTable td:nth-child(5) { width: 10%; }
-    #confirmedPriceTable th:nth-child(6), #confirmedPriceTable td:nth-child(6) { width: 10%; }
-    #confirmedPriceTable th:nth-child(7), #confirmedPriceTable td:nth-child(7) { width: 8%; }
+    #learnedPriceTable th:nth-child(7), #learnedPriceTable td:nth-child(7) { width: 9%; }
+    #confirmedPriceTable .gridTable th:nth-child(1), #confirmedPriceTable .gridTable td:nth-child(1) { width: 30%; }
+    #confirmedPriceTable .gridTable th:nth-child(2), #confirmedPriceTable .gridTable td:nth-child(2) { width: 8%; }
+    #confirmedPriceTable .gridTable th:nth-child(3), #confirmedPriceTable .gridTable td:nth-child(3) { width: 17%; }
+    #confirmedPriceTable .gridTable th:nth-child(4), #confirmedPriceTable .gridTable td:nth-child(4) { width: 20%; }
+    #confirmedPriceTable .gridTable th:nth-child(5), #confirmedPriceTable .gridTable td:nth-child(5) { width: 9%; }
+    #confirmedPriceTable .gridTable th:nth-child(6), #confirmedPriceTable .gridTable td:nth-child(6) { width: 10%; }
+    #confirmedPriceTable .gridTable th:nth-child(7), #confirmedPriceTable .gridTable td:nth-child(7) { width: 6%; }
     .gridTable th, .gridTable td {
       border: 1px solid var(--line);
       padding: 3px;
@@ -721,8 +714,6 @@
     .characterUrlRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
     #loadCharacterUrlBtn { min-height: 34px; padding: 5px 14px; white-space: nowrap; }
     #jsonFileFallback { margin-top: 7px; }
-    #jsonFileFallback > summary { cursor: pointer; padding: 4px 0; color: var(--muted); font-size: 12px; }
-    #jsonFileFallback > summary:hover { color: var(--accent); }
     #jsonFile { font-size: 12px; padding: 4px; }
     #jsonFile::file-selector-button { border-color: var(--line); background: #f4f4f5; color: var(--text); font-weight: 400; }
     .ledgerTable { min-width: 920px; }
@@ -772,7 +763,7 @@
       border-radius: 8px;
       background: var(--section-bg);
     }
-    .loadCard { padding: 0; overflow: visible; border-radius: 7px; }
+    .loadCard { padding: 0; overflow: visible; border-radius: 6px; }
     .loadCardTitle {
       display: flex;
       align-items: center;
@@ -786,29 +777,38 @@
       color: #1d3557;
     }
     .loadCardBody { padding: 8px; }
-    .dataSettings { border-top: 1px solid var(--section-border); }
-    .dataSettings > summary {
-      list-style: none;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 7px 9px;
-      cursor: pointer;
-      background: #fafcff;
-      font-weight: 800;
-      color: var(--muted);
+    /* 補助パネルも主セクションと同じ＋／−、色、角丸に揃える。 */
+    .disclosure { margin: 7px 0; padding: 0; border: 1px solid var(--section-border); border-radius: 6px; background: #fff; overflow: clip; }
+    .disclosure > summary {
+      display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; user-select: none;
+      padding: 6px 8px; background: var(--section-bg); color: var(--text); font-size: 13px; font-weight: 800;
     }
-    .dataSettings > summary::-webkit-details-marker { display: none; }
-    .dataSettings[open] > summary .summaryIcon::before { content: "−"; }
-    .dataSettings:not([open]) > summary .summaryIcon::before { content: "＋"; }
-    .dataSettings > summary:hover { background: var(--section-bg); }
-    .dataSettingsBody { padding: 8px; border-top: 1px solid var(--section-border); }
+    .disclosure > summary::-webkit-details-marker { display: none; }
+    .disclosure > summary:not(:has(.summaryIcon))::before {
+      content: "＋"; display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px; flex: 0 0 16px; border: 1px solid var(--section-border); border-radius: 50%;
+      background: #fff; font-size: 11px; font-weight: 700;
+    }
+    .disclosure[open] > summary { background: var(--section-open); border-bottom: 1px solid var(--section-border); }
+    .disclosure[open] > summary:not(:has(.summaryIcon))::before, .disclosure[open] > summary .summaryIcon::before { content: "−"; }
+    .disclosure:not([open]) > summary .summaryIcon::before { content: "＋"; }
+    .disclosure > summary:focus-visible, details.section > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    .disclosureBody, .dataSettingsBody { padding: 8px; background: #fff; }
+    .dataSettings > summary { justify-content: space-between; }
+    .loadCard .disclosure > summary, .miniHelp > summary { font-size: 12px; }
     .dictionaryFilters { display: flex; flex-wrap: wrap; gap: 6px; align-items: end; margin: 8px 0; }
     .dictionaryFilters label { flex: 1 1 150px; min-width: 0; margin: 0; }
     .dictionaryCategory td { background: var(--section-open); font-weight: bold; }
-    .categoryEditor { display: grid; gap: 3px; min-width: 0; }
+    .categoryEditor { display: grid; grid-template-columns: 5.5em minmax(9em, 1fr); gap: 4px; align-items: center; min-width: 0; }
     .categoryEditor select, .categoryEditor input { width: 100%; min-width: 0; }
+    .categoryEditor select { padding-left: 4px; padding-right: 2px; }
+    .draftTools .toolbar { margin: 6px 0; align-items: center; }
+    .draftTools label { display: inline-flex; gap: 5px; align-items: center; margin: 0; }
+    .draftTools .hint { margin: 5px 0; }
+    .draftTools > summary .hint { margin: 0; }
+    @media (min-width: 1200px) {
+      .container:has(#dataSettingsSection[open] #confirmedPriceSection[open]), .container:has(#dataSettingsSection[open] #learnedPriceSection[open]) { max-width: 1280px; }
+    }
     .categoryList ul { margin: 4px 0; padding-left: 1.3em; }
     #priceDictionaryNewItems { white-space: pre-wrap; }
     #priceDictionaryImportRows table { min-width: 600px; }
@@ -884,18 +884,6 @@
       textarea { min-height: 72px; }
       #cashbookOutput { min-height: 140px; }
       .toolbar button { flex: 1 1 auto; }
-      .sectionBody::after {
-        content: "表は左右にスクロールできます";
-        display: block;
-        margin-top: 4px;
-        color: var(--muted);
-        font-size: 11px;
-      }
-      details.section:has(#cashbookOutput) .sectionBody::after,
-      details.section:has(#cashbookPreview) .sectionBody::after {
-        content: "";
-        display: none;
-      }
     }
     @media (max-width: 540px) {
       .characterUrlRow { grid-template-columns: minmax(0, 1fr); }
@@ -915,7 +903,7 @@
       <div>
         <div class="titleLine">
           <h1>SW2.5 収支・持ち物エディタ</h1>
-          <span class="version">v1.5.22</span>
+          <span class="version">v1.5.25</span>
         </div>
         <p class="lead">ゆとシートのURLから読み込み、収支・持ち物を整理してテキストやJSONで出力します。</p>
       </div>
@@ -961,7 +949,11 @@
             <p>読込済みの履歴は原則閉じます。見出しのない取引と未計算の式を含む枠は開いて表示し、件数を見出しに表示します。「すべて開く／閉じる」は履歴だけに適用します。</p>
             <p>「名称変更」で見出しを編集して「保存」すると、出力する収支履歴の見出しも変わります。JSON出力では収支履歴の変更を選んだ場合だけ反映します。「読込時の原文を見る」は変更前の参考表示です。</p>
           </details>
-          <p class="helpNote">ゆとシートへの自動保存はしません。スマホでは表を左右にスクロールできます。数量は <code>*3</code> の形式で出力されます。</p>
+          <p class="helpNote">ゆとシートへの自動保存はしません。価格辞書は大分類の › を押すと開きます。分類ごとに表の下の通常スクロールバーで横移動できます。スマホでは表を左右にスワイプできます。数量は <code>*3</code> の形式で出力されます。</p>
+          <details><summary>編集中の作業を途中保存する</summary>
+            <p>読込欄の「途中保存・再開」で「今の作業を保存」を押すと、編集内容と元JSONを直近1件だけこのブラウザに保存します。「この作業の変更を自動保存」は任意です。再訪時は「保存した作業を再開」を押してください。</p>
+            <p>復元では価格の再照合・再学習をせず、保存した価格・加工・数量・出力テキストを戻します。辞書・加工マスターは別管理です。ゆとシートへの保存やバックアップではなく、共有PCでは終了時に削除してください。</p>
+          </details>
           <details><summary>価格候補・辞書・設定の保存</summary>
             <p>「辞書・加工データ管理」内の「価格候補（整理中）」で整え、全件を価格辞書へ登録できます。価格CSVも確認後に同じ辞書へ統合します。同名・異価格は既存維持かCSVの価格採用を選び、それ以外の重複は既存を維持します。辞書は検索・カテゴリ絞り込み・カテゴリ内の価格順で整理できます。</p>
             <p>価格CSV・加工CSV・価格辞書などの設定はこのブラウザに保存されます。別端末へ移すときは「設定」→「設定バックアップ」を使います。キャラクターJSONや作業中の編集内容は設定バックアップには含みません。</p>
@@ -994,12 +986,12 @@
         </div>
         <div class="modalBody">
           <div class="changelogItem">
-            <h3>v1.5.22</h3>
-            <ul><li>入力ごとの辞書全件整理を廃止し、名称照合・重複整理・未変更の管理表描画を軽量化。名前・価格を消して入力し直す途中で行を削除しないよう修正。</li></ul>
-            <h3>v1.5.21</h3>
-            <ul><li>辞書・候補に大分類と自由入力の小分類を追加。指定順の分類表示・絞り込み、旧カテゴリ互換、CSVの列ずれ防止・確認修復に対応。</li></ul>
-            <h3>v1.5.20</h3>
-            <ul><li>辞書・加工の入口を統合。価格CSVを登録済み辞書へ統合し、同名の価格違い確認・検索・カテゴリ分類・価格順の並べ替えに対応。</li></ul>
+            <h3>v1.5.25</h3>
+            <ul><li>独自の横移動バー・左右ボタンを撤去。登録済み価格辞書を大分類ごとのシンプルな開閉と、分類ごとの通常スクロールへ変更。</li></ul>
+            <h3>v1.5.24</h3>
+            <ul><li>横長の表に上部の横移動バー・左右ボタンを追加。読込補助・途中保存・注意・辞書設定などの開閉表示を＋／−と水色の見出しへ統一。</li></ul>
+            <h3>v1.5.23</h3>
+            <ul><li>辞書・候補の大分類と小分類を横並びにし、小分類の幅を拡大。直近1件の途中保存・再開と任意の自動保存を追加（このブラウザ内のみ）。</li></ul>
             <p class="hint">過去の詳細な更新履歴はリポジトリ内の <code>CHANGELOG.md</code> に移動しました。</p>
           </div>
         </div>
@@ -1100,8 +1092,9 @@
           </div>
           <p id="characterLoadStatus" class="hint" role="status" aria-live="polite">閲覧URLから保存済みのキャラクターを直接読み込みます。</p>
         </div>
-        <details id="jsonFileFallback">
+        <details id="jsonFileFallback" class="disclosure">
           <summary>JSONファイルから読み込む（補助）</summary>
+          <div class="disclosureBody">
           <label for="jsonFile">JSONファイル</label>
           <input id="jsonFile" type="file" accept=".json,application/json" />
           <p class="hint">URLで読み込めない場合や、保存済みJSONを使う場合はこちら。選択すると自動で読み込みます。</p>
@@ -1114,12 +1107,28 @@
               <span id="serverJsonStatus" class="csvStatus">検索前</span>
             </div>
           </div>
+          </div>
+        </details>
+        <details class="draftTools disclosure" id="draftTools">
+          <summary>途中保存・再開 <span id="draftBadge" class="hint"></span></summary>
+          <div class="disclosureBody">
+          <div class="toolbar">
+            <button id="saveWorkDraftBtn" type="button" class="small">今の作業を保存</button>
+            <button id="resumeWorkDraftBtn" type="button" class="small" disabled>保存した作業を再開</button>
+            <button id="deleteWorkDraftBtn" type="button" class="small danger" disabled>保存データを削除</button>
+          </div>
+          <label><input id="autoSaveWorkDraft" type="checkbox"> この作業の変更を自動保存</label>
+          <p class="hint">直近1件をこのブラウザ内だけに保存します。自動保存は「今の作業を保存」または「再開」後に開始し、別のキャラクター読込後は再度保存してください。ゆとシートへの保存・別端末との同期ではありません。</p>
+          <p class="hint">共有PCでは保存しないか、終了時に削除してください。ブラウザのデータ消去で失われるため、大切な編集はJSONでも出力してください。設定バックアップには含みません。</p>
+          <p id="workDraftStatus" class="hint" role="status" aria-live="polite"></p>
+          </div>
         </details>
       </div>
     </div>
 
-    <details class="readHelp">
+    <details class="readHelp disclosure">
       <summary>読み込み時の注意</summary>
+      <div class="disclosureBody">
       <ul>
         <li>収支履歴は、基本的に1行1項目で <code>::-価格</code> または <code>::-価格*数量</code> と書かれている行を読み取ります。</li>
         <li>数量は <code>*5</code> 形式を推奨します。<code>×5</code> だけの場合、数量として扱えないことがあります。</li>
@@ -1131,9 +1140,10 @@
         <li>売却・返金・収入などの <code>::+</code> 行は、所持品購入としては読み込みません。セッション報酬はJSONの履歴欄から収入として読み込みます。</li>
         <li>ゆとシートのルビ・太字・リンクなどは簡易変換しますが、完全再現ではありません。</li>
       </ul>
+      </div>
     </details>
 
-    <details class="dataSettings" id="dataSettingsSection">
+    <details class="dataSettings disclosure" id="dataSettingsSection">
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">辞書・加工データ管理</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="dataSettingsBody">
         <div class="toolbar"><button id="dictionaryBackupBtn" type="button" class="small">設定バックアップ・端末移行</button></div>
@@ -1178,15 +1188,15 @@
         <p class="hint">編集後は「表示を更新」で分類・並び順を再適用します。小分類は自由入力。CSVのcategory列は「武器-ソード」など1列で保存します。略称が複数ある場合は <code>|</code> で区切ります。</p>
         <button id="repairConfirmedCategoriesBtn" type="button" class="small">カテゴリの列ずれ確認</button>
         <p id="confirmedCategoryRepairResult" class="hint" role="status"></p>
-        <details class="miniHelp">
+        <details class="miniHelp disclosure">
                 <summary>分類と表示順・候補欄の説明</summary>
+                <div class="disclosureBody">
                 <div class="categoryList" id="priceCategoryGuide"></div>
                 <p class="hint">旧カテゴリも対応する大分類にまとめて表示します。装飾品の装備枠は自動分類しません。分類だけでは購入・消費・所持数を変更しません。空欄カテゴリは3文字以上の検索時だけ候補表示します。</p>
+                </div>
               </details>
-        <table class="gridTable" id="confirmedPriceTable">
-          <thead><tr><th>アイテム名</th><th>価格</th><th>略称</th><th>カテゴリ</th><th>メモ</th><th></th><th></th></tr></thead>
-          <tbody></tbody>
-        </table>
+        <p class="hint">大分類の › で開閉します。分類内の表だけ縦横にスクロールできます。検索・絞り込み時は該当分類を開きます。</p>
+        <div id="confirmedPriceTable"></div>
       </div>
     </details>
 
@@ -1196,11 +1206,13 @@
         <label for="processCsvFile">強化CSV</label>
               <input id="processCsvFile" type="file" accept=".csv,text/csv" />
               <div class="miniActions"><button id="downloadProcessTemplateBtn" type="button" class="small">加工CSVひな形DL</button></div>
-              <details class="miniHelp"><summary>ひな形の記入・受け渡し</summary>
+              <details class="miniHelp disclosure"><summary>ひな形の記入・受け渡し</summary>
+                <div class="disclosureBody">
                 <p class="hint">列名だけのCSVです。2行目から入力するか、下の「武器・防具の加工データ管理」で登録して「統合加工CSV出力」を使えます。受け取る側は「強化CSV」で読み込みます。</p>
                 <p class="hint"><code>name</code>：加工名、<code>rank</code>：ランク、<code>price</code>：費用。<code>weapon</code>／<code>armor</code>／<code>nonMetalArmor</code>／<code>metalArmor</code>／<code>shield</code> は適用対象を1・対象外を0にします。防具には <code>armor=1</code> と該当する防具種別を指定します。</p>
                 <p class="hint">ランクごとに1行。ランク共通の費用は対象ランクに同額を記入します。<code>multiCountable</code>：複数回可なら1、<code>maxCount</code>：回数上限、<code>note</code>：メモ。名称・価格・効果本文のサンプルは含めません。</p>
                 <p class="hint">他者との受け渡しは、公開・再配布してよいデータに限ってください。CSV形式への変換が転載の許可になるわけではありません。</p>
+                </div>
               </details>
               <p class="hint">武器や防具の強化に関連するデータです。初回読込後はブラウザに保存されます。</p>
               <div class="toolbar"><button id="clearProcessCsvBtn" type="button" class="small">保存済みデータを削除</button></div>
@@ -1378,7 +1390,7 @@
   </div>
 
   <script>
-    const VERSION = "v1.5.22";
+    const VERSION = "v1.5.25";
     const SETTINGS_EXPORT_KIND = "sw25-cashbook-editor-settings";
     const SETTINGS_EXPORT_FORMAT_VERSION = 1;
     const ACCESSORY_CODES = { "頭": "Head", "顔": "Face", "耳": "Ear", "首": "Neck", "背": "Back", "右": "HandR", "左": "HandL", "腰": "Waist", "足": "Leg", "他": "Other" };
@@ -1415,6 +1427,138 @@
       hasCashbookConsumablePurchase: false,
       hasConsumableStockRows: false
     };
+
+    // 途中保存は辞書・設定バックアップと分離。外部送信なし、直近1件、明示保存／再開で開始。
+    const WORK_DRAFT_KEY = "sw25_work_draft";
+    const WORK_DRAFT_AUTO_KEY = "sw25_work_draft_auto";
+    const WORK_DRAFT_FIELDS = ["rawJson", "ledgerMode", "equipment", "accessories", "consumables", "cards", "otherSections", "cashbookEntries", "initialMoney", "sessionIncome", "sheetRemaining", "hasCashbookCardPurchase", "hasCashbookConsumablePurchase", "hasConsumableStockRows"];
+    const WORK_DRAFT_VALUES = ["characterName", "initialBudget", "historyExp", "historyHonor", "historyNote", "cashbookPreview", "cashbookOutput", "itemListOutput"];
+    const WORK_DRAFT_CHECKS = ["equipmentMemoOutput", "accessoryMemoOutput", "consumableMemoOutput", "cardMemoOutput"];
+    let workDraftReady = false, workDraftOwned = false, workDraftExpected = null, workDraftTimer = null;
+
+    function stopWorkDraftSession() {
+      clearTimeout(workDraftTimer); workDraftTimer = null; workDraftOwned = false;
+    }
+    function draftFailure(err) {
+      stopWorkDraftSession();
+      el("workDraftStatus").textContent = "途中保存できませんでした：" + err.message + "。現在の編集内容は残っています。JSON出力などで控えを保存してください。";
+      el("draftBadge").textContent = "保存停止・要確認";
+      el("draftTools").open = true;
+    }
+    function validateWorkDraft(value) {
+      const object = x => x && typeof x === "object" && !Array.isArray(x);
+      const rows = x => Array.isArray(x) && x.every(object);
+      const d = value, s = d?.state, b = d?.baseline;
+      if (!object(d) || d.kind !== "sw25-work-draft" || d.formatVersion !== 1 || !object(s) ||
+          !WORK_DRAFT_FIELDS.every(key => Object.hasOwn(s, key)) ||
+          ![s.equipment, s.accessories, s.consumables, s.cards, s.cashbookEntries].every(rows) ||
+          !s.equipment.every(row => rows(row.processes)) || !rows(s.otherSections) ||
+          !s.otherSections.every(section => typeof section.title === "string" && rows(section.items)) ||
+          !object(d.values) || !WORK_DRAFT_VALUES.every(key => typeof d.values[key] === "string") ||
+          !object(d.checks) || !WORK_DRAFT_CHECKS.every(key => typeof d.checks[key] === "boolean") ||
+          typeof d.sourceUrl !== "string" || typeof d.savedAt !== "string" || !Number.isFinite(Date.parse(d.savedAt)) ||
+          (s.rawJson !== null && !object(s.rawJson)) ||
+          (s.rawJson !== null && (!object(b) || !object(b.raw) || !rows(b.equipment) || !rows(b.accessories) ||
+            typeof b.signature !== "string" || typeof b.cashbook !== "string" || typeof b.items !== "string")) ||
+          (s.rawJson === null && b !== null)) throw new Error("途中保存データの形式に対応していないか、データが壊れています");
+      if (s.rawJson) { validateCharacterJson(s.rawJson); validateCharacterJson(b.raw); }
+      if (d.sourceUrl) normalizeCharacterUrl(d.sourceUrl);
+      return d;
+    }
+    function refreshWorkDraftInfo(message = "") {
+      try {
+        const raw = localStorage.getItem(WORK_DRAFT_KEY);
+        el("resumeWorkDraftBtn").disabled = !raw;
+        el("deleteWorkDraftBtn").disabled = !raw;
+        el("draftBadge").textContent = raw ? "保存あり" : "";
+        if (!raw) { el("workDraftStatus").textContent = message || "途中保存はありません。保存するまでキャラクターデータは記録しません。"; return; }
+        try {
+          const d = validateWorkDraft(JSON.parse(raw));
+          const name = d.values.characterName || "名前未入力の作業";
+          el("workDraftStatus").textContent = message || name + " ／ 保存日時 " + new Date(d.savedAt).toLocaleString("ja-JP") + " ／ " + (workDraftOwned && el("autoSaveWorkDraft").checked ? "自動保存中" : "再開または保存後に編集できます");
+        } catch {
+          el("resumeWorkDraftBtn").disabled = true;
+          el("draftBadge").textContent = "保存データ要確認";
+          el("workDraftStatus").textContent = "保存データを読み取れません。現在の編集・辞書は変更していません。削除または上書き保存できます。";
+        }
+      } catch (err) { draftFailure(err); }
+    }
+    function writeWorkDraft(expected) {
+      try {
+        if (localStorage.getItem(WORK_DRAFT_KEY) !== expected) throw new Error("別のタブで保存データが変更されました。再開または保存し直してください");
+        const payload = {
+          kind: "sw25-work-draft", formatVersion: 1, appVersion: VERSION, savedAt: new Date().toISOString(),
+          sourceUrl: characterSourceUrl, baseline: characterBaseline,
+          state: Object.fromEntries(WORK_DRAFT_FIELDS.map(key => [key, state[key]])),
+          values: Object.fromEntries(WORK_DRAFT_VALUES.map(id => [id, el(id).value])),
+          checks: Object.fromEntries(WORK_DRAFT_CHECKS.map(id => [id, el(id).checked]))
+        };
+        const raw = JSON.stringify(payload);
+        if (raw.length > 1500000) throw new Error("作業データが保存上限を超えています");
+        if (localStorage.getItem(WORK_DRAFT_KEY) !== expected) throw new Error("保存準備中に別のタブで変更されました。再開または保存し直してください");
+        // setItemが失敗した場合、直前の保存データは残る。辞書には書き込まない。
+        localStorage.setItem(WORK_DRAFT_KEY, raw);
+        workDraftExpected = raw; workDraftOwned = true;
+        refreshWorkDraftInfo();
+        return true;
+      } catch (err) { draftFailure(err); return false; }
+    }
+    function scheduleWorkDraft() {
+      if (!workDraftReady || !workDraftOwned || !el("autoSaveWorkDraft").checked) return;
+      clearTimeout(workDraftTimer);
+      el("draftBadge").textContent = "保存待ち";
+      workDraftTimer = setTimeout(flushWorkDraft, 700);
+    }
+    function flushWorkDraft() {
+      if (workDraftTimer === null) return;
+      clearTimeout(workDraftTimer); workDraftTimer = null;
+      if (workDraftReady && workDraftOwned && el("autoSaveWorkDraft").checked) writeWorkDraft(workDraftExpected);
+    }
+    async function saveWorkDraftManually() {
+      clearTimeout(workDraftTimer); workDraftTimer = null;
+      try {
+        const expected = localStorage.getItem(WORK_DRAFT_KEY);
+        if (expected && (!workDraftOwned || expected !== workDraftExpected) &&
+            !await showConfirm("保存できる作業は直近1件です。保存済みの作業を、今の編集内容で上書きしますか？", { confirmText: "上書き保存" })) return;
+        if (writeWorkDraft(expected)) showToast("このブラウザに途中保存しました");
+      } catch (err) { draftFailure(err); }
+    }
+    async function resumeWorkDraft() {
+      if (characterReadBusy) { showToast("キャラクターの読込完了後に再開してください"); return; }
+      flushWorkDraft();
+      try {
+        const expected = localStorage.getItem(WORK_DRAFT_KEY);
+        if (!expected) { refreshWorkDraftInfo(); return; }
+        // 変更前に検証を終え、復元時はparseJsonToState・価格照合・学習を呼ばない。
+        const d = validateWorkDraft(JSON.parse(expected));
+        if (!await showConfirm("今の画面を、途中保存した作業で置き換えますか？画面上の未保存編集は置き換わります。辞書・加工マスターは変更しません。", { confirmText: "作業を再開" })) return;
+        if (localStorage.getItem(WORK_DRAFT_KEY) !== expected) throw new Error("確認中に保存データが変更されました。もう一度再開してください");
+        stopWorkDraftSession(); closeCharacterJson(); hideSuggestBox();
+        WORK_DRAFT_FIELDS.forEach(key => { state[key] = d.state[key]; });
+        characterBaseline = d.baseline; characterSourceUrl = d.sourceUrl;
+        WORK_DRAFT_VALUES.forEach(id => { el(id).value = d.values[id]; });
+        WORK_DRAFT_CHECKS.forEach(id => { el(id).checked = d.checks[id]; });
+        el("characterUrl").value = characterSourceUrl;
+        renderAll();
+        // 手動で直接編集した出力も再生成せず保持する。
+        el("cashbookOutput").value = d.values.cashbookOutput;
+        el("itemListOutput").value = d.values.itemListOutput;
+        refreshHistorySectionStatus(); updateTotals();
+        workDraftExpected = expected; workDraftOwned = true;
+        el("characterLoadStatus").textContent = "途中保存から再開しました。" + (characterSourceUrl ? "ゆとシートの最新版の取得はJSON出力時に行います。" : "");
+        refreshWorkDraftInfo(); showToast("保存した作業を再開しました");
+      } catch (err) { draftFailure(err); }
+    }
+    async function deleteWorkDraft() {
+      flushWorkDraft();
+      try {
+        const expected = localStorage.getItem(WORK_DRAFT_KEY);
+        if (!expected || !await showConfirm("このブラウザの途中保存データを削除しますか？今の画面・辞書・ゆとシートの内容は削除しません。", { confirmText: "途中保存を削除" })) return;
+        if (localStorage.getItem(WORK_DRAFT_KEY) !== expected) throw new Error("確認中に保存データが変更されました。もう一度確認してください");
+        localStorage.removeItem(WORK_DRAFT_KEY); stopWorkDraftSession(); workDraftExpected = null;
+        refreshWorkDraftInfo("途中保存を削除しました。再度保存するまで自動保存も停止します。");
+      } catch (err) { draftFailure(err); }
+    }
 
     const EQUIPMENT_TYPES = ["武器", "非金属鎧", "金属鎧", "盾", "その他"];
     const ACCESSORY_PARTS = ["頭", "顔", "耳", "首", "背", "右", "左", "腰", "足", "他"];
@@ -1476,7 +1620,7 @@
     function categoryEditorHtml(category, action, i) {
       const info = getPriceCategoryInfo(category);
       return '<div class="categoryEditor"><select data-action="' + action + '" data-i="' + i + '" data-key="categoryMajor" aria-label="大分類">' +
-        '<option value="">未指定・自由入力</option>' + PRICE_CATEGORY_GROUPS.map(group => '<option value="' + group.name + '"' + (info.major === group.name ? ' selected' : '') + '>' + group.name + '</option>').join("") +
+        '<option value="">自由入力</option>' + PRICE_CATEGORY_GROUPS.map(group => '<option value="' + group.name + '"' + (info.major === group.name ? ' selected' : '') + '>' + group.name + '</option>').join("") +
         '</select><input type="text" value="' + esc(info.minor) + '" data-action="' + action + '" data-i="' + i + '" data-key="category" list="priceCategoryChildren' + info.groupIndex + '" aria-label="小分類・自由入力" placeholder="小分類（任意）"></div>';
     }
     function updatePriceCategoryField(item, target) {
@@ -2938,6 +3082,7 @@
         }
         el("characterUrl").value = characterSourceUrl;
         el("characterLoadStatus").textContent = `${sourceLabel} 読込済み`;
+        if (workDraftReady) refreshWorkDraftInfo();
         const status = el("serverJsonStatus");
         if (status) status.textContent = `${sourceLabel} 読込済み`;
         return true;
@@ -3434,6 +3579,7 @@
     }
 
     function parseJsonToState(data) {
+      stopWorkDraftSession(); // 別シートは明示保存するまで、既存の途中保存を上書きしない。
       state.rawJson = data;
       state.initialMoney = extractInitialBudget(data);
       state.sessionIncome = parseSessionIncome(data);
@@ -3867,6 +4013,20 @@
       state.cards.forEach(row => { if (!row.price && !row.stockOnly) row.price = getCardPrice(row.rank, row.color) || findCardCashbookPrice(row.rank, row.color); });
     }
 
+    // 横移動は表示だけを変更する。表の入力イベント・出力・価格保存には結び付けない。
+    function enhanceTableScrollers(root = document) {
+      root.querySelectorAll("table.gridTable").forEach(table => {
+        if (table.closest(".modalBackdrop, .tableScrollViewport")) return;
+        const label = table.closest("details")?.querySelector("summary")?.textContent.trim() || "入力";
+        let viewport = table.parentElement;
+        if (!viewport.matches(".tableScrollBox, .ledgerScroll")) {
+          viewport = document.createElement("div"); table.before(viewport); viewport.appendChild(table);
+        }
+        viewport.classList.add("tableScrollViewport");
+        viewport.tabIndex = 0; viewport.setAttribute("role", "region"); viewport.setAttribute("aria-label", label + "の表（横スクロール）");
+      });
+    }
+    const dictionaryGroupViews = new Map();
     function td(label, html, cls = "") { return `<td data-label="${esc(label)}" class="${cls}">${html}</td>`; }
     function selectHtml(options, selected, action, data = "") {
       return `<select data-action="${action}" ${data}>${options.map(v => `<option value="${esc(v)}" ${String(v) === String(selected) ? "selected" : ""}>${esc(v)}</option>`).join("")}</select>`;
@@ -3914,15 +4074,17 @@
       if (force === false && renderConfirmedPriceTable.lastSnapshot === snapshot) return;
       renderConfirmedPriceTable.lastSnapshot = snapshot;
       renderPriceCategoryGuide();
-      const table = el("confirmedPriceTable");
-      if (!table) return;
-      const tbody = table.querySelector("tbody");
-      tbody.innerHTML = "";
+      const root = el("confirmedPriceTable");
+      if (!root) return;
+      root.querySelectorAll(".dictionaryGroup").forEach(group => {
+        const viewport = group.querySelector(".dictionaryGroupViewport");
+        const old = dictionaryGroupViews.get(group.dataset.major);
+        dictionaryGroupViews.set(group.dataset.major, { open: group.open, left: group.open ? viewport.scrollLeft : old?.left || 0, top: group.open ? viewport.scrollTop : old?.top || 0 });
+      });
+      root.innerHTML = "";
       const items = state.confirmedPriceItems || [];
       if (!items.length) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td colspan="7" class="hint">価格CSVを統合するか、価格候補を整理して辞書へ登録してください。</td>`;
-        tbody.appendChild(tr);
+        root.innerHTML = '<p class="hint">価格CSVを統合するか、価格候補を整理して辞書へ登録してください。</p>';
       }
       const categorySelect = el("dictionaryCategory");
       const chosen = categorySelect.value;
@@ -3946,10 +4108,30 @@
         (sort === "name" ? 0 : (toNumber(a.item.price) - toNumber(b.item.price)) * (sort === "priceDesc" ? -1 : 1)) ||
         a.item.name.localeCompare(b.item.name, "ja") || a.i - b.i);
       el("dictionaryViewStatus").textContent = "表示" + rows.length + "件／登録" + items.length + "件（大分類・小分類別）";
-      if (items.length && !rows.length) tbody.innerHTML = '<tr><td colspan="7" class="hint">条件に一致するアイテムはありません。</td></tr>';
+      if (items.length && !rows.length) root.innerHTML = '<p class="hint">条件に一致するアイテムはありません。</p>';
+      const filterKey = JSON.stringify([query, major, category]);
+      const reveal = Boolean(query || major || category !== null) && renderConfirmedPriceTable.lastFilter !== filterKey;
+      renderConfirmedPriceTable.lastFilter = filterKey;
+      const groups = new Map();
+      let tbody;
       let lastCategory = null;
       rows.forEach(({ item, i }) => {
         const info = getPriceCategoryInfo(item.category);
+        const groupName = info.major || "自由カテゴリ・未設定";
+        if (!groups.has(groupName)) {
+          const details = document.createElement("details"); details.className = "dictionaryGroup"; details.dataset.major = groupName;
+          const view = dictionaryGroupViews.get(groupName) || { open: false, left: 0, top: 0 };
+          details.open = reveal || view.open;
+          details.innerHTML = '<summary>' + esc(groupName) + '<span class="dictionaryGroupCount"></span></summary><div class="dictionaryGroupViewport tableScrollViewport" tabindex="0" role="region" aria-label="' + esc(groupName) + 'の価格辞書"><table class="gridTable"><thead><tr><th>アイテム名</th><th>価格</th><th>略称</th><th>カテゴリ</th><th>メモ</th><th></th><th></th></tr></thead><tbody></tbody></table></div>';
+          root.appendChild(details);
+          const viewport = details.querySelector(".dictionaryGroupViewport");
+          const restore = () => { viewport.scrollLeft = view.left; viewport.scrollTop = view.top; };
+          if (details.open) restore();
+          details.addEventListener("toggle", () => { if (details.isConnected && details.open) restore(); });
+          viewport.addEventListener("scroll", () => { if (details.open) { view.left = viewport.scrollLeft; view.top = viewport.scrollTop; } }, { passive: true });
+          groups.set(groupName, { details, tbody: details.querySelector("tbody"), count: 0 });
+        }
+        const group = groups.get(groupName); tbody = group.tbody; group.count++;
         if (lastCategory !== info.key) {
           const heading = document.createElement("tr"); heading.className = "dictionaryCategory";
           heading.innerHTML = '<td colspan="7">' + esc(info.label) + '</td>';
@@ -3966,6 +4148,7 @@
           td("", `<button class="small danger deleteBtn" type="button" data-action="removeConfirmedPrice" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
         tbody.appendChild(tr);
       });
+      groups.forEach(group => { group.details.querySelector(".dictionaryGroupCount").textContent = group.count + "件"; });
     }
     function renderProcessCsvPreviewTable() {
       const table = el("processCsvPreviewTable");
@@ -4050,6 +4233,7 @@
       renderProcessCsvPreviewTable();
       renderCustomProcessTable();
       updateTotals();
+      enhanceTableScrollers();
     }
 
     function purchaseCostControl(row, kind, i, p = "") {
@@ -4174,6 +4358,7 @@
           <button type="button" class="small" data-action="editSectionTitle" data-s="${s}">名称変更</button></div>
           ${sectionTitleEditorHtml(section, s)}
           <div class="ledgerScroll">${ledgerTableHtml(items, s)}</div></div>`).join("");
+      enhanceTableScrollers(el("cardPurchaseRows"));
     }
 
     // カードの表示場所だけを集約する。元の取引・日付・金額は動かさず、集計と出力を維持。
@@ -4292,6 +4477,7 @@
       add.innerHTML = `<button type="button" data-action="addOtherSection">${state.ledgerMode ? "取引欄を追加" : "その他枠を追加"}</button>`;
       root.appendChild(add);
       refreshHistorySectionStatus();
+      enhanceTableScrollers(root);
     }
 
     function costAmount(row) {
@@ -4597,6 +4783,7 @@
       el("itemListOutput").value = itemLines.join("\n");
       refreshHistorySectionStatus();
       updateTotals();
+      scheduleWorkDraft();
     }
 
     function getSuggestCategoryForInput(input) {
@@ -5143,6 +5330,28 @@
       e.target.value = "";
     });
     el("loadCharacterUrlBtn").addEventListener("click", loadCharacterFromUrl);
+    el("saveWorkDraftBtn").addEventListener("click", saveWorkDraftManually);
+    el("resumeWorkDraftBtn").addEventListener("click", resumeWorkDraft);
+    el("deleteWorkDraftBtn").addEventListener("click", deleteWorkDraft);
+    el("autoSaveWorkDraft").addEventListener("change", () => {
+      try {
+        localStorage.setItem(WORK_DRAFT_AUTO_KEY, el("autoSaveWorkDraft").checked ? "1" : "0");
+        if (!el("autoSaveWorkDraft").checked) { clearTimeout(workDraftTimer); workDraftTimer = null; }
+        else scheduleWorkDraft();
+        refreshWorkDraftInfo();
+      } catch (err) { draftFailure(err); }
+    });
+    document.addEventListener("input", e => {
+      if (WORK_DRAFT_VALUES.includes(e.target.id)) scheduleWorkDraft();
+    });
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushWorkDraft(); });
+    window.addEventListener("pagehide", flushWorkDraft);
+    window.addEventListener("storage", e => {
+      if (e.key === WORK_DRAFT_KEY || e.key === null) {
+        stopWorkDraftSession();
+        refreshWorkDraftInfo("別のタブで途中保存が変更されました。このタブの自動保存を停止しました。必要なら保存し直すか再開してください。");
+      }
+    });
     el("characterUrl").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); loadCharacterFromUrl(); } });
     el("exportCharacterJsonBtn").addEventListener("click", openCharacterJson);
     el("downloadCharacterJsonBtn").addEventListener("click", downloadCharacterJson);
@@ -5360,6 +5569,10 @@
       renderAll();
       generateOutputs();
       refreshServerJsonList();
+      workDraftReady = true;
+      try { el("autoSaveWorkDraft").checked = localStorage.getItem(WORK_DRAFT_AUTO_KEY) === "1"; }
+      catch (err) { draftFailure(err); }
+      refreshWorkDraftInfo();
       if (savedPriceCsv) {
         el("dataSettingsSection").open = true; el("confirmedPriceSection").open = true;
         el("retryLegacyPriceImportBtn").hidden = false;
