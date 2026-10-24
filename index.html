@@ -1,10 +1,14 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.5.25
-  date: 2026-10-18
+  version: v1.5.29
+  date: 2026-10-24
   versioning: previous v26 is treated as 0.26
   notes:
+    - v1.5.29：装飾品の複数装備可能部位、CSV任意列、部位別の辞書検索・補足編集に対応
+    - v1.5.28：辞書管理の重複バックアップボタンを削除し、管理見出しの強調と備考・効果の案内を整理
+    - v1.5.27：武器・防具の性能を辞書表へ直接表示し、任意のランク列・ランク順・補足編集に対応
+    - v1.5.26：旧CSV互換の性能・出典列、辞書から探して追加する画面、武器・防具の小分類開閉
     - v1.5.25：独自の横移動バーを撤去し、価格辞書を大分類ごとの開閉・通常スクロールへ変更
     - v1.5.24：表上部の横移動バーを追加し、補助パネルの開閉デザインを統一
     - v1.5.23：カテゴリ編集を横並びに圧縮し、任意の途中保存・再開を追加
@@ -33,7 +37,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.5.25</title>
+  <title>SW2.5 収支・持ち物エディタ v1.5.29</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -46,6 +50,8 @@
       --section-bg: #f8fbff;
       --section-open: #eaf2ff;
       --section-border: #b8d0ff;
+      --management-bg: #d2e1fc;
+      --management-open: #abc7f7;
       --subrow-bg: #fbfbfd;
       --warn-bg: #fff8e6;
       --warn-line: #e8c86b;
@@ -536,6 +542,42 @@
     .dictionaryGroupViewport::-webkit-scrollbar { height: 9px; width: 9px; }
     .dictionaryGroupViewport::-webkit-scrollbar-thumb { background: #aeb6c2; border-radius: 5px; }
     .dictionaryGroupViewport::-webkit-scrollbar-track { background: #eef0f3; }
+    .dictionaryGroupBody { padding: 0 5px 5px; }
+    .dictionaryMinor > summary { background: #f7f9fc; font-weight: 600; }
+    .dictionaryName { display: flex; gap: 3px; align-items: center; }
+    .dictionaryName > input { flex: 1; width: 0; }
+    .dictionaryName > button { flex: 0 0 auto; }
+    .priceDetailExtras { grid-column: 1 / -1; }
+    .priceDetailSlots { grid-column: 1 / -1; min-width: 0; margin: 0; padding: 7px; border: 1px solid var(--line); border-radius: 4px; }
+    .slotChoices { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 4px 0 7px; }
+    .slotChoices label { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
+    #confirmedPriceTable .dictionaryAction { vertical-align: middle; text-align: center; }
+    #confirmedPriceTable .dictionaryAction > button, #confirmedPriceTable .dictionaryName > button {
+      display: inline-flex; align-items: center; justify-content: center;
+      height: 26px; min-width: 0; padding: 0 5px; line-height: 1; white-space: nowrap;
+    }
+    #confirmedPriceTable .dictionaryAction > button { width: 100%; }
+    #confirmedPriceTable .dictionaryStat input { padding-left: 3px; padding-right: 3px; }
+    #confirmedPriceTable .categoryEditor { grid-template-columns: 5.2em minmax(7.8em, 1fr); }
+    .modalPanel.catalogPanel { width: min(1120px, 100%); }
+    .catalogFilters { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 6px; }
+    .catalogFilters label { margin: 0; }
+    #catalogPartLabel[hidden], #catalogEquipSlotLabel[hidden], #catalogMinorLabel[hidden], #catalogPartHint[hidden] { display: none; }
+    .catalogResults { max-height: 32vh; overflow: auto; margin-top: 8px; border: 1px solid var(--line); }
+    .catalogTable { min-width: 750px; width: 100%; border-collapse: collapse; font-size: 12px; }
+    .catalogTable th, .catalogTable td { padding: 4px 6px; border: 1px solid var(--line); white-space: nowrap; }
+    .catalogTable th { position: sticky; top: 0; background: var(--section-bg); z-index: 1; }
+    .catalogTable .catalogNameCell { white-space: normal; min-width: 150px; }
+    .catalogFacts { display: flex; flex-wrap: wrap; gap: 5px 12px; margin: 6px 0; }
+    .catalogFacts > div { border-bottom: 1px solid var(--line); padding: 3px; }
+    .catalogFacts dt { color: var(--muted); font-size: 11px; }
+    .catalogFacts dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .catalogSelected { padding: 7px; margin-top: 7px; background: #f7faff; border: 1px solid var(--section-border); border-radius: 6px; }
+    .catalogSelected[hidden] { display: none; }
+    .catalogNote { white-space: pre-wrap; overflow-wrap: anywhere; }
+    #catalogPartHint.needsReview { color: #8a5200; }
+    .catalogPager { display: flex; gap: 7px; align-items: center; justify-content: center; margin: 5px 0; }
+    .catalogDetails { font-size: 11px; margin-top: 3px; }
     .gridTable {
       width: 100%;
       min-width: 680px;
@@ -549,7 +591,7 @@
     #cardTable { min-width: 760px; }
     #learnedPriceTable { min-width: 1150px; }
     #confirmedPriceTable { min-width: 0; }
-    #confirmedPriceTable .gridTable { min-width: 1100px; }
+    #confirmedPriceTable .gridTable { min-width: var(--dictionary-width, 1000px); }
     #processCsvPreviewTable, #customProcessTable { min-width: 1180px; }
     .tableScrollBox {
       max-height: 340px;
@@ -566,13 +608,6 @@
     #learnedPriceTable th:nth-child(5), #learnedPriceTable td:nth-child(5) { width: 20%; }
     #learnedPriceTable th:nth-child(6), #learnedPriceTable td:nth-child(6) { width: 11%; }
     #learnedPriceTable th:nth-child(7), #learnedPriceTable td:nth-child(7) { width: 9%; }
-    #confirmedPriceTable .gridTable th:nth-child(1), #confirmedPriceTable .gridTable td:nth-child(1) { width: 30%; }
-    #confirmedPriceTable .gridTable th:nth-child(2), #confirmedPriceTable .gridTable td:nth-child(2) { width: 8%; }
-    #confirmedPriceTable .gridTable th:nth-child(3), #confirmedPriceTable .gridTable td:nth-child(3) { width: 17%; }
-    #confirmedPriceTable .gridTable th:nth-child(4), #confirmedPriceTable .gridTable td:nth-child(4) { width: 20%; }
-    #confirmedPriceTable .gridTable th:nth-child(5), #confirmedPriceTable .gridTable td:nth-child(5) { width: 9%; }
-    #confirmedPriceTable .gridTable th:nth-child(6), #confirmedPriceTable .gridTable td:nth-child(6) { width: 10%; }
-    #confirmedPriceTable .gridTable th:nth-child(7), #confirmedPriceTable .gridTable td:nth-child(7) { width: 6%; }
     .gridTable th, .gridTable td {
       border: 1px solid var(--line);
       padding: 3px;
@@ -794,7 +829,11 @@
     .disclosure:not([open]) > summary .summaryIcon::before { content: "＋"; }
     .disclosure > summary:focus-visible, details.section > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
     .disclosureBody, .dataSettingsBody { padding: 8px; background: #fff; }
-    .dataSettings > summary { justify-content: space-between; }
+    /* 通常パネルより濃い管理入口。開くともう一段濃くし、＋／−でも状態を伝える。 */
+    .dataSettings { border-left: 3px solid var(--accent); }
+    .dataSettings > summary { justify-content: space-between; background: var(--management-bg); }
+    .dataSettings[open] > summary { background: var(--management-open); }
+    .dataSettings > summary .summaryHint, .dataSettings > summary .summaryIcon { color: var(--text); }
     .loadCard .disclosure > summary, .miniHelp > summary { font-size: 12px; }
     .dictionaryFilters { display: flex; flex-wrap: wrap; gap: 6px; align-items: end; margin: 8px 0; }
     .dictionaryFilters label { flex: 1 1 150px; min-width: 0; margin: 0; }
@@ -808,6 +847,7 @@
     .draftTools > summary .hint { margin: 0; }
     @media (min-width: 1200px) {
       .container:has(#dataSettingsSection[open] #confirmedPriceSection[open]), .container:has(#dataSettingsSection[open] #learnedPriceSection[open]) { max-width: 1280px; }
+      .container:has(#dataSettingsSection[open] #confirmedPriceSection[open] .dictionaryMinor[open] .dictionaryGearTable) { max-width: 1360px; }
     }
     .categoryList ul { margin: 4px 0; padding-left: 1.3em; }
     #priceDictionaryNewItems { white-space: pre-wrap; }
@@ -877,6 +917,8 @@
         min-width: 680px;
       }
       #equipmentTable, #accessoryTable { min-width: 900px; }
+      #confirmedPriceTable { --dictionary-category-width: 216px; }
+      #confirmedPriceTable .categoryEditor { grid-template-columns: 76px minmax(128px, 1fr); }
       input[type="text"], input[type="search"], input[type="number"], input[type="url"], textarea, select {
         font-size: 16px; /* iOS Safari の自動ズーム対策 */
       }
@@ -903,11 +945,12 @@
       <div>
         <div class="titleLine">
           <h1>SW2.5 収支・持ち物エディタ</h1>
-          <span class="version">v1.5.25</span>
+          <span class="version">v1.5.29</span>
         </div>
         <p class="lead">ゆとシートのURLから読み込み、収支・持ち物を整理してテキストやJSONで出力します。</p>
       </div>
       <div class="topActions">
+        <button type="button" class="small" data-action="openCatalog" data-context="">アイテムを探す</button>
         <button id="helpBtn" type="button" class="headerHelp">？ 使い方</button>
         <details class="headerMenu">
           <summary>設定</summary>
@@ -950,15 +993,22 @@
             <p>「名称変更」で見出しを編集して「保存」すると、出力する収支履歴の見出しも変わります。JSON出力では収支履歴の変更を選んだ場合だけ反映します。「読込時の原文を見る」は変更前の参考表示です。</p>
           </details>
           <p class="helpNote">ゆとシートへの自動保存はしません。価格辞書は大分類の › を押すと開きます。分類ごとに表の下の通常スクロールバーで横移動できます。スマホでは表を左右にスワイプできます。数量は <code>*3</code> の形式で出力されます。</p>
+          <details><summary>名前を知らないアイテムを辞書から探す</summary>
+            <p>装飾品は「装備できる部位」で絞れます。背中と腰など複数部位を登録でき、「手」は左右どちらにも一致します。「他」は全装飾品を表示します。部位情報がなければ「未登録・要確認」で探すか、辞書の「補足」から登録してください。</p>
+            <p>上部の「アイテムを探す」、または装備・消耗品欄の「辞書から探して追加」を押します。名前を入力しなくても、大分類・小分類・価格上限で絞り、価格順に一覧を確認できます。登録済み価格辞書だけを50件ずつ表示します。</p>
+            <p>「選ぶ」で性能・メモ・参照書籍を確認し、追加先と「新規購入／所持・装備のみ」、単価・数量を指定して新しい行へ追加します。既存行と過去の履歴は上書きしません。性能は参照用で、必要筋力との照合やJSON性能欄への自動反映はしません。</p>
+            <p>旧CSVや保存済み辞書も利用できます。未登録の性能は一覧で「未登録」、辞書の入力欄で「—」と表示します。武器・防具の主な性能とランクは辞書の行内で、略称・出典・例外的な性能は「補足」で編集できます。「性能付きCSVひな形DL」の任意列からも取り込めます。小分類は初回閉じています。</p>
+          </details>
           <details><summary>編集中の作業を途中保存する</summary>
             <p>読込欄の「途中保存・再開」で「今の作業を保存」を押すと、編集内容と元JSONを直近1件だけこのブラウザに保存します。「この作業の変更を自動保存」は任意です。再訪時は「保存した作業を再開」を押してください。</p>
             <p>復元では価格の再照合・再学習をせず、保存した価格・加工・数量・出力テキストを戻します。辞書・加工マスターは別管理です。ゆとシートへの保存やバックアップではなく、共有PCでは終了時に削除してください。</p>
           </details>
           <details><summary>価格候補・辞書・設定の保存</summary>
-            <p>「辞書・加工データ管理」内の「価格候補（整理中）」で整え、全件を価格辞書へ登録できます。価格CSVも確認後に同じ辞書へ統合します。同名・異価格は既存維持かCSVの価格採用を選び、それ以外の重複は既存を維持します。辞書は検索・カテゴリ絞り込み・カテゴリ内の価格順で整理できます。</p>
+            <p>「辞書・加工データ管理」内の「価格候補（整理中）」で整え、全件を価格辞書へ登録できます。価格CSVも確認後に同じ辞書へ統合します。同名の価格・性能の違いは初期状態で既存維持、同名の未登録性能・出典は確認後に補完します。辞書は検索・カテゴリ絞り込み・カテゴリ内の価格順で整理できます。</p>
             <p>価格CSV・加工CSV・価格辞書などの設定はこのブラウザに保存されます。別端末へ移すときは「設定」→「設定バックアップ」を使います。キャラクターJSONや作業中の編集内容は設定バックアップには含みません。</p>
           </details>
           <details><summary>JSON出力時の確認と原文の保持</summary>
+            <p>装備・装飾品の「備考・効果」はJSONの備考欄へ反映します。「メモを収支欄に出力」のチェックとは別です。<code>@器用度+1</code>などはそのまま渡し、対応する記法の自動計算はゆとシート側に任せます。辞書の管理メモ・出典は自動転記しません。</p>
             <p>装備の価格・数量・加工費や取引を編集した場合、読込時の記録の保持を確認できれば「編集した収支を反映する」を初期選択します。自動整形だけの変更、競合、最新版取得失敗、原文保持を確認できない場合は初期OFFです。チェックを外せば、装備情報だけの反映も可能です。</p>
             <p>長い文章の比較は変更行だけを表示し、金額など変わった部分を強調します。全文は「全文を確認」で開けます。チェックは行単位ではなく、収支履歴・所持品などの欄全体の置換を選ぶ操作です。</p>
             <p>URLから読み込んだ場合、出力前に保存済み最新版を確認します。競合した項目は初期状態で未選択です。ゆとシート側の未保存編集は確認できません。</p>
@@ -986,12 +1036,12 @@
         </div>
         <div class="modalBody">
           <div class="changelogItem">
-            <h3>v1.5.25</h3>
-            <ul><li>独自の横移動バー・左右ボタンを撤去。登録済み価格辞書を大分類ごとのシンプルな開閉と、分類ごとの通常スクロールへ変更。</li></ul>
-            <h3>v1.5.24</h3>
-            <ul><li>横長の表に上部の横移動バー・左右ボタンを追加。読込補助・途中保存・注意・辞書設定などの開閉表示を＋／−と水色の見出しへ統一。</li></ul>
-            <h3>v1.5.23</h3>
-            <ul><li>辞書・候補の大分類と小分類を横並びにし、小分類の幅を拡大。直近1件の途中保存・再開と任意の自動保存を追加（このブラウザ内のみ）。</li></ul>
+            <h3>v1.5.29</h3>
+            <ul><li>装飾品に複数の装備可能部位を保存できる任意CSV列と補足編集を追加。部位別の検索、「他」の全装飾品表示、旧小分類の部位表記の参照に対応。</li></ul>
+            <h3>v1.5.28</h3>
+            <ul><li>辞書管理内の重複したバックアップボタンを削除。管理見出しを閉じた状態・開いた状態で段階的に強調し、装備・装飾品の備考・効果とJSON反映の説明を整理。</li></ul>
+            <h3>v1.5.27</h3>
+            <ul><li>武器・防具の性能を辞書の行内で表示・編集。不要な性能列と略称列を省き、補足編集へ保持。任意のランク列と小分類内のランク順、旧CSV互換の共通項目定義に対応。</li></ul>
             <p class="hint">過去の詳細な更新履歴はリポジトリ内の <code>CHANGELOG.md</code> に移動しました。</p>
           </div>
         </div>
@@ -1036,7 +1086,7 @@
         <div class="modalHeader"><span id="priceDictionaryImportTitle">価格CSVを辞書へ統合</span><button id="cancelPriceDictionaryImportBtn" type="button" class="small">取消</button></div>
         <div class="modalBody">
           <p id="priceDictionaryImportSummary"></p>
-          <p class="hint">新しい品は登録済み価格辞書へ追加します。同名の価格違いは初期状態で現在の価格を維持し、選んだ場合だけ価格を更新します。略称・表記ゆれによる一致は重複としてスキップし、既存の略称・カテゴリ・メモは変更しません。</p>
+          <p class="hint">新しい品は登録済み価格辞書へ追加します。同名の価格違いは初期状態で現在の価格を維持し、選んだ場合だけ更新します。完全同名の性能・出典は空欄だけ補完し、既存値との違いは下で確認します。略称・カテゴリ・メモは変更せず、略称だけの一致では性能も更新しません。</p>
           <div id="priceDictionaryImportRows" class="tableScrollBox"></div>
           <details><summary>追加する品の一覧</summary><div id="priceDictionaryNewItems" class="hint"></div></details>
           <p id="priceDictionaryImportError" class="hint" role="alert"></p>
@@ -1065,6 +1115,49 @@
         <div class="toolbar confirmActions">
           <button id="confirmCancelBtn" type="button" class="small">キャンセル</button>
           <button id="confirmOkBtn" type="button" class="small danger">実行</button>
+        </div>
+      </div>
+    </div>
+    <div id="itemCatalogModal" class="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="itemCatalogTitle">
+      <div class="modalPanel catalogPanel">
+        <div class="modalHeader"><span id="itemCatalogTitle">登録済み辞書からアイテムを探す</span><button id="closeCatalogBtn" type="button" class="small">閉じる</button></div>
+        <div class="modalBody">
+          <div class="catalogFilters">
+            <label>検索<input id="catalogSearch" type="search" placeholder="名前・略称・メモ・書籍"></label>
+            <label>大分類<select id="catalogMajor"></select></label>
+            <label id="catalogMinorLabel">小分類<select id="catalogMinor"></select></label>
+            <label id="catalogEquipSlotLabel" hidden>装備できる部位<select id="catalogEquipSlot"></select></label>
+            <label>価格上限（G）<input id="catalogMaxPrice" type="number" min="0" placeholder="指定なし"></label>
+            <label>並び順<select id="catalogSort"><option value="priceAsc">価格が安い順</option><option value="priceDesc">価格が高い順</option><option value="name">名前順</option><option value="rank">分類・ランク→価格順</option></select></label>
+          </div>
+          <p class="hint">登録済み辞書のみを表示します。未登録の性能は「未登録」。性能は装備自体の値で、技能・加工を加えた最終値ではありません。</p>
+          <p id="catalogCount" class="hint" role="status"></p>
+          <div id="catalogResults" class="catalogResults"></div>
+          <div class="catalogPager"><button id="catalogPrev" type="button" class="small">前へ</button><span id="catalogPage"></span><button id="catalogNext" type="button" class="small">次へ</button></div>
+          <div id="catalogSelected" class="catalogSelected" hidden>
+            <strong id="catalogSelectedName"></strong><dl id="catalogSelectedFacts" class="catalogFacts"></dl><p id="catalogSelectedNote" class="catalogNote"></p>
+            <div class="catalogFilters">
+              <label>追加先<select id="catalogDestination"><option value="equipment">武器・防具</option><option value="accessory">装飾品</option><option value="consumable">消耗品</option><option value="other">その他・取引</option></select></label>
+              <label id="catalogPartLabel">装飾品の部位<select id="catalogPart"></select></label>
+              <label>扱い<select id="catalogMode"><option value="">選択してください</option><option value="purchase">新規購入（支出あり）</option><option value="owned">所持・装備のみ（支出なし）</option></select></label>
+              <label>今回の単価（G）<input id="catalogPrice" type="number" min="0" step="any"></label>
+              <label>数量<input id="catalogQuantity" type="number" min="1" step="1" value="1"></label>
+            </div>
+            <p id="catalogPartHint" class="hint" role="status" hidden></p>
+            <p class="hint">既存行は上書きせず新しい行へ追加します。現在所持数や過去の取引は自動変更しません。性能は参照用として保持し、武器・防具のJSON性能欄には自動反映しません。</p>
+            <button id="catalogAddBtn" type="button" class="primary" disabled>選んだ品を新しい行へ追加</button>
+          </div>
+          <p id="catalogStatus" class="hint" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+    <datalist id="itemRankOptions"><option value="B"><option value="A"><option value="S"><option value="SS"></datalist>
+    <div id="priceDetailsModal" class="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="priceDetailsTitle">
+      <div class="modalPanel">
+        <div class="modalHeader"><span id="priceDetailsTitle">辞書の補足編集</span><button id="closePriceDetailsBtn" type="button" class="small">閉じる</button></div>
+        <div class="modalBody"><p id="priceDetailsName"></p><div id="priceDetailsFields" class="catalogFilters"></div>
+          <p class="hint">空欄は未登録です。0・補正符号・複数用法（例：1H / 2H）・特殊などは文字列のまま保存します。名称・価格・キャラクターの性能値は変更しません。</p>
+          <button id="savePriceDetailsBtn" type="button" class="primary">補足を保存</button><p id="priceDetailsStatus" class="hint" role="status"></p>
         </div>
       </div>
     </div>
@@ -1146,7 +1239,6 @@
     <details class="dataSettings disclosure" id="dataSettingsSection">
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">辞書・加工データ管理</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="dataSettingsBody">
-        <div class="toolbar"><button id="dictionaryBackupBtn" type="button" class="small">設定バックアップ・端末移行</button></div>
     <details class="section" id="learnedPriceSection">
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">価格候補（整理中）</span><span class="summaryCount" id="learnedPriceStatus">0件</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="sectionBody">
@@ -1173,7 +1265,7 @@
     <details class="section" id="confirmedPriceSection">
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">登録済み価格辞書</span><span class="summaryCount" id="confirmedPriceStatus">0件</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="sectionBody">
-        <p class="hint">価格CSVもここへ統合してブラウザに保存します。既存と重複する品は維持し、同じ名前で価格が違う品だけ採用する価格を確認します。</p>
+        <p class="hint">価格CSVを統合してブラウザに保存します。同名の価格・性能の違いは確認し、既存値は初期状態で維持します。旧CSVも利用でき、性能・出典の列は任意です。</p>
         <div class="toolbar"><label for="priceCsvFile">価格CSVを辞書へ統合</label><input id="priceCsvFile" type="file" accept=".csv,text/csv"><button id="exportMergedPriceBtn" type="button" class="small">価格辞書CSV出力（全件）</button></div>
         <p id="priceDictionaryImportStatus" class="hint" role="status"></p>
         <button id="retryLegacyPriceImportBtn" type="button" class="small" hidden>以前の価格CSVを統合する</button>
@@ -1185,7 +1277,7 @@
           <button id="refreshDictionaryViewBtn" type="button" class="small">表示を更新</button>
         </div>
         <p id="dictionaryViewStatus" class="hint" role="status"></p>
-        <p class="hint">編集後は「表示を更新」で分類・並び順を再適用します。小分類は自由入力。CSVのcategory列は「武器-ソード」など1列で保存します。略称が複数ある場合は <code>|</code> で区切ります。</p>
+        <p class="hint">編集後は「表示を更新」で分類・並び順を再適用します。武器・防具は小分類内でB→A→S→SS→独自値→未設定の順、同ランク内は上の並び順です。小分類・ランクは自由入力。略称・出典・特殊な性能は名前横の「補足」で編集できます。</p>
         <button id="repairConfirmedCategoriesBtn" type="button" class="small">カテゴリの列ずれ確認</button>
         <p id="confirmedCategoryRepairResult" class="hint" role="status"></p>
         <details class="miniHelp disclosure">
@@ -1195,7 +1287,9 @@
                 <p class="hint">旧カテゴリも対応する大分類にまとめて表示します。装飾品の装備枠は自動分類しません。分類だけでは購入・消費・所持数を変更しません。空欄カテゴリは3文字以上の検索時だけ候補表示します。</p>
                 </div>
               </details>
-        <p class="hint">大分類の › で開閉します。分類内の表だけ縦横にスクロールできます。検索・絞り込み時は該当分類を開きます。</p>
+        <p class="hint">大分類・小分類の › で開閉します。検索・絞り込み時は該当分類を開きます。武器・防具の性能は行内で、略称・出典は「補足」で編集できます。</p>
+        <p class="hint">装飾品の装備可能部位は「補足」で複数指定できます。CSVは任意列 <code>equipSlots</code> に <code>背中|腰</code> などを記入。商品名から部位は推測しません。</p>
+        <div class="toolbar"><button type="button" data-action="openCatalog" data-context="">一覧からアイテムを探す</button><button type="button" id="downloadPriceTemplateBtn" class="small">性能付きCSVひな形DL</button></div>
         <div id="confirmedPriceTable"></div>
       </div>
     </details>
@@ -1283,10 +1377,10 @@
           <a class="historyLinks" href="#cashbookHistorySection" data-action="goHistory">購入・売却履歴へ</a>
         </div>
         <table class="gridTable" id="equipmentTable">
-          <thead><tr><th>種別</th><th>アイテム名</th><th>価格</th><th>数量</th><th>メモ</th><th></th></tr></thead>
+          <thead><tr><th>種別</th><th>アイテム名</th><th>価格</th><th>数量</th><th title="JSONの装備欄の備考へ反映します">備考・効果</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
-        <div class="toolbar"><button id="addEquipmentBtn" type="button">行を追加</button></div>
+        <div class="toolbar"><button id="addEquipmentBtn" type="button">行を追加</button><button type="button" data-action="openCatalog" data-context="equipment">辞書から探して追加</button></div>
       </div>
     </details>
 
@@ -1300,10 +1394,10 @@
           </label>
         </div>
         <table class="gridTable" id="accessoryTable">
-          <thead><tr><th>部位</th><th>追加枠</th><th>アイテム名</th><th>価格</th><th>数量</th><th>メモ</th><th></th></tr></thead>
+          <thead><tr><th>部位</th><th>追加枠</th><th>アイテム名</th><th>価格</th><th>数量</th><th title="JSONの装飾品欄の備考・効果へ反映します">備考・効果</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
-        <div class="toolbar"><button id="addAccessoryBtn" type="button">行を追加</button></div>
+        <div class="toolbar"><button id="addAccessoryBtn" type="button">行を追加</button><button type="button" data-action="openCatalog" data-context="accessory">辞書から探して追加</button></div>
       </div>
     </details>
 
@@ -1321,7 +1415,7 @@
           <thead><tr><th>所持品に含める</th><th>アイテム名</th><th>価格</th><th>数量</th><th>メモ</th><th></th></tr></thead>
           <tbody></tbody>
         </table>
-        <div class="toolbar"><button id="addConsumableBtn" type="button">行を追加</button></div>
+        <div class="toolbar"><button id="addConsumableBtn" type="button">行を追加</button><button type="button" data-action="openCatalog" data-context="consumable">辞書から探して追加</button></div>
       </div>
     </details>
 
@@ -1390,9 +1484,9 @@
   </div>
 
   <script>
-    const VERSION = "v1.5.25";
+    const VERSION = "v1.5.29";
     const SETTINGS_EXPORT_KIND = "sw25-cashbook-editor-settings";
-    const SETTINGS_EXPORT_FORMAT_VERSION = 1;
+    const SETTINGS_EXPORT_FORMAT_VERSION = 2;
     const ACCESSORY_CODES = { "頭": "Head", "顔": "Face", "耳": "Ear", "首": "Neck", "背": "Back", "右": "HandR", "左": "HandL", "腰": "Waist", "足": "Leg", "他": "Other" };
     let characterSourceUrl = "";
     let characterBaseline = null;
@@ -1595,6 +1689,262 @@
       "ゴーレム": "その他-ゴーレム関連", "ゴーレムアイテム": "その他-ゴーレム関連",
       "騎獣": "その他-騎獣関連", "魔神": "その他-魔神関連"
     };
+    // 商品の装備可能部位と、実際の装備枠は別。商品・価格・効果の一覧は含めない。
+    const ACCESSORY_EQUIP_SLOT_CHOICES = ["頭", "顔", "耳", "首", "背中", "手", "腰", "足", "任意"];
+    const ACCESSORY_EQUIP_SLOT_ALIASES = { "背": "背中", "右": "右手", "左": "左手", "その他": "他" };
+    const ACCESSORY_EQUIP_SLOT_PARTS = { "頭": ["頭"], "顔": ["顔"], "耳": ["耳"], "首": ["首"], "背中": ["背"], "手": ["右", "左"], "右手": ["右"], "左手": ["左"], "腰": ["腰"], "足": ["足"], "他": ["他"], "任意": ACCESSORY_PARTS.filter(part => part !== "他") };
+    const ACCESSORY_SLOT_FILTERS = [["", "すべて"], ["頭", "頭"], ["顔", "顔"], ["耳", "耳"], ["首", "首"], ["背", "背中"], ["手", "手（左右）"], ["右", "右手"], ["左", "左手"], ["腰", "腰"], ["足", "足"], ["他", "他（全装飾品）"], ["unknown", "未登録・要確認"]];
+    function parseAccessorySlotText(value) {
+      const tokens = String(value ?? "").split(/[|｜/／,，、;；・\s]+/).map(raw => raw.trim()).filter(Boolean).map(raw => {
+        const key = raw.normalize("NFKC").replace(/^[〈《【\[(]+|[〉》】\])]+$/g, "");
+        const tag = Object.hasOwn(ACCESSORY_EQUIP_SLOT_ALIASES, key) ? ACCESSORY_EQUIP_SLOT_ALIASES[key] : key;
+        return { raw, tag: Object.hasOwn(ACCESSORY_EQUIP_SLOT_PARTS, tag) ? tag : "" };
+      });
+      return { tokens, tags: [...new Set(tokens.map(token => token.tag).filter(Boolean))], unknown: tokens.filter(token => !token.tag).map(token => token.raw) };
+    }
+    function getAccessorySlotInfo(item) {
+      const explicit = String(item?.equipSlots ?? "").trim(), category = getPriceCategoryInfo(item?.category);
+      const legacy = parseAccessorySlotText(category.major === "装飾品" ? category.minor : "");
+      // 専用欄を優先。不明な専用値を、都合のよいカテゴリの部位で置き換えない。
+      const fromCategory = !explicit && legacy.tags.length > 0 && !legacy.unknown.length;
+      const raw = explicit || (fromCategory ? category.minor : ""), parsed = parseAccessorySlotText(raw);
+      return { ...parsed, raw, fromCategory, parts: [...new Set(parsed.tags.flatMap(tag => ACCESSORY_EQUIP_SLOT_PARTS[tag]))] };
+    }
+    function accessoryMatchesSlot(item, part) {
+      if (getPriceCategoryInfo(item?.category).major !== "装飾品") return false;
+      if (!part || part === "他") return true;
+      const info = getAccessorySlotInfo(item);
+      if (part === "unknown") return !info.parts.length || info.unknown.length > 0;
+      if (part === "手") return info.parts.includes("右") || info.parts.includes("左");
+      return info.parts.includes(part);
+    }
+    function accessorySlotsText(item) {
+      const info = getAccessorySlotInfo(item);
+      return info.raw ? [...info.tags, ...info.unknown.map(value => value + "（要確認）")].join("・") + (info.fromCategory ? "（カテゴリ参照）" : "") : "未登録";
+    }
+    function accessorySlotEditorHtml(item) {
+      const parsed = parseAccessorySlotText(item.equipSlots), info = getAccessorySlotInfo(item);
+      return '<fieldset class="priceDetailSlots"><legend>装備可能部位（複数可）</legend><div class="slotChoices">' +
+        ACCESSORY_EQUIP_SLOT_CHOICES.map(tag => '<label><input type="checkbox" class="checkBig" data-slot-choice="' + tag + '"' + (parsed.tags.includes(tag) ? ' checked' : '') + '>' + tag + '</label>').join("") +
+        '</div><label>部位の指定（| 区切り・自由入力可）<input type="text" data-detail-key="equipSlots" value="' + esc(item.equipSlots ?? "") + '" placeholder="背中|腰"></label>' +
+        '<p class="hint">手は右・左、任意は全通常部位に対応。「他」の枠は全装飾品に使えるため登録不要です。不明な指定も削除せず保持します。空欄では、カテゴリの既知部位だけを参照します。</p>' +
+        (info.fromCategory ? '<p class="hint">現在はカテゴリから「' + esc(accessorySlotsText(item)) + '」を参照中。ここで登録すると専用欄を優先します。</p>' : '') + '</fieldset>';
+    }
+    function syncAccessorySlotEditor(target) {
+      const root = target.closest(".priceDetailSlots"); if (!root) return;
+      const input = root.querySelector('[data-detail-key="equipSlots"]');
+      if (target === input) {
+        const parsed = parseAccessorySlotText(input.value);
+        root.querySelectorAll("[data-slot-choice]").forEach(box => box.checked = parsed.tags.includes(box.dataset.slotChoice));
+      } else if (target.matches("[data-slot-choice]")) {
+        const keep = parseAccessorySlotText(input.value).tokens.filter(token => !ACCESSORY_EQUIP_SLOT_CHOICES.includes(token.tag)).map(token => token.raw);
+        input.value = [...new Set([...root.querySelectorAll("[data-slot-choice]:checked")].map(box => box.dataset.slotChoice).concat(keep))].join("|");
+      }
+    }
+    // 性能は文字列として保持。0・補正符号・複数用法・「特殊」等を数値化しない。
+    // 公式商品データは持たず、以下はCSV・保存・表示・編集の共通定義だけ。
+    // 項目を増やす時はここへ追加。majors は通常表示する大分類、width は辞書表の列幅(px)。
+    // majors のない項目は共通の補足。分類外の値も削除せず、補足・CSVへ保持する。
+    const ITEM_DETAIL_FIELDS = [
+      { key: "usage", label: "用法", width: 76, majors: ["武器"], headers: ["usage", "用法", "用途"] },
+      { key: "requiredStrength", label: "必要筋力", shortLabel: "必筋", width: 50, majors: ["武器", "防具"], headers: ["requiredstrength", "strength", "必要筋力", "必筋"] },
+      { key: "accuracy", label: "命中補正", shortLabel: "命中", width: 50, majors: ["武器"], headers: ["accuracy", "hit", "命中補正", "命中"] },
+      { key: "power", label: "威力", width: 70, majors: ["武器"], headers: ["power", "rate", "威力"] },
+      { key: "critical", label: "クリティカル値", shortLabel: "C値", width: 50, majors: ["武器"], headers: ["critical", "crit", "クリティカル値", "c値", "c"] },
+      { key: "damage", label: "追加ダメージ", shortLabel: "追加D", width: 64, majors: ["武器"], headers: ["damage", "additionaldamage", "追加ダメージ", "追加ダメージ補正"] },
+      { key: "evasion", label: "回避補正", shortLabel: "回避", width: 50, majors: ["防具"], headers: ["evasion", "回避補正", "回避"] },
+      { key: "defense", label: "防護点", width: 56, majors: ["防具"], headers: ["defense", "防護点"] },
+      { key: "rank", label: "ランク", width: 56, majors: ["武器", "防具"], headers: ["rank", "ランク", "武器ランク", "防具ランク"] },
+      { key: "equipSlots", label: "装備可能部位", majors: ["装飾品"], headers: ["equipslots", "equipslot", "slots", "slot", "equipmentslots", "装備可能部位", "装備部位", "装備箇所", "部位"] },
+      { key: "source", label: "参照書籍", headers: ["source", "book", "参照書籍", "書籍", "出典"] },
+      { key: "sourcePage", label: "ページ", headers: ["sourcepage", "page", "ページ", "参照ページ"] }
+    ];
+    const PRICE_DICTIONARY_COLUMNS = [
+      { key: "name", label: "アイテム名", width: 260 }, { key: "price", label: "価格", width: 76 },
+      { key: "aliases", label: "略称", width: 180 }, { key: "category", label: "カテゴリ", width: 182 },
+      { key: "note", label: "メモ", width: 100 }, { key: "return", label: "", width: 84 }, { key: "delete", label: "", width: 56 }
+    ];
+    const ITEM_RANK_ORDER = ["B", "A", "S", "SS"];
+    function getItemStatFields(major) { return ITEM_DETAIL_FIELDS.filter(field => field.width && field.majors?.includes(major)); }
+    function getDictionaryColumns(major) {
+      if (!["武器", "防具"].includes(major)) return PRICE_DICTIONARY_COLUMNS;
+      return [PRICE_DICTIONARY_COLUMNS[0], ...getItemStatFields(major), ...PRICE_DICTIONARY_COLUMNS.filter(field => !["name", "aliases"].includes(field.key))];
+    }
+    function compareItemRanks(a, b) {
+      const key = value => String(value ?? "").normalize("NFKC").toUpperCase().replace(/ランク/g, "").trim();
+      const ak = key(a), bk = key(b);
+      const order = value => !value ? ITEM_RANK_ORDER.length + 1 : ITEM_RANK_ORDER.includes(value) ? ITEM_RANK_ORDER.indexOf(value) : ITEM_RANK_ORDER.length;
+      return order(ak) - order(bk) || ak.localeCompare(bk, "ja");
+    }
+    function itemDetails(item) {
+      return Object.fromEntries(ITEM_DETAIL_FIELDS.filter(field => item?.[field.key] !== undefined && item[field.key] !== null && String(item[field.key]).trim() !== "")
+        .map(field => [field.key, String(item[field.key]).trim()]));
+    }
+    function itemFactsHtml(item) {
+      const major = getPriceCategoryInfo(item.category).major;
+      return ITEM_DETAIL_FIELDS.filter(field => !field.majors || field.majors.includes(major) || String(item?.[field.key] ?? "").trim())
+        .map(field => '<div><dt>' + esc(field.label) + '</dt><dd>' + esc(field.key === "equipSlots" ? accessorySlotsText(item) : String(item?.[field.key] ?? "").trim() || "未登録") + '</dd></div>').join("");
+    }
+    let priceDetailsDraft = null;
+    function openPriceDetails(index) {
+      const item = state.confirmedPriceItems[index]; if (!item) return;
+      priceDetailsDraft = { index, fingerprint: JSON.stringify(item), saved: localStorage.getItem("sw25_confirmed_price_items") };
+      el("priceDetailsName").textContent = item.name;
+      const major = getPriceCategoryInfo(item.category).major;
+      const normal = field => !field.majors || field.majors.includes(major) || String(item[field.key] ?? "").trim();
+      const editor = field => field.key === "equipSlots" ? accessorySlotEditorHtml(item) : '<label>' + esc(field.label) + '<input type="text" data-detail-key="' + field.key + '" value="' + esc(item[field.key] ?? "") + '"' + (field.key === "rank" ? ' list="itemRankOptions"' : "") + '></label>';
+      el("priceDetailsFields").innerHTML = '<label>略称（| 区切り）<input type="text" data-detail-key="aliases" value="' + esc((item.aliases || []).join("|")) + '"></label>' +
+        ITEM_DETAIL_FIELDS.filter(normal).map(editor).join("") +
+        (ITEM_DETAIL_FIELDS.some(field => !normal(field)) ? '<details class="disclosure priceDetailExtras"><summary>その他の性能項目（例外用）</summary><div class="disclosureBody catalogFilters">' + ITEM_DETAIL_FIELDS.filter(field => !normal(field)).map(editor).join("") + '</div></details>' : "");
+      priceDetailsDraft.inputValues = Object.fromEntries([...el("priceDetailsFields").querySelectorAll("[data-detail-key]")].map(input => [input.dataset.detailKey, input.value.trim()]));
+      el("priceDetailsStatus").textContent = ""; el("priceDetailsModal").classList.add("isOpen");
+    }
+    function closePriceDetails() { priceDetailsDraft = null; el("priceDetailsModal").classList.remove("isOpen"); }
+    function savePriceDetails() {
+      const draft = priceDetailsDraft; if (!draft) return;
+      try {
+        if (JSON.stringify(state.confirmedPriceItems[draft.index]) !== draft.fingerprint || localStorage.getItem("sw25_confirmed_price_items") !== draft.saved) throw new Error("辞書が変更されています。閉じて読み直してください。");
+        const items = [...state.confirmedPriceItems], item = { ...items[draft.index] };
+        el("priceDetailsFields").querySelectorAll("[data-detail-key]").forEach(input => {
+          const value = input.value.trim(), key = input.dataset.detailKey; if (value === draft.inputValues[key]) return;
+          if (key === "aliases") item.aliases = [...new Set(value.split("|").map(alias => alias.trim()).filter(Boolean))];
+          else if (value) item[key] = value; else delete item[key];
+        });
+        items[draft.index] = item;
+        localStorage.setItem("sw25_confirmed_price_items", JSON.stringify(items));
+        const aliasesChanged = JSON.stringify(item.aliases || []) !== JSON.stringify(state.confirmedPriceItems[draft.index].aliases || []);
+        state.confirmedPriceItems = items; rebuildPricePresetCache();
+        let message = "辞書の補足を保存しました";
+        if (aliasesChanged) {
+          const count = state.learnedPriceItems.length;
+          try { pruneLearnedPricesAgainstAuthoritative(); }
+          catch { message = "辞書は保存しましたが、候補の整理は保存できませんでした。候補は残しています"; }
+          if (count !== state.learnedPriceItems.length) renderLearnedPriceTable();
+          updateLearnedPriceStatus();
+        }
+        renderConfirmedPriceTable();
+        closePriceDetails(); showToast(message);
+      } catch (err) { el("priceDetailsStatus").textContent = "保存できませんでした：" + err.message; }
+    }
+    let catalogSession = null;
+    function openCatalog(context = "") {
+      catalogSession = { items: state.confirmedPriceItems.map((item, index) => ({ item: clonePlain(item), index, fingerprint: JSON.stringify(item) })), page: 0, rows: [], selected: null,
+        saved: localStorage.getItem("sw25_confirmed_price_items"), focus: document.activeElement };
+      el("catalogMajor").innerHTML = '<option value="">すべて</option>' + PRICE_CATEGORY_GROUPS.map(group => '<option value="' + group.name + '">' + group.name + '</option>').join("") + '<option value="custom">自由カテゴリ・未設定</option>';
+      el("catalogMajor").value = ({ equipment: "武器", accessory: "装飾品", consumable: "消耗品", other: "その他" })[context] || "";
+      el("catalogSearch").value = ""; el("catalogMinor").innerHTML = ""; el("catalogMaxPrice").value = ""; el("catalogSort").value = "priceAsc";
+      el("catalogEquipSlot").innerHTML = ACCESSORY_SLOT_FILTERS.map(([value, label]) => '<option value="' + value + '">' + label + '</option>').join("");
+      el("catalogPart").innerHTML = ACCESSORY_PARTS.map(part => '<option>' + part + '</option>').join(""); el("catalogPart").value = "他";
+      el("catalogMode").value = ""; el("catalogQuantity").value = "1"; el("catalogStatus").textContent = "";
+      renderCatalog(); el("itemCatalogModal").classList.add("isOpen"); el("catalogSearch").focus();
+    }
+    function closeCatalog() {
+      const focus = catalogSession?.focus; catalogSession = null; el("itemCatalogModal").classList.remove("isOpen");
+      if (focus?.isConnected) focus.focus({ preventScroll: true });
+    }
+    function renderCatalog(resetPage = true) {
+      const session = catalogSession; if (!session) return;
+      if (resetPage) session.page = 0;
+      session.selected = null; el("catalogSelected").hidden = true; el("catalogAddBtn").disabled = true;
+      const major = el("catalogMajor").value, chosen = el("catalogMinor").value;
+      const majorMatches = info => !major || (major === "custom" ? !info.major : info.major === major);
+      const categories = [...new Set(session.items.map(row => getPriceCategoryInfo(row.item.category)).filter(majorMatches).map(info => info.key))].sort(comparePriceCategories);
+      el("catalogMinor").innerHTML = '<option value="">すべて</option>' + categories.map(key => { const info = getPriceCategoryInfo(key); return '<option value="' + esc(JSON.stringify(key)) + '">' + esc(major && info.major ? info.minor || "種類未指定" : info.label) + '</option>'; }).join("");
+      if (categories.some(key => JSON.stringify(key) === chosen)) el("catalogMinor").value = chosen;
+      const hasAccessoryKinds = categories.some(key => {
+        const info = getPriceCategoryInfo(key), slots = parseAccessorySlotText(info.minor);
+        return info.minor && (!slots.tags.length || slots.unknown.length);
+      });
+      el("catalogMinorLabel").hidden = major === "装飾品" && !hasAccessoryKinds;
+      if (el("catalogMinorLabel").hidden) el("catalogMinor").value = "";
+      el("catalogEquipSlotLabel").hidden = major !== "装飾品";
+      if (major !== "装飾品") el("catalogEquipSlot").value = "";
+      const equipSlot = el("catalogEquipSlot").value;
+      const minor = el("catalogMinor").value ? JSON.parse(el("catalogMinor").value) : null;
+      const query = el("catalogSearch").value.normalize("NFKC").toLowerCase().trim(), max = el("catalogMaxPrice").value;
+      const sort = el("catalogSort").value;
+      const rows = session.items.filter(({ item }) => {
+        const info = getPriceCategoryInfo(item.category);
+        return majorMatches(info) && (minor === null || info.key === minor) && (!equipSlot || accessoryMatchesSlot(item, equipSlot)) &&
+          (max === "" || Number(item.price) <= Number(max)) &&
+          (!query || [item.name, ...(item.aliases || []), item.note, item.source, item.sourcePage].some(value => String(value || "").normalize("NFKC").toLowerCase().includes(query)));
+      }).sort((a, b) => (sort === "rank" ? comparePriceCategories(a.item.category, b.item.category) || compareItemRanks(a.item.rank, b.item.rank) : 0) ||
+        (sort === "name" ? 0 : (Number(a.item.price) - Number(b.item.price)) * (sort === "priceDesc" ? -1 : 1)) || a.item.name.localeCompare(b.item.name, "ja") || a.index - b.index);
+      const pages = Math.max(1, Math.ceil(rows.length / 50)); session.page = Math.max(0, Math.min(session.page, pages - 1));
+      session.rows = rows.slice(session.page * 50, (session.page + 1) * 50);
+      const stats = getItemStatFields(major).map(field => field.key);
+      const sourceText = item => [item.source, item.sourcePage ? "p." + item.sourcePage : ""].filter(Boolean).join(" ") || "未登録";
+      el("catalogResults").innerHTML = rows.length ? '<table class="catalogTable"><thead><tr><th>選択</th><th>アイテム名</th><th>登録価格</th><th>カテゴリ</th>' + (major === "装飾品" ? '<th>装備可能部位</th>' : '') + stats.map(key => '<th>' + ITEM_DETAIL_FIELDS.find(field => field.key === key).label + '</th>').join("") + '<th>参照書籍・ページ</th></tr></thead><tbody>' + session.rows.map(({ item }, i) =>
+        '<tr><td><button type="button" class="small" data-catalog-select="' + i + '">選ぶ</button></td><td class="catalogNameCell">' + esc(item.name) + '</td><td>' + esc(item.price) + ' G</td><td>' + esc(getPriceCategoryInfo(item.category).label) + '</td>' + (major === "装飾品" ? '<td>' + esc(accessorySlotsText(item)) + '</td>' : '') + stats.map(key => '<td>' + esc(String(item[key] ?? "").trim() || "未登録") + '</td>').join("") + '<td>' + esc(sourceText(item)) + '</td></tr>').join("") + '</tbody></table>' : '<p class="hint">該当する品はありません。登録済み辞書・分類・検索条件を確認してください。' + (major === "装飾品" && equipSlot && equipSlot !== "unknown" ? '部位情報のない品は「未登録・要確認」で探し、辞書の「補足」で部位を登録してください。' : '') + '</p>';
+      el("catalogCount").textContent = "該当" + rows.length + "件 ／ 登録" + session.items.length + "件（50件ずつ表示）";
+      el("catalogPage").textContent = (session.page + 1) + " / " + pages;
+      el("catalogPrev").disabled = session.page === 0; el("catalogNext").disabled = session.page >= pages - 1;
+      el("catalogResults").scrollTop = 0;
+    }
+    function selectCatalogItem(index) {
+      const row = catalogSession?.rows[index]; if (!row) return;
+      catalogSession.selected = row;
+      el("catalogStatus").textContent = "";
+      const item = row.item, info = getPriceCategoryInfo(item.category);
+      el("catalogSelectedName").textContent = item.name + " ／ 登録価格 " + item.price + " G";
+      el("catalogSelectedFacts").innerHTML = itemFactsHtml(item); el("catalogSelectedNote").textContent = item.note || "";
+      el("catalogDestination").value = ["武器", "防具"].includes(info.major) && info.minor !== "矢弾" ? "equipment" : info.major === "装飾品" ? "accessory" : info.major === "消耗品" || info.minor === "矢弾" ? "consumable" : "other";
+      if (info.major === "装飾品") {
+        const filter = el("catalogEquipSlot").value, slots = getAccessorySlotInfo(item);
+        const wanted = ACCESSORY_PARTS.includes(filter) && accessoryMatchesSlot(item, filter) ? [filter] : [];
+        const parts = [...new Set([...wanted, ...(slots.parts.length ? ACCESSORY_PARTS.filter(part => accessoryMatchesSlot(item, part)) : ["他"])])];
+        el("catalogPart").value = parts.find(part => !catalogAccessoryPartOccupied(part)) || parts[0] || "他";
+      }
+      el("catalogPrice").value = item.price; el("catalogSelected").hidden = false;
+      updateCatalogAddButton();
+    }
+    function updateCatalogAddButton() {
+      el("catalogPartLabel").hidden = el("catalogDestination").value !== "accessory";
+      el("catalogAddBtn").disabled = !catalogSession?.selected || !["purchase", "owned"].includes(el("catalogMode").value);
+      const hint = el("catalogPartHint"), item = catalogSession?.selected?.item;
+      hint.hidden = el("catalogPartLabel").hidden || !item; hint.textContent = ""; hint.classList.remove("needsReview");
+      if (!hint.hidden) {
+        const part = el("catalogPart").value, info = getAccessorySlotInfo(item), warnings = [];
+        if (getPriceCategoryInfo(item.category).major !== "装飾品") warnings.push("装飾品として分類されていない品です。装備先を確認してください。");
+        else if (!info.parts.length) warnings.push("装備可能部位は未登録・要確認です。資料で確認してください。");
+        else if (!accessoryMatchesSlot(item, part)) warnings.push("登録上の装備可能部位と異なります。特殊な装備条件は個別に確認してください。");
+        if (info.unknown.length) warnings.push("未認識の部位指定があります（" + info.unknown.join("・") + "）。");
+        if (catalogAccessoryPartOccupied(part)) warnings.push("この枠には既存の装備があります。自動置換はせず追加するため、JSON出力前に部位を整理してください。");
+        hint.textContent = "装備可能部位：" + accessorySlotsText(item) + "。「他」も選べます。" + warnings.join(" ");
+        hint.classList.toggle("needsReview", warnings.length > 0);
+      }
+    }
+    function catalogAccessoryPartOccupied(part) {
+      return state.accessories.some(row => row.name && (row.child ? row.parentPart : row.part) === part);
+    }
+    function addCatalogItem() {
+      const session = catalogSession, selected = session?.selected; if (!selected) return;
+      try {
+        if (JSON.stringify(state.confirmedPriceItems[selected.index]) !== selected.fingerprint || localStorage.getItem("sw25_confirmed_price_items") !== session.saved) throw new Error("辞書が変更されています。一覧を閉じて開き直してください。");
+        const owned = el("catalogMode").value === "owned", price = Number(el("catalogPrice").value), count = Number(el("catalogQuantity").value);
+        if (!["purchase", "owned"].includes(el("catalogMode").value)) throw new Error("購入か所持・装備のみかを選択してください。");
+        if (!el("catalogPrice").value || !Number.isFinite(price) || price < 0 || !Number.isSafeInteger(count) || count < 1 || !Number.isFinite(price * count)) throw new Error("単価は0以上、数量は1以上の扱える範囲の整数を入力してください。");
+        const item = selected.item, info = getPriceCategoryInfo(item.category), destination = el("catalogDestination").value;
+        if (destination === "accessory" && !ACCESSORY_PARTS.includes(el("catalogPart").value)) throw new Error("装飾品の部位を選択してください。");
+        const common = { name: item.name, price, count, note: "", excludeCost: owned, catalogName: item.name, catalogCategory: item.category, catalogDetails: itemDetails(item) };
+        if (destination === "equipment") {
+          const type = info.major === "武器" ? "武器" : ["非金属鎧", "金属鎧", "盾"].includes(info.minor) ? info.minor : "その他";
+          state.equipment.push({ ...blankEquipment(), ...common, type });
+        } else if (destination === "accessory") state.accessories.push({ ...blankAccessory(el("catalogPart").value), ...common });
+        else if (destination === "consumable") state.consumables.push({ ...blankConsumable(), ...common, stockOnly: owned });
+        else if (destination === "other") {
+          const title = owned ? "辞書から追加した所持品" : "今回の購入（辞書）";
+          let section = state.otherSections.find(section => section.catalogSection === (owned ? "owned" : "purchase"));
+          if (!section) { section = { ...blankOtherSection(title, true), items: [], catalogSection: owned ? "owned" : "purchase", ledger: !owned && state.ledgerMode }; state.otherSections.push(section); }
+          section.open = true; section.items.push({ ...common, sign: -1, stockOnly: owned, includeItemList: true, isTransaction: !owned && state.ledgerMode });
+        } else throw new Error("追加先を選択してください。");
+        renderAll(); generateOutputs(); closeCatalog(); showToast(owned ? "所持・装備のみで追加しました（支出なし）" : "新規購入として追加しました");
+      } catch (err) { el("catalogStatus").textContent = "追加できませんでした：" + err.message; }
+    }
+    function catalogRowDetailsHtml(row) {
+      if (row.name !== row.catalogName || !Object.keys(row.catalogDetails || {}).length) return "";
+      return '<details class="catalogDetails"><summary>辞書の性能・出典（参照）</summary><dl class="catalogFacts">' + itemFactsHtml({ ...row.catalogDetails, category: row.catalogCategory }) + '</dl><span class="hint">JSONの性能欄には自動反映しません。</span></details>';
+    }
     function getPriceCategoryInfo(category) {
       const raw = String(category || "").trim();
       let key = Object.hasOwn(PRICE_CATEGORY_ALIASES, raw) ? PRICE_CATEGORY_ALIASES[raw] : raw;
@@ -1901,7 +2251,12 @@
       if (quoted) throw new Error("CSVの引用符が閉じられていません。");
       row.push(value); if (row.some(v => v.trim())) records.push(row);
       if (!records.length) return [];
-      const header = records[0].map(v => v.trim().toLowerCase());
+      const header = records[0].map(v => v.normalize("NFKC").trim().toLowerCase());
+      const detailIndexes = ITEM_DETAIL_FIELDS.map(field => {
+        const matches = header.map((value, i) => field.headers.includes(value) ? i : -1).filter(i => i >= 0);
+        if (matches.length > 1 && header.some(v => v === "name" || v === "アイテム名")) throw new Error(field.label + "の列が重複しています。");
+        return [field.key, matches[0] ?? -1];
+      });
       const nameIndex = header.findIndex(v => v === "name" || v === "アイテム名");
       const priceIndex = header.findIndex(v => v === "price" || v === "価格");
       const hasHeader = nameIndex >= 0 && priceIndex >= 0;
@@ -1919,7 +2274,8 @@
         const noteIndex = hasHeader ? header.findIndex(v => v === "note" || v === "メモ") : -1;
         return { sourceName, name: info.name, price: Number(money), aliases,
           category: categoryIndex < 0 ? "" : String(cols[categoryIndex] || "").trim(),
-          note: noteIndex < 0 ? "" : String(cols[noteIndex] || "").trim(), updatedAt: getTodayText() };
+          note: noteIndex < 0 ? "" : String(cols[noteIndex] || "").trim(), updatedAt: getTodayText(),
+          ...itemDetails(Object.fromEntries(detailIndexes.filter(([, j]) => hasHeader && j >= 0).map(([key, j]) => [key, cols[j]]))) };
       }).filter(Boolean);
     }
     function rebuildPricePresetCache() {
@@ -1933,7 +2289,7 @@
       state.priceCsvCount = state.pricePresetItems.length;
     }
     function buildPriceDictionaryPlan(items, source = "価格CSV") {
-      const proposed = clonePlain(state.confirmedPriceItems || []), conflicts = [];
+      const proposed = clonePlain(state.confirmedPriceItems || []), conflicts = [], detailConflicts = [], detailFills = [];
       const exactNames = new Map(), lookup = new Map();
       const indexItem = (item, i) => {
         if (!exactNames.has(item.name)) exactNames.set(item.name, i);
@@ -1948,13 +2304,20 @@
         const index = exactNames.get(sourceName || item.name) ?? (matches.length ? Math.min(...matches) : -1);
         if (index < 0) { indexItem(item, proposed.length); proposed.push(item); added++; return; }
         const current = proposed[index];
+        if (current.name === (sourceName || item.name)) {
+          Object.entries(itemDetails(item)).forEach(([key, value]) => {
+            const old = String(current[key] ?? "").trim();
+            if (!old) { current[key] = value; detailFills.push({ index, name: current.name, key, value }); }
+            else if (old !== value) detailConflicts.push({ index, name: current.name, key, currentValue: old, incomingValue: value });
+          });
+        }
         if (current.name === (sourceName || item.name) && toNumber(current.price) !== toNumber(item.price)) {
           conflicts.push({ index, name: current.name, currentPrice: current.price, incomingPrice: item.price });
         } else skipped++;
       });
-      return { proposed, conflicts, added, skipped, source, snapshot: JSON.stringify(state.confirmedPriceItems || []), savedSnapshot: localStorage.getItem("sw25_confirmed_price_items") };
+      return { proposed, conflicts, detailConflicts, detailFills, added, skipped, source, snapshot: JSON.stringify(state.confirmedPriceItems || []), savedSnapshot: localStorage.getItem("sw25_confirmed_price_items") };
     }
-    function commitPriceDictionaryPlan(plan, selections = new Set(), persist = true) {
+    function commitPriceDictionaryPlan(plan, selections = new Set(), persist = true, detailSelections = new Set()) {
       if (plan.snapshot !== JSON.stringify(state.confirmedPriceItems || [])) throw new Error("確認中に辞書が変更されました。CSVを選び直してください。");
       if (persist && plan.savedSnapshot !== localStorage.getItem("sw25_confirmed_price_items")) throw new Error("別のタブで辞書が変更されました。再読込してからCSVを選び直してください。");
       const selectedTargets = new Set();
@@ -1964,6 +2327,13 @@
         selectedTargets.add(conflict.index);
       });
       const items = clonePlain(plan.proposed);
+      const detailTargets = new Set();
+      (plan.detailConflicts || []).forEach((conflict, i) => {
+        if (!detailSelections.has(i)) return;
+        const target = conflict.index + ":" + conflict.key;
+        if (detailTargets.has(target)) throw new Error("同じ品の同じ性能を複数選択しています。採用する値を1つにしてください。");
+        detailTargets.add(target); items[conflict.index][conflict.key] = conflict.incomingValue;
+      });
       plan.conflicts.forEach((conflict, i) => {
         if (selections.has(i)) { items[conflict.index].price = conflict.incomingPrice; items[conflict.index].updatedAt = getTodayText(); }
       });
@@ -1978,7 +2348,8 @@
       state.confirmedPriceItems = items; rebuildPricePresetCache();
       pruneLearnedPricesAgainstAuthoritative(); updateLearnedPriceStatus();
       applyPresetAndCashbookPrices(); renderAll(); generateOutputs();
-      return { added: plan.added, updated: selections.size, skipped: plan.skipped + plan.conflicts.length - selections.size };
+      return { added: plan.added, updated: selections.size, skipped: plan.skipped + plan.conflicts.length - selections.size,
+        details: (plan.detailFills || []).length + detailSelections.size };
     }
     function loadPriceCsvText(text, save = false) {
       // 内部・旧設定JSON用。通常のファイル読込は確認画面を経由する。
@@ -2030,11 +2401,22 @@
         priceDictionaryImportDraft = plan;
         const originalCount = (state.confirmedPriceItems || []).length;
         el("priceDictionaryNewItems").textContent = plan.proposed.slice(originalCount).map(item => item.name + "：" + item.price + " G（" + (item.category || "カテゴリ未設定") + "）").join("\n") || "追加する品はありません。";
-        el("priceDictionaryImportSummary").textContent = source + "：追加" + plan.added + "件、同名の価格違い" + plan.conflicts.length + "件、重複スキップ" + plan.skipped + "件";
+        el("priceDictionaryImportSummary").textContent = source + "：追加" + plan.added + "件、同名の価格違い" + plan.conflicts.length + "件、重複スキップ" + plan.skipped + "件、未登録の性能・出典を補完" + plan.detailFills.length + "項目（価格の重複判定と性能の補完は別です）";
         el("priceDictionaryImportRows").innerHTML = plan.conflicts.length
           ? '<table class="gridTable"><thead><tr><th>アイテム名</th><th>現在の価格</th><th>CSVの価格</th><th>採用する価格</th></tr></thead><tbody>' + plan.conflicts.map((item, i) =>
             '<tr><td>' + esc(item.name) + '</td><td>' + esc(item.currentPrice) + ' G</td><td>' + esc(item.incomingPrice) + ' G</td><td><select data-price-conflict="' + i + '" aria-label="' + esc(item.name) + 'の採用価格"><option value="keep">現在の価格を維持</option><option value="incoming">CSVの価格を採用</option></select></td></tr>').join("") + '</tbody></table>'
           : '<p class="hint">同名で価格が違う品はありません。</p>';
+        const fieldLabel = key => ITEM_DETAIL_FIELDS.find(field => field.key === key)?.label || key;
+        if (plan.detailFills.length) {
+          const list = document.createElement("details"), summary = document.createElement("summary"), text = document.createElement("p");
+          summary.textContent = "同名の品に補完する性能・出典 " + plan.detailFills.length + "項目";
+          text.className = "hint"; text.style.whiteSpace = "pre-wrap";
+          text.textContent = plan.detailFills.map(row => row.name + " ／ " + fieldLabel(row.key) + "：未登録 → " + row.value).join("\n");
+          list.append(summary, text); el("priceDictionaryImportRows").append(list);
+        }
+        if (plan.detailConflicts.length) el("priceDictionaryImportRows").insertAdjacentHTML("beforeend",
+          '<p>同名の性能・出典の違い（初期選択は既存維持）</p><table class="gridTable"><thead><tr><th>品名・項目</th><th>現在</th><th>CSV</th><th>採用する値</th></tr></thead><tbody>' +
+          plan.detailConflicts.map((row, i) => '<tr><td>' + esc(row.name + " ／ " + fieldLabel(row.key)) + '</td><td>' + esc(row.currentValue) + '</td><td>' + esc(row.incomingValue) + '</td><td><select data-detail-conflict="' + i + '"><option value="keep">現在の値を維持</option><option value="incoming">CSVの値を採用</option></select></td></tr>').join("") + '</tbody></table>');
         el("priceDictionaryImportError").textContent = "";
         el("priceDictionaryImportModal").classList.add("isOpen");
       } catch (err) { closePriceDictionaryImport(); el("priceDictionaryImportStatus").textContent = "読み込めませんでした：" + err.message; }
@@ -2046,8 +2428,9 @@
       const plan = priceDictionaryImportDraft; if (!plan) return;
       const selections = new Set([...el("priceDictionaryImportRows").querySelectorAll("[data-price-conflict]")].filter(input => input.value === "incoming").map(input => Number(input.dataset.priceConflict)));
       try {
-        const stats = commitPriceDictionaryPlan(plan, selections);
-        el("priceDictionaryImportStatus").textContent = "辞書へ統合しました：追加" + stats.added + "件、価格更新" + stats.updated + "件、既存維持" + stats.skipped + "件";
+        const detailSelections = new Set([...el("priceDictionaryImportRows").querySelectorAll("[data-detail-conflict]")].filter(input => input.value === "incoming").map(input => Number(input.dataset.detailConflict)));
+        const stats = commitPriceDictionaryPlan(plan, selections, true, detailSelections);
+        el("priceDictionaryImportStatus").textContent = "辞書へ統合しました：追加" + stats.added + "件、価格更新" + stats.updated + "件、既存維持" + stats.skipped + "件、性能・出典の補完／更新" + stats.details + "項目";
         el("retryLegacyPriceImportBtn").hidden = !localStorage.getItem("sw25_price_csv_text");
         closePriceDictionaryImport();
       } catch (err) { el("priceDictionaryImportError").textContent = "統合できませんでした：" + err.message; }
@@ -2148,7 +2531,8 @@
           aliases: [...new Set([nameInfo.alias, ...rawAliases].map(v => String(v || "").trim()).filter(Boolean))],
           category: String(rawItem.category || "").trim(),
           note: String(rawItem.note || "").trim(),
-          updatedAt: rawItem.updatedAt || ""
+          updatedAt: rawItem.updatedAt || "",
+          ...itemDetails(rawItem)
         };
         candidate.aliases = candidate.aliases.filter(alias =>
           normalizeItemKey(alias) !== normalizeItemKey(candidate.name)
@@ -2164,6 +2548,7 @@
         existing.aliases = [...new Set([...(existing.aliases || []), ...candidate.aliases])]
           .filter(alias => normalizeItemKey(alias) !== normalizeItemKey(existing.name));
         if (!existing.category && candidate.category) existing.category = candidate.category;
+        Object.entries(itemDetails(candidate)).forEach(([key, value]) => { if (!String(existing[key] ?? "").trim()) existing[key] = value; });
         if (String(candidate.updatedAt) >= String(existing.updatedAt)) {
           existing.price = candidate.price;
           existing.note = candidate.note;
@@ -2229,10 +2614,11 @@
     function pruneLearnedPricesAgainstAuthoritative() {
       const before = state.learnedPriceItems || [];
       const knownKeys = new Set((state.confirmedPriceItems || []).flatMap(getPriceItemLookupKeys));
-      state.learnedPriceItems = before.filter(item => !getPriceItemLookupKeys(item).some(key => knownKeys.has(key)));
-      if (state.learnedPriceItems.length !== before.length) {
-        localStorage.setItem("sw25_learned_price_items", JSON.stringify(state.learnedPriceItems));
+      const after = before.filter(item => !getPriceItemLookupKeys(item).some(key => knownKeys.has(key)));
+      if (after.length !== before.length) {
+        localStorage.setItem("sw25_learned_price_items", JSON.stringify(after));
       }
+      state.learnedPriceItems = after;
     }
     function updateLearnedPriceStatus() {
       const target = el("learnedPriceStatus");
@@ -2333,10 +2719,11 @@
     function exportLearnedPricesCsv() {
       exportPriceItemsCsv(state.learnedPriceItems || [], "learned_price.csv", "価格候補CSVを出力しました");
     }
-    function exportPriceItemsCsv(items, filename, message) {
-      const rows = [["name", "price", "aliases", "category", "note"]];
+    function exportPriceItemsCsv(items, filename, message, forceDetails = false) {
+      const detailKeys = forceDetails || (items || []).some(item => Object.keys(itemDetails(item)).length) ? ITEM_DETAIL_FIELDS.map(field => field.key) : [];
+      const rows = [["name", "price", "aliases", "category", "note", ...detailKeys]];
       (items || []).forEach(item => {
-        rows.push([item.name, item.price, (item.aliases || []).join("|"), item.category || "", item.note || ""]);
+        rows.push([item.name, item.price, (item.aliases || []).join("|"), item.category || "", item.note || "", ...detailKeys.map(key => item[key] ?? "")]);
       });
       const csv = rows.map(cols => cols.map(v => {
         const s = String(v ?? "");
@@ -4027,6 +4414,40 @@
       });
     }
     const dictionaryGroupViews = new Map();
+    function createDictionaryGroup(label, key, nested, reveal, major = "") {
+      const details = document.createElement("details"); details.className = "dictionaryGroup"; details.dataset.viewKey = key;
+      const view = dictionaryGroupViews.get(key) || { open: false, left: 0, top: 0 };
+      const columns = getDictionaryColumns(major);
+      details.open = reveal || view.open;
+      details.innerHTML = '<summary>' + esc(label) + '<span class="dictionaryGroupCount"></span></summary>' + (nested
+        ? '<div class="dictionaryGroupBody"></div>'
+        : '<div class="dictionaryGroupViewport tableScrollViewport" tabindex="0" role="region" aria-label="' + esc(label) + 'の価格辞書"><table class="gridTable' + (["武器", "防具"].includes(major) ? ' dictionaryGearTable' : '') + '" style="--dictionary-width:' + columns.reduce((sum, field) => sum + field.width, 0) + 'px"><colgroup>' +
+          columns.map(field => '<col data-column="' + field.key + '"' + (field.key === "name" ? '' : ' style="width:' + (field.key === "category" ? 'var(--dictionary-category-width,' + field.width + 'px)' : field.width + 'px') + '"') + '>').join("") + '</colgroup><thead><tr>' +
+          columns.map(field => '<th scope="col" data-column="' + field.key + '" title="' + esc(field.label) + '">' + esc(field.shortLabel || field.label) + '</th>').join("") + '</tr></thead><tbody></tbody></table></div>');
+      const viewport = details.querySelector(".dictionaryGroupViewport");
+      if (viewport) {
+        details.addEventListener("toggle", () => { if (details.isConnected && details.open) { viewport.scrollLeft = view.left; viewport.scrollTop = view.top; } });
+        viewport.addEventListener("scroll", () => { if (details.open) { view.left = viewport.scrollLeft; view.top = viewport.scrollTop; } }, { passive: true });
+      }
+      return { details, tbody: details.querySelector("tbody"), body: details.querySelector(".dictionaryGroupBody"), count: 0, minors: new Map() };
+    }
+    function dictionaryCellHtml(item, i, field, major) {
+      const data = 'data-i="' + i + '" data-key="' + field.key + '" aria-label="' + esc(field.label) + '"';
+      if (field.key === "name") {
+        const extra = ITEM_DETAIL_FIELDS.filter(f => f.majors && !f.majors.includes(major) && String(item[f.key] ?? "").trim());
+        return td(field.label, '<div class="dictionaryName">' + inputHtml(item.name, "confirmedField", data) +
+          '<button type="button" class="small" data-action="editPriceDetails" data-i="' + i + '" title="略称・出典・その他の性能を編集' + (extra.length ? '（' + extra.map(f => esc(f.label)).join('・') + 'も登録済み）' : '') + '">補足' + (extra.length ? '*' : '') + '</button></div>');
+      }
+      if (field.key === "category") return td(field.label, categoryEditorHtml(item.category, "confirmedField", i));
+      if (field.key === "return" || field.key === "delete") {
+        const remove = field.key === "delete";
+        return td("", '<button type="button" class="small' + (remove ? ' danger deleteBtn' : '') + '" data-action="' + (remove ? 'removeConfirmedPrice' : 'returnConfirmedPrice') + '" data-i="' + i + '"' +
+          (!remove && toNumber(item.price, 0) === 0 ? ' disabled title="0Gの品は辞書内で編集してください"' : '') + '>' + (remove ? '削除' : '候補へ戻す') + '</button>', "mobileNoLabel dictionaryAction");
+      }
+      const value = field.key === "aliases" ? (item.aliases || []).join("|") : item[field.key] ?? "";
+      const attrs = field.majors ? ' placeholder="—" title="' + esc(field.label) + '（空欄は未登録）"' + (field.key === "rank" ? ' list="itemRankOptions"' : '') : '';
+      return td(field.label, inputHtml(value, "confirmedField", data + attrs, field.key === "price" ? "number" : "text"), field.majors ? "dictionaryStat" : "");
+    }
     function td(label, html, cls = "") { return `<td data-label="${esc(label)}" class="${cls}">${html}</td>`; }
     function selectHtml(options, selected, action, data = "") {
       return `<select data-action="${action}" ${data}>${options.map(v => `<option value="${esc(v)}" ${String(v) === String(selected) ? "selected" : ""}>${esc(v)}</option>`).join("")}</select>`;
@@ -4077,9 +4498,9 @@
       const root = el("confirmedPriceTable");
       if (!root) return;
       root.querySelectorAll(".dictionaryGroup").forEach(group => {
-        const viewport = group.querySelector(".dictionaryGroupViewport");
-        const old = dictionaryGroupViews.get(group.dataset.major);
-        dictionaryGroupViews.set(group.dataset.major, { open: group.open, left: group.open ? viewport.scrollLeft : old?.left || 0, top: group.open ? viewport.scrollTop : old?.top || 0 });
+        const viewport = group.querySelector(":scope > .dictionaryGroupViewport");
+        const old = dictionaryGroupViews.get(group.dataset.viewKey);
+        dictionaryGroupViews.set(group.dataset.viewKey, { open: group.open, left: group.open && viewport ? viewport.scrollLeft : old?.left || 0, top: group.open && viewport ? viewport.scrollTop : old?.top || 0 });
       });
       root.innerHTML = "";
       const items = state.confirmedPriceItems || [];
@@ -4105,6 +4526,7 @@
         (category === null || getPriceCategoryInfo(item.category).key === category) &&
         (!query || [item.name, ...(item.aliases || []), item.note || ""].some(value => String(value).normalize("NFKC").toLowerCase().includes(query)))
       ).sort((a, b) => comparePriceCategories(a.item.category, b.item.category) ||
+        (["武器", "防具"].includes(getPriceCategoryInfo(a.item.category).major) ? compareItemRanks(a.item.rank, b.item.rank) : 0) ||
         (sort === "name" ? 0 : (toNumber(a.item.price) - toNumber(b.item.price)) * (sort === "priceDesc" ? -1 : 1)) ||
         a.item.name.localeCompare(b.item.name, "ja") || a.i - b.i);
       el("dictionaryViewStatus").textContent = "表示" + rows.length + "件／登録" + items.length + "件（大分類・小分類別）";
@@ -4118,37 +4540,32 @@
       rows.forEach(({ item, i }) => {
         const info = getPriceCategoryInfo(item.category);
         const groupName = info.major || "自由カテゴリ・未設定";
+        const nested = ["武器", "防具"].includes(info.major);
         if (!groups.has(groupName)) {
-          const details = document.createElement("details"); details.className = "dictionaryGroup"; details.dataset.major = groupName;
-          const view = dictionaryGroupViews.get(groupName) || { open: false, left: 0, top: 0 };
-          details.open = reveal || view.open;
-          details.innerHTML = '<summary>' + esc(groupName) + '<span class="dictionaryGroupCount"></span></summary><div class="dictionaryGroupViewport tableScrollViewport" tabindex="0" role="region" aria-label="' + esc(groupName) + 'の価格辞書"><table class="gridTable"><thead><tr><th>アイテム名</th><th>価格</th><th>略称</th><th>カテゴリ</th><th>メモ</th><th></th><th></th></tr></thead><tbody></tbody></table></div>';
-          root.appendChild(details);
-          const viewport = details.querySelector(".dictionaryGroupViewport");
-          const restore = () => { viewport.scrollLeft = view.left; viewport.scrollTop = view.top; };
-          if (details.open) restore();
-          details.addEventListener("toggle", () => { if (details.isConnected && details.open) restore(); });
-          viewport.addEventListener("scroll", () => { if (details.open) { view.left = viewport.scrollLeft; view.top = viewport.scrollTop; } }, { passive: true });
-          groups.set(groupName, { details, tbody: details.querySelector("tbody"), count: 0 });
+          const group = createDictionaryGroup(groupName, JSON.stringify([groupName]), nested, reveal, info.major);
+          group.details.dataset.major = groupName; root.appendChild(group.details); groups.set(groupName, group);
         }
-        const group = groups.get(groupName); tbody = group.tbody; group.count++;
-        if (lastCategory !== info.key) {
+        const group = groups.get(groupName); group.count++;
+        if (nested) {
+          if (!group.minors.has(info.key)) {
+            const minor = createDictionaryGroup(info.minor || "種類未指定", JSON.stringify([groupName, info.key]), false, reveal, info.major);
+            minor.details.classList.add("dictionaryMinor"); group.body.appendChild(minor.details); group.minors.set(info.key, minor);
+          }
+          const minor = group.minors.get(info.key); minor.count++; tbody = minor.tbody;
+        } else tbody = group.tbody;
+        if (!nested && lastCategory !== info.key) {
           const heading = document.createElement("tr"); heading.className = "dictionaryCategory";
           heading.innerHTML = '<td colspan="7">' + esc(info.label) + '</td>';
           tbody.appendChild(heading); lastCategory = info.key;
         }
         const tr = document.createElement("tr");
-        tr.innerHTML =
-          td("アイテム名", inputHtml(item.name, "confirmedField", `data-i="${i}" data-key="name"`)) +
-          td("価格", inputHtml(item.price, "confirmedField", `data-i="${i}" data-key="price"`, "number")) +
-          td("略称", inputHtml((item.aliases || []).join("|"), "confirmedField", `data-i="${i}" data-key="aliases"`)) +
-          td("カテゴリ", categoryEditorHtml(item.category, "confirmedField", i)) +
-          td("メモ", inputHtml(item.note || "", "confirmedField", `data-i="${i}" data-key="note"`)) +
-          td("", `<button class="small" type="button" data-action="returnConfirmedPrice" data-i="${i}" ${toNumber(item.price, 0) === 0 ? 'disabled title="0Gの品は辞書内で編集してください"' : ""}>候補へ戻す</button>`, "mobileNoLabel deleteCell") +
-          td("", `<button class="small danger deleteBtn" type="button" data-action="removeConfirmedPrice" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
+        tr.innerHTML = getDictionaryColumns(info.major).map(field => dictionaryCellHtml(item, i, field, info.major)).join("");
         tbody.appendChild(tr);
       });
-      groups.forEach(group => { group.details.querySelector(".dictionaryGroupCount").textContent = group.count + "件"; });
+      groups.forEach(group => {
+        group.details.querySelector(":scope > summary .dictionaryGroupCount").textContent = group.count + "件";
+        group.minors.forEach(minor => { minor.details.querySelector(".dictionaryGroupCount").textContent = minor.count + "件"; });
+      });
     }
     function renderProcessCsvPreviewTable() {
       const table = el("processCsvPreviewTable");
@@ -4259,10 +4676,10 @@
         tr.className = costRowClass(row);
         tr.innerHTML =
           td("種別", selectHtml(EQUIPMENT_TYPES, row.type, "equipType", `data-i="${i}"`)) +
-          td("アイテム名", `<div class="stack">${inputHtml(row.name, "equipField", `data-i="${i}" data-key="name"`)}<div class="toolbar"><button class="small" type="button" data-action="addProcess" data-i="${i}">加工を追加</button><span class="badge">加工数: ${row.processes.length}</span></div></div>`) +
+          td("アイテム名", `<div class="stack">${inputHtml(row.name, "equipField", `data-i="${i}" data-key="name"`)}<div class="toolbar"><button class="small" type="button" data-action="addProcess" data-i="${i}">加工を追加</button><span class="badge">加工数: ${row.processes.length}</span></div>${catalogRowDetailsHtml(row)}</div>`) +
           td("価格", priceEditorHtml(row, "equipField", `data-i="${i}" data-key="price"`, "equipment", i)) +
           td("数量", inputHtml(row.count, "equipField", `data-i="${i}" data-key="count" min="1"`, "number")) +
-          td("メモ", inputHtml(row.note, "equipField", `data-i="${i}" data-key="note"`)) +
+          td("備考・効果", inputHtml(row.note, "equipField", `data-i="${i}" data-key="note" aria-label="備考・効果" title="JSONの装備欄の備考へ反映します"`)) +
           td("", `<button class="small danger deleteBtn" type="button" data-action="removeEquipment" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
         tbody.appendChild(tr);
 
@@ -4298,7 +4715,7 @@
           td("アイテム名", inputHtml(row.name, "accessoryField", `data-i="${i}" data-key="name"`)) +
           td("価格", priceEditorHtml(row, "accessoryField", `data-i="${i}" data-key="price"`, "accessory", i)) +
           td("数量", inputHtml(row.count, "accessoryField", `data-i="${i}" data-key="count" min="1"`, "number")) +
-          td("メモ", inputHtml(row.note, "accessoryField", `data-i="${i}" data-key="note"`)) +
+          td("備考・効果", inputHtml(row.note, "accessoryField", `data-i="${i}" data-key="note" aria-label="備考・効果" title="JSONの装飾品欄の備考・効果へ反映します"`)) +
           td("", `<button class="small danger deleteBtn" type="button" data-action="removeAccessory" data-i="${i}">削除</button>`, "mobileNoLabel deleteCell");
         tbody.appendChild(tr);
       });
@@ -5176,6 +5593,8 @@
       const i = Number(t.dataset.i);
       const s = Number(t.dataset.s);
       const p = Number(t.dataset.p);
+      if (action === "openCatalog") { openCatalog(t.dataset.context); return; }
+      if (action === "editPriceDetails") { openPriceDetails(i); return; }
       if (action === "goHistory" || action === "goEquipment") {
         e.preventDefault();
         const target = el(action === "goHistory" ? "cashbookHistorySection" : "equipmentSection");
@@ -5300,7 +5719,21 @@
       const text = localStorage.getItem("sw25_price_csv_text");
       if (text) previewPriceDictionaryCsv(text, "以前保存した価格CSV", true);
     });
-    el("dictionaryBackupBtn").addEventListener("click", openSettingsBackup);
+    el("downloadPriceTemplateBtn").addEventListener("click", () => exportPriceItemsCsv([], "price_details_template.csv", "列名のみの性能付きCSVひな形を出力しました", true));
+    el("closeCatalogBtn").addEventListener("click", closeCatalog);
+    el("itemCatalogModal").addEventListener("click", e => { if (e.target === el("itemCatalogModal")) closeCatalog(); });
+    el("catalogResults").addEventListener("click", e => { const button = e.target.closest("[data-catalog-select]"); if (button) selectCatalogItem(Number(button.dataset.catalogSelect)); });
+    ["catalogSearch", "catalogMaxPrice"].forEach(id => el(id).addEventListener("input", () => renderCatalog()));
+    ["catalogMajor", "catalogMinor", "catalogSort", "catalogEquipSlot"].forEach(id => el(id).addEventListener("change", () => renderCatalog()));
+    el("catalogPrev").addEventListener("click", () => { if (catalogSession) { catalogSession.page--; renderCatalog(false); } });
+    el("catalogNext").addEventListener("click", () => { if (catalogSession) { catalogSession.page++; renderCatalog(false); } });
+    ["catalogMode", "catalogDestination", "catalogPart"].forEach(id => el(id).addEventListener("change", updateCatalogAddButton));
+    el("catalogAddBtn").addEventListener("click", addCatalogItem);
+    el("closePriceDetailsBtn").addEventListener("click", closePriceDetails);
+    el("priceDetailsModal").addEventListener("click", e => { if (e.target === el("priceDetailsModal")) closePriceDetails(); });
+    el("savePriceDetailsBtn").addEventListener("click", savePriceDetails);
+    el("priceDetailsFields").addEventListener("input", e => { if (e.target.matches('[data-detail-key="equipSlots"]')) syncAccessorySlotEditor(e.target); });
+    el("priceDetailsFields").addEventListener("change", e => { if (e.target.matches("[data-slot-choice]")) syncAccessorySlotEditor(e.target); });
     el("dictionarySearch").addEventListener("input", renderConfirmedPriceTable);
     el("dictionaryCategory").addEventListener("change", renderConfirmedPriceTable);
     el("dictionaryMajorCategory").addEventListener("change", () => { el("dictionaryCategory").value = ""; renderConfirmedPriceTable(); });
@@ -5439,6 +5872,8 @@
         if (e.key === "Escape") { e.preventDefault(); e.target.closest("[data-title-editor]").hidden = true; return; }
       }
       if (e.key === "Escape") {
+        if (el("priceDetailsModal").classList.contains("isOpen")) { closePriceDetails(); return; }
+        if (el("itemCatalogModal").classList.contains("isOpen")) { closeCatalog(); return; }
         closePriceDictionaryImport();
         closeHelp();
         closeCharacterJson();
@@ -5526,6 +5961,8 @@
       document.documentElement.style.setProperty("--section-open", openColor);
       document.documentElement.style.setProperty("--section-bg", bgColor);
       document.documentElement.style.setProperty("--section-border", borderColor);
+      document.documentElement.style.setProperty("--management-bg", mixColor(color, 0.72));
+      document.documentElement.style.setProperty("--management-open", mixColor(color, 0.54));
       if (save) localStorage.setItem("sw25_theme_color", color);
     }
     let toastTimer = null;
