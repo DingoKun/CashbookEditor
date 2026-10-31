@@ -1,14 +1,21 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.9.4
-  date: 2026-10-31
+  version: v1.9.11
+  date: 2026-11-01
   versioning: previous v26 is treated as 0.26
   notes:
+    - v1.9.11：CSV入れ替えを主操作へ整理し、統合・控え・作成用の操作と詳しい説明を折り畳み
+    - v1.9.10：利用者向けの操作説明と、ダウンロードするCSV作成ガイドを分離
+    - v1.9.9：装備欄の予測入力に、用法のある手持ち道具も含める
+    - v1.9.8：登録済み用法から手持ち道具を装備欄へ追加し、非攻撃の種別を保持
+    - v1.9.7：加工切替時の回数・符号付き値を初期化し、選択表示を簡略化
+    - v1.9.6：アイテム名の英数記号の幅を統一し、CSV指定の武器条件に対応
+    - v1.9.5：JSONの対比表示と加工補正表示を整理。CSV指定の選択上限・重複防止に対応
     - v1.9.4：購入一覧の分類別開閉、安定した技能選択、加工CSV検証と辞書保存・照合の軽量化
     - v1.9.3：特別用途の表示設定、技能用品と素材購入の整理、使い方の短縮
-    - v1.9.2：CSV指定順を群内にも反映。供物の魔神レベル順・簡潔な表示に対応
-    - v1.9.1：通常分類を維持した専用道具の補助表示、流派別一覧、召喚供物の価格辞書統合
+    - v1.9.2：CSV指定順を群内にも反映。名称・概要・価格の簡潔な表示に対応
+    - v1.9.1：通常分類を維持した専用道具の補助表示、流派別一覧、必要品の価格辞書統合
     - v1.9.0：CSV定義の加工効果選択、必要品の対応表、技能・取得条件の比較、価格表示の簡潔化
     - v1.8.1：所持品欄のカード現在数を安全に読込。正常な買い物の増減と読込時の不一致を区別
     - v1.8.0：技能の用途別比較・条件表示、価格区分と別単位の確認、保存と金額状態の表示整理
@@ -68,7 +75,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.9.4</title>
+  <title>SW2.5 収支・持ち物エディタ v1.9.11</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -435,7 +442,10 @@
     .toolbar > button, .miniActions > button { min-height: 30px; padding: 4px 9px; font-size: 12px; line-height: 18px; }
     .toolbar > button.small, .miniActions > button.small { font-size: 12px; }
     .dictionaryViewActions { gap: 6px; margin: 8px 0; }
-    .dictionaryViewActions .utilityAction { margin-left: auto; color: var(--muted); background: #f7f8fa; }
+    .dictionaryImportMain { margin-bottom: 8px; padding: 10px; border: 1px solid var(--section-border); border-radius: 7px; background: var(--section-bg); }
+    .dictionaryImportMain .toolbar { margin: 0; }
+    .dictionaryImportMain .hint { margin: 6px 0 0; }
+    #priceCsvBackupTools button[hidden] { display: none; }
     #equipmentTable .toolbar { gap: 8px; }
     #equipmentTable .toolbar > button { min-height: 28px; }
     #equipmentTable .toolbar > .badge { padding: 0 0 0 8px; border: 0; border-left: 1px solid var(--line); border-radius: 0; background: transparent; font-size: 11px; line-height: 18px; cursor: default; }
@@ -899,8 +909,30 @@
     .jsonChange ins { text-decoration: none; background: #e5f5e9; }
     .jsonChange del { background: #ffeded; }
     .jsonDiffBlock { border: 1px solid var(--line); border-radius: 4px; padding: 5px; margin: 5px 0; }
+    .jsonDiffComparison { border: 1px solid var(--line); border-radius: 4px; margin: 5px 0; overflow: hidden; }
+    .jsonDiffHeaders, .jsonDiffRow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .jsonDiffHeaders { background: var(--section-bg); font-size: 12px; font-weight: 600; border-bottom: 1px solid var(--line); }
+    .jsonDiffHeaders > span, .jsonDiffCell { padding: 6px 8px; min-width: 0; }
+    .jsonDiffHeaders > span + span, .jsonDiffCell + .jsonDiffCell { border-left: 1px solid var(--line); }
+    .jsonDiffRow + .jsonDiffRow { border-top: 1px solid var(--line); }
+    .jsonDiffCellMeta { display: flex; align-items: center; gap: 6px; min-height: 14px; margin-bottom: 2px; }
+    .jsonDiffCellMeta.isSimple, .jsonDiffSideLabel { display: none; }
+    .jsonDiffSideLabel { font-size: 11px; font-weight: 600; }
+    .jsonDiffCell > pre { max-height: none; overflow: visible; margin: 2px 0; }
+    .jsonDiffEmpty { color: var(--muted); font-size: 12px; margin: 2px 0; }
+    .jsonDiffWhole .jsonDiffCell > pre { max-height: 280px; overflow: auto; }
     .jsonDiffLineLabel { color: var(--muted); font-size: 10px; }
     .jsonDiffFull > summary { cursor: pointer; color: var(--accent); font-size: 12px; padding: 4px 0; }
+    .processStatControl { display: flex; flex-direction: column; gap: 2px; }
+    .processStatControl > label { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
+    .processStatSummary { overflow-wrap: anywhere; }
+    @media (max-width: 700px) {
+      .jsonDiffRow { grid-template-columns: minmax(0, 1fr); }
+      .jsonDiffHeaders { display: none; }
+      .jsonDiffCell + .jsonDiffCell { border-left: 0; border-top: 1px dashed var(--line); }
+      .jsonDiffCellMeta.isSimple { display: flex; }
+      .jsonDiffSideLabel { display: inline; }
+    }
     #characterAutoFormatChanges { margin-top: 8px; }
     #characterAutoFormatChanges > summary { cursor: pointer; padding: 5px 0; color: var(--accent); }
     #characterJsonStatus { white-space: pre-line; }
@@ -1059,16 +1091,15 @@
     .helpSafety { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--section-border); border-left: 3px solid var(--accent); border-radius: 5px; background: #f7faff; line-height: 1.65; }
     .helpSafety p { margin: 3px 0 0; }
     .helpSectionTitle { margin: 18px 0 8px; font-size: 14px; color: #1d3557; }
-    .helpQuickLinks { display: flex; flex-wrap: wrap; gap: 5px 12px; margin: 10px 0; }
-    #helpModal .modalBody > details { margin: 9px 0; padding: 0; border: 1px solid var(--section-border); border-radius: 6px; background: #fff; overflow: clip; scroll-margin-top: 54px; }
-    #helpModal .modalBody > details > summary { display: flex; align-items: center; gap: 7px; padding: 10px 12px; margin: 0; list-style: none; cursor: pointer; background: var(--section-bg); font-size: 13px; font-weight: 700; color: var(--text); }
-    #helpModal .modalBody > details > summary::-webkit-details-marker { display: none; }
-    #helpModal .modalBody > details > summary::before { content: "›"; flex: 0 0 12px; width: 12px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; font-size: 20px; font-weight: 400; }
-    #helpModal .modalBody > details[open] > summary { border-bottom: 1px solid var(--section-border); background: var(--section-open); }
-    #helpModal .modalBody > details[open] > summary::before { transform: rotate(90deg); }
-    #helpModal .modalBody > details > p, #helpModal .modalBody > details > pre { margin: 12px; line-height: 1.7; }
-    #helpModal .modalBody > details > .disclosureBody { padding: 12px; line-height: 1.7; }
-    #helpModal .modalBody > details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+    #helpModal .modalBody details { margin: 9px 0; padding: 0; border: 1px solid var(--section-border); border-radius: 6px; background: #fff; overflow: clip; scroll-margin-top: 54px; }
+    #helpModal .modalBody details > summary { display: flex; align-items: center; gap: 7px; padding: 10px 12px; margin: 0; list-style: none; cursor: pointer; background: var(--section-bg); font-size: 13px; font-weight: 700; color: var(--text); }
+    #helpModal .modalBody details > summary::-webkit-details-marker { display: none; }
+    #helpModal .modalBody details > summary::before { content: "›"; flex: 0 0 12px; width: 12px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; font-size: 20px; font-weight: 400; }
+    #helpModal .modalBody details[open] > summary { border-bottom: 1px solid var(--section-border); background: var(--section-open); }
+    #helpModal .modalBody details[open] > summary::before { transform: rotate(90deg); }
+    #helpModal .modalBody details > p, #helpModal .modalBody details > pre { margin: 12px; line-height: 1.7; }
+    #helpModal .modalBody details > .disclosureBody { padding: 12px; line-height: 1.7; }
+    #helpModal .modalBody details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
     .changelogItem {
       border-left: 4px solid var(--accent);
       padding: 6px 0 8px 10px;
@@ -1118,7 +1149,6 @@
       textarea { min-height: 72px; }
       #cashbookOutput { min-height: 140px; }
       .toolbar button { flex: 1 1 auto; }
-      .dictionaryViewActions .utilityAction { margin-left: 0; }
     }
     @media (max-width: 540px) {
       .characterUrlRow { grid-template-columns: minmax(0, 1fr); }
@@ -1138,7 +1168,7 @@
       <div>
         <div class="titleLine">
           <h1>SW2.5 収支・持ち物エディタ</h1>
-          <span class="version">v1.9.4</span>
+          <span class="version">v1.9.11</span>
         </div>
         <p class="lead">① URL読込 → ② アイテムを追加・整理 → ③ JSON／テキスト出力</p>
       </div>
@@ -1177,21 +1207,19 @@
         <div class="modalBody">
           <aside class="helpSafety" aria-label="保存についての大切な注意"><strong>ゆとシートへは自動保存しません</strong><p>この画面で編集した後、出力JSONをゆとシートへ取り込み、内容を確認して保存してください。「途中保存」はこのブラウザ内だけの保存です。読み込み前には、ゆとシート側の編集も保存しておきます。</p></aside>
           <h2 class="helpSectionTitle">基本の使い方</h2>
+          <p>はじめに、ゆとシート側の編集を保存し、閲覧URLを「URLから読込」へ貼り付けます。</p>
           <div class="helpSteps">
-            <div class="helpStep"><strong>1．URLから読み込む</strong><p>ゆとシート側の編集を保存し、閲覧URLを「URLから読込」へ貼り付けます。</p></div>
-            <div class="helpStep"><strong>2．CSVを登録する（初回・更新時）</strong><p>用意した価格・加工CSVは「辞書・加工データ管理」へ。最新版に揃えるときは価格辞書の「CSVで丸ごと置き換え」を使います。手入力だけでも利用できます。</p><button type="button" class="helpLinkButton" data-help-topic="helpCsvGuide">CSV登録の手順</button></div>
-            <div class="helpStep"><strong>3．探して追加・加工する</strong><p>右上の「アイテムを探す」で分類・部位・技能から選びます。新しい加工は装備行の「加工を追加」から行います。</p></div>
-            <div class="helpStep"><strong>4．買い足しと現在数を確認する</strong><p>消耗品・カードの購入は「買い足す」を使います。現在数だけの訂正では、お金は変わりません。</p></div>
-            <div class="helpStep"><strong>5．JSONを出力して保存する</strong><p>反映する変更を選んで出力し、ゆとシートへ取り込んで保存します。中断は「途中保存」、辞書の端末移行は「設定バックアップ」を使います。</p></div>
+            <div class="helpStep"><strong>1．CSVを登録する（初回・更新時）</strong><p>用意したCSVは「辞書・加工データ管理」へ。価格辞書を最新版に揃えるには「新しいCSVで辞書を入れ替える」を使います。CSVなしの手入力でも利用できます。</p><button type="button" class="helpLinkButton" data-help-topic="helpCsvGuide">CSV登録の手順</button></div>
+            <div class="helpStep"><strong>2．探して追加・買い足す</strong><p>右上の「アイテムを探す」で比較して追加。加工は装備行の「加工を追加」、消耗品・カードの購入は「買い足す」を使います。現在数だけの訂正では、お金は変わりません。</p><button type="button" class="helpLinkButton" data-help-topic="helpItemSearch">探す・購入の手順</button></div>
+            <div class="helpStep"><strong>3．中断するときは途中保存</strong><p>「途中保存・再開」から保存し、同じブラウザで再開できます。ゆとシートへの保存とは別です。辞書の端末移行は「設定バックアップ」を使います。</p><button type="button" class="helpLinkButton" data-help-topic="helpWorkDraftGuide">保存・再開の手順</button></div>
+            <div class="helpStep"><strong>4．JSONを出力して保存する</strong><p>変更前後を確認し、反映する欄を選んでJSONを出力します。ゆとシートへ取り込んで保存すれば完了です。</p><button type="button" class="helpLinkButton" data-help-topic="helpOutputGuide">JSON出力の確認</button></div>
           </div>
-          <nav class="helpQuickLinks" aria-label="使い方の項目"><button type="button" class="helpLinkButton" data-help-topic="helpCsvGuide">CSV登録</button><button type="button" class="helpLinkButton" data-help-topic="helpPriceStates">価格と色</button><button type="button" class="helpLinkButton" data-help-topic="helpItemSearch">探す・購入</button><button type="button" class="helpLinkButton" data-help-topic="helpProcessGuide">加工</button><button type="button" class="helpLinkButton" data-help-topic="helpOutputGuide">JSON出力</button></nav>
-          <h2 class="helpSectionTitle">項目別ガイド</h2>
+          <details id="helpAdvancedGuide" class="disclosure"><summary>詳しい操作・困ったとき</summary><div class="disclosureBody">
           <details id="helpCsvGuide"><summary>CSVを登録する・新しいデータへ入れ替える</summary>
-            <p>CSVは任意です。手入力や読み込んだ収支だけでも利用できます。未登録の価格・効果は推測せず、必要なものだけ登録・入力してください。</p>
-            <p>画面の「辞書・加工データ管理」を開きます。価格は「登録済み価格辞書」の「価格CSVを辞書へ統合」、加工は「武器・防具の加工データ管理」の「強化CSV」でファイルを選びます。読み込み内容・差額・エラーの表示を確認してください。価格CSVは確認を取り消すと辞書を変更しません。</p>
-            <p>価格CSVの通常読込は追加・補完です。分類や属性も新しいCSVへ揃える場合は「辞書を新しいCSVへ入れ替える」から「CSVで丸ごと置き換え…」を選び、件数と削除対象を確認して同意します。メモ・部位もCSVの値に置き換え、CSVにない品や列は引き継ぎません。先に全削除する必要はありません。確認画面にはCSV内の出典未登録の件数・品名も表示します。書籍由来だけに揃える場合は0件か確認してください。CSV自体に古い経路メモや空の部位があれば、その内容も反映されます。直前の辞書をこのブラウザへ1世代保存しますが、必要な控えは先に「価格辞書CSV出力（全件）」で保存してください。候補・加工・編集中のキャラクターは置き換えません。</p>
-            <p>元CSVファイルは書き換えません。辞書の「詳細」で直した内容を手元へ残す場合は全件CSVを出力します。「性能付きCSVひな形DL」「加工CSVひな形DL」は列名だけの空のひな形です。公式の商品・価格データは含みません。古いCSVも利用できますが、新しい任意列の機能を使うときはHTMLも対応版へ更新してください。</p>
-            <p>加工CSVは参照専用です。数値補正の「自動反映」「参照のみ」「なし」「未確認」を確認し、出典と短い効果説明は元の書籍で確かめます。自作加工は専用フォームで別名登録できます。CSVと同名の自作で上書きしません。設定バックアップは辞書・加工データ用、途中保存はキャラクターの作業用です。</p>
+            <p>「辞書・加工データ管理」→「登録済み価格辞書」→「新しいCSVで辞書を入れ替える」でファイルを選びます。件数・削除対象・出典未登録・エラーを確認し、同意後に実行します。取り消すと辞書は変わりません。</p>
+            <p>メモ・部位もCSVの値に揃え、CSVにない品や列は引き継ぎません。先に全削除する必要はなく、価格候補・加工データ・作業中のキャラクターは保持します。別のCSVから追加だけしたい場合は「追加・統合」を使います。</p>
+            <p>直前の辞書はこのブラウザに1世代保存します。必要な控えは「バックアップ・復旧」でCSVとして保存してください。元CSVファイルは書き換えません。</p>
+            <p>加工CSVは「武器・防具の加工データ管理」の「強化CSV」で選びます。CSVを使うだけなら作成ルールの確認は不要です。自作する場合のみ「CSVを自作する」のひな形とガイドを使います。</p>
           </details>
           <details id="jsonFileFallback" class="disclosure">
             <summary>JSONファイルから読み込む（補助）</summary>
@@ -1234,22 +1262,19 @@
             <p>読込済みの履歴は原則閉じます。見出しのない取引と未計算の式を含む枠は開いて表示し、件数を見出しに表示します。「すべて開く／閉じる」は履歴だけに適用します。</p>
             <p>「名称変更」で見出しを編集して「保存」すると、出力する収支履歴の見出しも変わります。JSON出力では収支履歴の変更を選んだ場合だけ反映します。「読込時の原文を見る」は変更前の参考表示です。</p>
           </details>
-          <details id="helpItemSearch"><summary>名前を知らないアイテムを辞書から探す</summary>
+          <details id="helpItemSearch"><summary>名前を覚えていないアイテムを辞書から探す</summary>
             <p>① 分類・部位、または「専用道具から探す」で技能を選ぶ → ② 性能・価格を比べる → ③「追加」で購入します。名前を覚えていなくても選べます。</p>
-            <p>技能用品と武器・装飾品は、同じ商品を別の入口から探せます。流派専用品は「流派から探す」へ。必要な入門条件は自分で確認してください。</p>
-            <p>ゴーレムはコンジャラー、騎獣はライダーから探せます。ゴーレム素材は作製Lv・対象ごとに通常／上級を並べ、必要な方を必要数だけ追加できます。上級素材は再利用できる選択肢で、両方の購入が必須という意味ではありません。「素材を探す」で対象も絞れます。</p>
-            <p>召喚供物はデーモンルーラーへ。概要に魔神Lv・供物の内容・送還供物の金額を表示します。送還額は参考表示だけで、追加計上や使用時の消費は自動で行いません。</p>
-            <p>装飾品は部位で絞れます。「手」は左右共通、「他」は全装飾品が対象です。追加枠はCSVの定義を参照し、既存の装備は自動で置換・削除しません。</p>
+            <p>技能・流派・作成対象の選択肢は、読み込んだ辞書に登録された内容です。同じ商品を複数の入口から探せる場合もあります。</p>
+            <p>「流派から探す」では取得条件を確認してください。「素材を探す」は対応する商品を絞る操作で、選択だけでは購入・消費しません。</p>
+            <p>装飾品は部位で絞れます。「手」は左右共通、「他」は全装飾品が対象です。既存の装備は自動で置換・削除しません。</p>
             <p>通常一覧は大分類・小分類を開いて選び、分類内は価格が安い順に表示します。列名の▲▼で分類内を並べ替えられます。価格が未確認・最低額・非売品評価の場合は、実単価の入力か「支出に含めない」を選びます。</p>
-            <p>ディグアーツ・闘技場などの特別用途は「設定」→「表示・カラー設定」で表示を選べます。CSVの登録・編集は「辞書・加工データ管理」で行います。</p>
+            <p>消耗品・カードは「買い足す」で支出と所持数を増やします。現在数の直接変更は残数の訂正だけで、購入費を追加しません。特別用途の表示は「設定」→「表示・カラー設定」で選べます。</p>
           </details>
-          <details><summary>編集中の作業を途中保存する</summary>
+          <details id="helpWorkDraftGuide"><summary>編集中の作業を途中保存する</summary>
             <p>読込欄の「途中保存・再開」で「今の作業を保存」を押すと、編集内容と元JSONを直近1件だけこのブラウザに保存します。「この作業の変更を自動保存」は任意です。再訪時は「保存した作業を再開」を押してください。</p>
             <p>復元では価格の再照合・再学習をせず、保存した価格・加工・数量・出力テキストを戻します。辞書・加工マスターは別管理です。ゆとシートへの保存やバックアップではなく、共有PCでは終了時に削除してください。</p>
           </details>
-          <details><summary>価格候補・辞書・設定の保存</summary>
-            <p>「辞書・加工データ管理」内の「価格候補（整理中）」で整え、全件を価格辞書へ登録できます。価格CSVも確認後に同じ辞書へ統合します。未登録の属性・性能・出典は同じ登録名へ補完し、括弧・点数など既知の名称統一による直接一致も対象です。略称だけの一致は対象外で、登録済みの異なる値は初期状態で維持します。価格の確認は別です。辞書は検索・カテゴリ絞り込み・カテゴリ内の価格順で整理できます。</p>
-            <p>古い分類・属性を残さず新しいCSVへ入れ替える場合は、「登録済み価格辞書」→「辞書を新しいCSVへ入れ替える」→「CSVで丸ごと置き換え…」を使います。CSVにない品と列の情報は引き継ぎません。確認画面の同意後だけ実行し、直前の辞書をこのブラウザに1世代保存します。「置き換え前の辞書CSVを出力」で控えを取得できます。整理中の候補・加工データ・作業中の入力価格や数量は置き換えません。</p>
+          <details><summary>辞書・設定の保存と端末移行</summary>
             <p>価格CSV・加工CSV・価格辞書などの設定はこのブラウザに保存されます。別端末へ移すときは「設定」→「設定バックアップ」を使います。キャラクターJSONや作業中の編集内容は設定バックアップには含みません。</p>
             <p>辞書の入力は短い待ち時間でまとめて保存し、入力確定時にも保存します。保存に失敗した場合は警告を表示し、編集内容を画面に残します。「再保存」またはCSV出力で控えてから移動してください。</p>
             <p>「設定」→「表示・カラー設定」で配色と特別用途の表示を変更できます。設定はこのブラウザに保存し、設定バックアップにも含めます。</p>
@@ -1257,14 +1282,13 @@
           <details id="helpOutputGuide"><summary>JSON出力時の確認と原文の保持</summary>
             <p>装備・装飾品の「備考・効果」はJSONの備考欄へ反映します。「メモを収支欄に出力」のチェックとは別です。<code>@器用度+1</code>などはそのまま渡し、対応する記法の自動計算はゆとシート側に任せます。辞書の管理メモ・出典は自動転記しません。</p>
             <p>装備の価格・数量・加工費や取引を編集した場合、読込時の記録の保持を確認できれば「編集した収支を反映する」を初期選択します。自動整形だけの変更、競合、最新版取得失敗、原文保持を確認できない場合は初期OFFです。チェックを外せば、装備情報だけの反映も可能です。</p>
-            <p>長い文章の比較は変更行だけを表示し、金額など変わった部分を強調します。全文は「全文を確認」で開けます。チェックは行単位ではなく、収支履歴・所持品などの欄全体の置換を選ぶ操作です。</p>
+            <p>変更前後は広い画面では左右、スマホなどの狭い画面では同じ変更箇所ごとに上下で比較します。長文は変更行だけを表示し、金額など変わった部分を強調します。全文は「全文を確認」で開けます。チェックは行単位ではなく、収支履歴・所持品などの欄全体の置換を選ぶ操作です。</p>
             <p>URLから読み込んだ場合、出力前に保存済み最新版を確認します。競合した項目は初期状態で未選択です。ゆとシート側の未保存編集は確認できません。</p>
             <p>無編集なら「変更せずJSONを出力」で元データを保持できます。「自動生成テキストへの置換（任意）」は手動編集ではありません。元の自由記述・未分類の所持品が省かれる場合があるため、必要なときだけ選択してください。登録された加工補正だけを自動反映し、技能・一時効果は別途確認します。</p>
           </details>
           <details><summary>辞書の分類と点数選択</summary>
-            <p>登録済み辞書は分類ごとに開けます。装飾品は装備可能部位別にまとめ、複数部位の品は各部位に同じ一品を表示します。各行には装備できる部位をすべて明記します。任意・部位未登録は別の見出しです。用途の小分類・タグ・技能は別情報として保持し、品名から推測して書き換えません。</p>
-            <p>原本で特殊効果なしと確認した通常服飾品は、装飾品一覧の先頭一行に畳みます。購入時の種類がCSVに登録されていれば、通常品・ブランド品を選べます。単価は本体＋追加費用、購入数は一品分です。所持品への後加工やブランドの組合せによる能力値は自動計算しません。空の効果欄や非魔法というだけでは通常品と判定しません。</p>
-            <p>「アイテムを探す」では、点数違いの系列を開いて点数を選び、登録価格を確認して追加します。3点・5点の切替は選択だけで購入しません。5点ごとの区分は表示用で、価格の計算規則ではありません。「点数違いをまとめる」を外せば個別表示へ戻せます。カードは専用のマテリアルカード欄または全体検索を使い、消耗品からは購入できません。</p>
+            <p>分類を開いて品を選びます。複数部位へ装備できる品は、各部位に同じ一品を表示します。通常服飾品は装飾品一覧の先頭にまとめ、購入時の種類が登録されていれば選べます。ブランドの組合せによる能力値は自動計算しません。</p>
+            <p>点数違いの系列は、開いて点数・登録価格を確認してから追加します。点数の切替だけでは購入しません。「点数違いをまとめる」を外すと個別表示へ戻せます。カードは専用欄または全体検索を使い、消耗品からは購入できません。</p>
           </details>
           <details id="helpProcessGuide"><summary>加工データと性能補正</summary>
             <p>「加工を追加」は操作ボタン、「加工数」は現在登録されている件数です。加工CSVは参照専用で、出典・短い効果説明・数値補正の扱いを確認できます。自作加工は専用フォームから別名で登録し、CSV定義を上書きしません。「参照のみ」「なし」「未確認」は数値補正を加えず、不正な定義も適用しません。魔法を付与する属性は数値補正とは独立です。</p>
@@ -1288,6 +1312,7 @@
             <p>支出は <code>::-金額</code>、収入は <code>::+金額</code>（<code>::金額</code> でも可）、数量は <code>*個数</code>。購入履歴の個数と現在所持数は別として扱います。</p>
             <p>預金・貸付は <code>:&gt;+金額</code>、引出・回収は <code>:&gt;-金額</code>、借入は <code>:&lt;+金額</code>、返済は <code>:&lt;-金額</code>。手元のお金と預金・借金を分けて計算します。</p>
           </details>
+          </div></details>
         </div>
       </div>
     </div>
@@ -1311,20 +1336,48 @@
         </div>
         <div class="modalBody">
           <div class="changelogItem">
+            <h3>v1.9.11</h3>
+            <ul><li>価格辞書のCSV入れ替えを主操作にし、追加・統合、バックアップ・復旧、CSV自作は折り畳みへ整理しました。</li><li>使い方は普段の4つの操作を中心に短縮。詳しい操作は必要な項目だけ開けます。確認・控え・上書き保護は変更しません。</li></ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.9.10</h3>
+            <ul><li>読み込んだCSVに依存する商品・技能の説明を、汎用の操作案内へ整理。商品一覧はHTMLに内蔵していないことを明記しました。</li><li>CSVの列指定・記入方法は、ひな形の隣の「CSV作成ガイドDL」へ分離。辞書やキャラクターのデータは変更しません。</li></ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.9.9</h3>
+            <ul><li>装備欄の予測候補にも、用法や装備形態が登録された手持ち道具を追加。一覧から追加するときと同じ条件で判定し、非攻撃の道具は種別「その他」のまま扱います。</li></ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.9.8</h3>
+            <ul><li>用法1H／2Hや装備形態が登録された手持ち道具を、分類は変えず武器・防具の装備欄へ追加。非攻撃の道具は種別「その他」とし、JSONの武器欄へ名称・用法・備考を出力します。</li><li>道具の攻撃性能は空欄で、武器向け加工の対象にしません。持ち替えを考慮し、手の数の判定・警告は追加していません。</li></ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.9.7</h3>
+            <ul><li>符号付き加工の選択欄を「−3」「+3」などの数値だけの表示へ変更。</li><li>加工名を切り替えた時点で回数を1へ初期化し、前の加工の符号付き値を解除。効果選択前に古い回数が残る問題を修正しました。ランクだけの変更では選んだ値を保持します。</li></ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.9.6</h3>
+            <ul><li>アイテム名の全角英数字・括弧などを半角へ統一し、幅だけが異なる別名を整理。未編集のキャラクターJSONは元の表記を保持します。</li><li>加工CSVで刃・打撃、用法、対象外タグの条件を定義できるように変更。既存の加工・履歴や旧CSVは維持し、商品固有の条件はHTMLへ埋め込みません。</li></ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.9.5</h3>
+            <ul><li>JSONの変更前後をPCでは左右、狭い画面では変更箇所ごとの上下で比較。追加・削除で対応する行がない場合も明示し、反映チェックと出力内容は従来どおり保持。</li><li>加工の「性能に反映」に補正内容を常設表示。オン・オフによる行の高さの変化を防ぎ、数量・符号付き調整の表示も選択値に対応。</li><li>CSVの選択効果に、新規入力時の上限・重複防止を指定できるように変更。装備条件・数値補正・選択肢は利用者のCSVを参照し、書籍の商品データはHTMLへ含めません。</li></ul>
+          </div>
+          <div class="changelogItem">
             <h3>v1.9.4</h3>
-            <ul><li>購入一覧を大分類・小分類ごとに開閉し、分類内は価格順に表示。専用道具の技能選択を常設の選択欄に統一し、その他欄のゴーレム・騎獣の重複を整理。</li><li>辞書の入力保存と名称照合を軽量化。保存失敗時は編集内容を保持し、加工CSVの不正な価格・列・回数は元データを変更せず読み込みを停止します。</li></ul>
+            <ul><li>購入一覧を大分類・小分類ごとに開閉し、分類内は価格順に表示。CSV指定の専用道具への補助入口を維持し、その他欄の重複表示を整理。</li><li>辞書の入力保存と名称照合を軽量化。保存失敗時は編集内容を保持し、加工CSVの不正な価格・列・回数は元データを変更せず読み込みを停止します。</li></ul>
           </div>
           <div class="changelogItem">
             <h3>v1.9.3</h3>
-            <ul><li>CSVで指定した特別用途の品を標準非表示にし、設定から表示を選べるように変更。辞書や編集中の品は削除しません。</li><li>コンジャラー・ライダーの入口と素材購入を整理。技能選択後の一覧を畳み、使い方を短縮。設定形式15・途中保存形式3。</li></ul>
+            <ul><li>CSVで指定した特別用途の品を標準非表示にし、設定から表示を選べるように変更。辞書や編集中の品は削除しません。</li><li>CSV指定の技能の入口と素材購入の表示を整理。技能選択後の一覧を畳み、使い方を短縮。設定形式15・途中保存形式3。</li></ul>
           </div>
           <div class="changelogItem">
             <h3>v1.9.2</h3>
-            <ul><li>CSVの表示順を同じ用途の中にも適用し、供物を魔神レベル順に確認できるように変更。区切りOFFでは価格などの全体ソートを維持。</li><li>専用道具の指定と供物の表記をCSV側で整理。設定形式14・途中保存形式3は継続。</li></ul>
+            <ul><li>CSVの表示順を同じ用途の中にも適用。区切りOFFでは価格などの全体ソートを維持。</li><li>専用道具の表示先と名称・概要をCSV側で指定できる形式を整理。設定形式14・途中保存形式3は継続。</li></ul>
           </div>
           <div class="changelogItem">
             <h3>v1.9.1</h3>
-            <ul><li>通常分類を基準に戻し、CSV指定の専用道具だけを補助表示。流派専用品は流派名別へ分離し、予測入力には取得条件を表示。</li><li>召喚供物を価格辞書へ統合する形式へ変更し、独立した必要品画面を撤去。設定形式14・途中保存形式3。</li></ul>
+            <ul><li>通常分類を基準に戻し、CSV指定の専用道具だけを補助表示。流派専用品は流派名別へ分離し、予測入力には取得条件を表示。</li><li>必要品も通常の価格辞書へ含める方式へ整理し、独立した必要品画面を撤去。設定形式14・途中保存形式3。</li></ul>
           </div>
           <div class="changelogItem">
             <h3>v1.9.0</h3>
@@ -1360,7 +1413,7 @@
             </div>
             <div class="helpStep">
               <strong>読み込み</strong>
-              <p>通常は既存データへ追加・統合します。置き換えでは辞書と加工データを入れ替えます。v1.9.0の独立した必要品対応表は反映しません。供物は価格辞書へ登録します。</p>
+              <p>通常は既存データへ追加・統合します。置き換えでは辞書と加工データを入れ替えます。v1.9.0の独立した必要品対応表は反映しません。必要な商品は価格辞書で管理します。</p>
               <label style="display:flex; align-items:center; gap:6px; margin:6px 0;">
                 <input id="settingsImportReplace" type="checkbox" class="checkBig" />
                 辞書・加工データを置き換える
@@ -1438,7 +1491,7 @@
           <div class="catalogFindWays" aria-label="アイテムの探し方"><span>探し方</span><button id="catalogBrowseListBtn" type="button" class="small" aria-controls="catalogSearch" aria-pressed="true" title="分類・部位から探します。流派専用品は別の一覧です">通常分類</button><button id="catalogBrowseSkillsBtn" type="button" class="small" aria-controls="catalogRelatedSkills" aria-pressed="false" title="技能を選択欄で指定します">専用道具から探す</button><button id="catalogBrowseSchoolsBtn" type="button" class="small" aria-controls="catalogSchoolLabel" aria-pressed="false" title="流派専用品だけを流派ごとに探します">流派から探す</button><button id="catalogBrowseCraftBtn" type="button" class="small" aria-controls="catalogCraftTarget" title="作成する対象を選び、CSVに対応が登録された素材を探します" hidden>素材を探す</button></div>
           <div class="catalogFilters">
             <label>検索<input id="catalogSearch" type="search" placeholder="名前・種類・技能・効果など" title="名前・略称・メモ・書籍・種類・関連技能・使用条件・効果概要・回復情報から検索"></label>
-            <label id="catalogSkillLabel" class="catalogSkillField" hidden>専用道具の技能 <small id="catalogSkillCount" class="catalogSkillCount"></small><select id="catalogRelatedSkills" title="browseSkillsに明示登録された専用道具だけを選びます。関連技能だけでは含めません。" aria-describedby="catalogSkillHint"></select></label>
+            <label id="catalogSkillLabel" class="catalogSkillField" hidden>専用道具の技能 <small id="catalogSkillCount" class="catalogSkillCount"></small><select id="catalogRelatedSkills" title="読み込んだ辞書に表示先が登録された専用道具から探します。" aria-describedby="catalogSkillHint"></select></label>
             <label id="catalogSchoolLabel" hidden>流派<select id="catalogSchools"><option value="">すべて</option></select></label>
             <label id="catalogCraftTargetLabel" class="catalogSkillField" hidden>作成対象<select id="catalogCraftTarget" title="CSVに作成対象が登録された素材だけを表示します。選択だけでは購入しません。" aria-describedby="catalogCraftTargetHint"></select></label>
             <label>大分類<select id="catalogMajor"></select></label>
@@ -1449,7 +1502,7 @@
             <label>分類内の並び順<select id="catalogSort"></select></label>
           </div>
           <p id="catalogSkillHint" class="hint" hidden></p>
-          <p id="catalogCraftTargetHint" class="hint" hidden>作成素材を表示中。強化用品の適合判定はしません。対象を解除して「種類・用途」から探せます。<button id="catalogClearCraftTargetBtn" type="button" class="small">対象を解除</button></p>
+          <p id="catalogCraftTargetHint" class="hint" hidden>選択した作成対象に対応する登録品を表示中。選択だけでは購入・消費しません。<button id="catalogClearCraftTargetBtn" type="button" class="small">対象を解除</button></p>
           <details id="catalogAttributeFilters" class="catalogAttributeFilters"><summary>種類・用途でさらに絞る <span id="catalogAttributeFilterStatus"></span></summary><div class="catalogFilters">
             <label>種類・用途<select id="catalogItemTypes"></select></label>
             <label>取得条件<select id="catalogAcquisition"><option value="">すべて</option><option value="restricted">その他の取得条件あり</option><option value="unmarked">専用の取得条件が未登録</option></select></label>
@@ -1605,16 +1658,23 @@
     <details class="section" id="confirmedPriceSection">
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">登録済み価格辞書</span><span class="summaryCount" id="confirmedPriceStatus">0件</span></span><span class="summaryHint">クリックで開閉</span></summary>
       <div class="sectionBody">
-        <p class="hint">ブラウザ内の辞書です。元CSVは変更しません。分類ごと入れ替える場合は「丸ごと置き換え」を使います。</p>
-        <div class="toolbar"><label for="priceCsvFile">価格CSVを辞書へ統合</label><input id="priceCsvFile" type="file" accept=".csv,text/csv"><button id="exportMergedPriceBtn" type="button" class="small">価格辞書CSV出力（全件）</button></div>
-        <details class="miniHelp disclosure"><summary>辞書を新しいCSVへ入れ替える</summary><div class="disclosureBody">
-          <p class="hint">古い分類・属性も含め、登録済み価格辞書だけをCSVの内容へ丸ごと置き換えます。CSVにない品は辞書から消えます。整理中の候補・加工データ・作業中のキャラクターは削除しません。直前の辞書をこのブラウザに1世代だけ保存します。端末の故障やデータ消去に備え、必要な辞書は先に全件CSVも出力してください。</p>
-          <div class="toolbar"><button id="replacePriceCsvBtn" type="button" class="small">CSVで丸ごと置き換え…</button><button id="exportPriceReplaceBackupBtn" type="button" class="small" hidden>置き換え前の辞書CSVを出力</button></div>
-          <input id="replacePriceCsvFile" type="file" accept=".csv,text/csv" hidden>
-          <p id="priceReplaceBackupStatus" class="hint" role="status"></p>
-        </div></details>
+        <div class="dictionaryImportMain">
+          <div class="toolbar"><button id="replacePriceCsvBtn" type="button" class="primary">新しいCSVで辞書を入れ替える</button></div>
+          <p class="hint">分類・部位・出典もCSVへ揃えます。CSVにない品は削除対象です。内容を確認し、同意してから実行します。元CSV・価格候補・加工・キャラクターは変えません。</p>
+        </div>
+        <input id="replacePriceCsvFile" type="file" accept=".csv,text/csv" aria-label="入れ替え用の価格CSV" hidden>
         <p id="priceDictionaryImportStatus" class="hint" role="status"></p>
-        <button id="retryLegacyPriceImportBtn" type="button" class="small" hidden>以前の価格CSVを統合する</button>
+        <details id="priceCsvMergeTools" class="miniHelp disclosure"><summary>追加・統合</summary><div class="disclosureBody">
+          <p class="hint">今の辞書を残して、別のCSVから追加・補完します。同名の異なる価格・属性は確認し、初期状態では既存値を維持します。</p>
+          <div class="toolbar"><button id="mergePriceCsvBtn" type="button">別のCSVから追加・統合…</button></div>
+          <input id="priceCsvFile" type="file" accept=".csv,text/csv" aria-label="追加・統合用の価格CSV" hidden>
+        </div></details>
+        <details id="priceCsvBackupTools" class="miniHelp disclosure"><summary>バックアップ・復旧</summary><div class="disclosureBody">
+          <p class="hint">必要な控えはCSVで保存してください。入れ替え直前の辞書は、このブラウザに1世代だけ残ります。戻すときは控えを出力し、上の入れ替えボタンで読み込みます。</p>
+          <div class="toolbar"><button id="exportMergedPriceBtn" type="button">現在の辞書をCSVで保存</button><button id="exportPriceReplaceBackupBtn" type="button" hidden>置き換え前の辞書CSVを出力</button><button id="retryLegacyPriceImportBtn" type="button" hidden>旧形式の保存データを取り込む</button></div>
+          <p id="priceReplaceBackupStatus" class="hint" role="status"></p>
+          <p class="hint">別端末へ辞書・加工データをまとめて移すときは、右上の「設定バックアップ」を使います。</p>
+        </div></details>
         <div class="dictionaryFilters">
           <label>検索<input id="dictionarySearch" type="search" placeholder="名前・種類・技能・効果など" title="名前・略称・メモ・書籍・種類・関連技能・使用条件・効果概要・回復情報から検索"></label>
           <label>大分類<select id="dictionaryMajorCategory"><option value="">すべて</option></select></label>
@@ -1628,21 +1688,17 @@
         <p id="dictionaryViewStatus" class="hint" role="status"></p>
         <p class="hint">行内で編集、その他は「詳細」。分類・並び順は「表示を更新」で反映します。</p>
         <details class="miniHelp disclosure">
-                <summary>分類・一覧の見方／CSVの注意</summary>
+                <summary>分類・一覧の見方</summary>
                 <div class="disclosureBody">
                 <div class="categoryList" id="priceCategoryGuide"></div>
-                <p class="hint">小分類はカテゴリ欄で指定します。名前下の種類・用途タグは別項目で、自動的に小分類へ振り分けません。「小分類未設定」は小分類が空の品です。</p>
-                <p class="hint">CSVに表示グループがある場合も、小分類は一つの › で開閉します。開いた表内に区切り見出しを挟み、表示グループ順→選択した価格順等で並べます。装飾品は従来どおり部位別です。</p>
-                <p class="hint">価格CSVの通常読込は追加・補完です。同名の価格・性能の違いは確認し、既存値を初期状態で維持します。分類を含め新CSVへ揃える場合は「丸ごと置き換え」を使います。旧CSVも使用でき、性能・出典は任意です。</p>
-                <p class="hint">武器・防具は小分類内でB→A→S→SS→独自値→未設定の順。同ランク内は上の並び順です。小分類・ランクは自由入力。大分類・小分類の › で開閉し、検索時は該当分類を開きます。</p>
-                <p class="hint">装飾品の部位、消耗品の回復対象・回復威力は一覧に表示します。部位の変更は「詳細」から。CSVの <code>equipSlots</code> は <code>背中|腰</code> のように指定します。品名から部位を推測しません。</p>
-                <p class="hint">効果・用途は比較用の概要で、押すと全文を開けます。編集は「詳細」から。回復威力と固定回復値は別で、空欄は未登録です。HP・MPや備考へ自動反映しません。</p>
-                <p class="hint">旧カテゴリも対応する大分類にまとめて表示します。装飾品の装備枠は自動分類しません。分類だけでは購入・消費・所持数を変更しません。空欄カテゴリは3文字以上の検索時だけ候補表示します。</p>
+                <p class="hint">大分類・小分類の › で開閉します。装飾品は部位別、武器・防具は小分類内をランク順→選んだ並び順で表示します。表内に区切りがある場合は、その順を優先します。</p>
+                <p class="hint">部位・回復性能・効果概要は登録されている内容を表示し、空欄は未登録です。概要を押すと全文、編集は「詳細」から。「小分類未設定」は小分類が空の品です。タグとは別に扱います。</p>
+                <p class="hint">回復威力と固定回復値は別です。HP・MPへの自動反映は行いません。分類や並び順を変えても購入・消費・所持数は変わりません。CSVの分類設計は「CSVを自作する」のガイドを参照してください。</p>
                 <button id="repairConfirmedCategoriesBtn" type="button" class="small">カテゴリの列ずれ確認</button>
                 <p id="confirmedCategoryRepairResult" class="hint" role="status"></p>
                 </div>
               </details>
-        <div class="toolbar dictionaryViewActions"><button type="button" class="primary" data-action="openCatalog" data-context="" title="登録済み辞書から比較して購入・追加します">一覧からアイテムを探す</button><button id="refreshDictionaryViewBtn" type="button" class="small" title="編集した分類・並び順を一覧へ反映します。CSVの再読み込みではありません">表示を更新</button><button type="button" id="downloadPriceTemplateBtn" class="small utilityAction" title="列名だけのCSVをダウンロードします。辞書は変更しません">性能付きCSVひな形DL</button></div>
+        <div class="toolbar dictionaryViewActions"><button type="button" class="primary" data-action="openCatalog" data-context="" title="登録済み辞書から比較して購入・追加します">一覧からアイテムを探す</button><button id="refreshDictionaryViewBtn" type="button" class="small" title="編集した分類・並び順を一覧へ反映します。CSVの再読み込みではありません">表示を更新</button></div>
         <div id="confirmedPriceTable"></div>
       </div>
     </details>
@@ -1652,15 +1708,6 @@
       <div class="sectionBody">
         <label for="processCsvFile">強化CSV</label>
               <input id="processCsvFile" type="file" accept=".csv,text/csv" />
-              <div class="miniActions"><button id="downloadProcessTemplateBtn" type="button" class="small">加工CSVひな形DL</button></div>
-              <details class="miniHelp disclosure"><summary>ひな形の記入・受け渡し</summary>
-                <div class="disclosureBody">
-                <p class="hint">列名だけのCSVです。2行目から入力するか、下の「武器・防具の加工データ管理」で登録して「統合加工CSV出力」を使えます。受け取る側は「強化CSV」で読み込みます。</p>
-                <p class="hint"><code>name</code>・<code>rank</code>・<code>price</code>は必須です。費用は0以上の数値、ランクはB・A・S・SS。<code>weapon</code>／<code>armor</code>／<code>nonMetalArmor</code>／<code>metalArmor</code>／<code>shield</code> は適用対象を1・対象外を0にします。防具には <code>armor=1</code> と該当する防具種別を指定します。不正な値があれば元データを残して読込を止めます。</p>
-                <p class="hint">ランクごとに1行。ランク共通の費用は対象ランクに同額を記入します。<code>multiCountable</code>：複数回可なら1、<code>maxCount</code>：回数上限、<code>note</code>：メモ。名称・価格・効果本文のサンプルは含めません。</p>
-                <p class="hint">他者との受け渡しは、公開・再配布してよいデータに限ってください。CSV形式への変換が転載の許可になるわけではありません。</p>
-                </div>
-              </details>
               <p class="hint">読み込んだCSVは閲覧専用です。内容を変える場合はExcel等でCSVを編集して読み込み直します。</p>
               <div class="toolbar"><button id="clearProcessCsvBtn" type="button" class="small">保存済みデータを削除</button></div>
         <h3 class="dataPanelTitle">CSV読込データ（閲覧専用）</h3>
@@ -1689,6 +1736,10 @@
       </div>
     </details>
 
+    <details id="csvAuthoringTools" class="miniHelp disclosure"><summary>CSVを自作する</summary><div class="disclosureBody">
+      <p class="hint">CSVを使うだけなら、この操作は不要です。自作する場合は列名だけのひな形と、共通の作成ガイドをダウンロードしてください。</p>
+      <div class="toolbar"><button type="button" id="downloadPriceTemplateBtn" title="価格CSVの列名だけをダウンロードします。辞書は変更しません">価格CSVひな形DL</button><button id="downloadProcessTemplateBtn" type="button" title="加工CSVの列名だけをダウンロードします。加工データは変更しません">加工CSVひな形DL</button><button type="button" data-action="downloadCsvGuide">CSV作成ガイドDL</button></div>
+    </div></details>
       </div>
     </details>
 
@@ -1842,7 +1893,7 @@
   </div>
 
   <script>
-    const VERSION = "v1.9.4";
+    const VERSION = "v1.9.11";
     const SETTINGS_EXPORT_KIND = "sw25-cashbook-editor-settings";
     const SETTINGS_EXPORT_FORMAT_VERSION = 15;
     const ACCESSORY_CODES = { "頭": "Head", "顔": "Face", "耳": "Ear", "首": "Neck", "背": "Back", "右": "HandR", "左": "HandL", "腰": "Waist", "足": "Leg", "他": "Other" };
@@ -2025,7 +2076,7 @@
     const CARD_COLORS = [["赤","Red"], ["緑","Gre"], ["黒","Bla"], ["白","Whi"], ["金","Gol"]];
     const CARD_RANKS = ["B", "A", "S", "SS"];
     const PROCESS_RANKS = ["B", "A", "S", "SS"];
-    const PROCESS_CSV_HEADERS = ["category", "name", "rank", "price", "weapon", "armor", "nonMetalArmor", "metalArmor", "shield", "multiCountable", "maxCount", "note", "weaponCategories", "grantsMagic", "statEffects", "source", "sourcePage", "effectSummary", "statEffectsMode", "processChoices"];
+    const PROCESS_CSV_HEADERS = ["category", "name", "rank", "price", "weapon", "armor", "nonMetalArmor", "metalArmor", "shield", "multiCountable", "maxCount", "note", "weaponCategories", "grantsMagic", "statEffects", "source", "sourcePage", "effectSummary", "statEffectsMode", "processChoices", "weaponRequirements"];
     const USER_PROCESS_STORAGE_KEY = "sw25_user_process_items_v2";
 
     // ============================================================
@@ -2257,9 +2308,17 @@
       const types = new Set(tokens.map(type => ({ "刃武器": "刃", "刃のある武器": "刃", "打撃": "打", "打撃武器": "打" }[type] || type)));
       return ["刃", "打"].filter(type => types.has(type)).join("|");
     }
-    function stripItemSymbols(name) { return String(name ?? "").replace(/\[(?:魔|刃|打)\]/g, ""); }
+    function normalizeItemNameWidth(value) {
+      // ASCIIに対応する幅だけを統一。日本語・丸数字・ローマ数字などはここでは変更しない。
+      return String(value ?? "").replace(/[\uFF01-\uFF5E]/g, char => String.fromCharCode(char.charCodeAt(0) - 0xFEE0)).replace(/\u3000/g, " ");
+    }
+    function normalizeItemAliases(name, values) {
+      const canonical = normalizeItemNameWidth(name).trim(), list = Array.isArray(values) ? values : String(values || "").split("|");
+      return [...new Set(list.map(value => normalizeItemNameWidth(value).trim()).filter(value => value && value !== canonical))];
+    }
+    function stripItemSymbols(name) { return normalizeItemNameWidth(name).replace(/\[(?:魔|刃|打)\]/g, ""); }
     function readItemNameSymbols(name) {
-      const text = String(name ?? ""), types = ["刃", "打"].filter(type => text.includes("[" + type + "]"));
+      const text = normalizeItemNameWidth(name), types = ["刃", "打"].filter(type => text.includes("[" + type + "]"));
       return { ...(text.includes("[魔]") ? { magic: "1" } : {}), ...(types.length ? { damageTypes: types.join("|") } : {}) };
     }
     function sourceItemSymbols(name, canonicalName) {
@@ -2399,6 +2458,24 @@
         profiles.push(normalized);
       });
       return errors.length ? { known: false, profiles: [], errors } : { known: true, profiles, errors: [] };
+    }
+    function equipmentProfilesForItem(item) {
+      const parsed = parseEquipmentProfiles(item?.equipmentProfiles);
+      // 明示した形態や未対応定義を、用法から推測で置き換えない。
+      if (parsed.profiles.length || parsed.errors.length) return parsed;
+      const major = getPriceCategoryInfo(item?.category).major;
+      const usage = String(item?.usage || "").normalize("NFKC").trim().toUpperCase();
+      if (["武器", "防具", "装飾品", "消耗品"].includes(major) || !/^[12]H(?:\s*[/|]\s*[12]H)*$/.test(usage)) return parsed;
+      return { known: true, errors: [], profiles: [{ id: "handheld", label: "手持ち道具", kind: "item", usage,
+        ...(item.source ? { source: item.source } : {}), ...(item.sourcePage ? { sourcePage: item.sourcePage } : {}) }] };
+    }
+    function catalogDefaultDestination(item) {
+      const info = getPriceCategoryInfo(item.category);
+      if (["武器", "防具"].includes(info.major) && info.minor !== "矢弾") return "equipment";
+      if (info.major === "装飾品") return "accessory";
+      if (info.major === "消耗品" || info.minor === "矢弾") return "consumable";
+      const parsed = equipmentProfilesForItem(item);
+      return parsed.known && parsed.profiles.length && !parsed.errors.length ? "equipment" : "other";
     }
     function equipmentProfilesText(itemOrValue, detailed = false) {
       const value = itemOrValue && typeof itemOrValue === "object" ? itemOrValue.equipmentProfiles : itemOrValue, parsed = parseEquipmentProfiles(value);
@@ -2904,7 +2981,7 @@
             const parsed = parsePurchaseVariants(value);
             if (parsed.errors.length) throw new Error(parsed.errors.join(" "));
           }
-          if (key === "aliases") item.aliases = [...new Set(value.split("|").map(alias => alias.trim()).filter(Boolean))];
+          if (key === "aliases") item.aliases = normalizeItemAliases(item.name, value);
           else if (value) item[key] = value; else delete item[key];
         });
         items[draft.index] = item;
@@ -3026,7 +3103,7 @@
       el("catalogRelatedSkills").disabled = !catalogSession.items.length;
       el("catalogSkillHint").hidden = relatedSkillCount > 0;
       el("catalogSkillHint").textContent = catalogSession.items.length
-        ? "専用道具の技能は未登録です。CSVのbrowseSkillsに登録された品だけを表示します。関連技能からは推測しません。"
+        ? "この辞書には専用道具の表示先が登録されていません。通常分類や名前から探せます。"
         : "まだ辞書がありません。価格CSVを登録すると検索できます。";
       el("catalogAttributeFilters").open = false;
       const schools = schoolBrowseOptions(catalogSession.items.map(r=>r.item));
@@ -3274,7 +3351,7 @@
       const item = makeAccessoryPurchaseItem(row.item, catalogSession.selectedPurchaseId), info = getPriceCategoryInfo(item.category);
       el("catalogSelectedName").textContent = formatItemSymbolName(item.name, item) + " ／ " + itemPriceText(item);
       el("catalogSelectedFacts").innerHTML = itemFactsHtml(item); el("catalogSelectedNote").textContent = item.note || "";
-      el("catalogDestination").value = ["武器", "防具"].includes(info.major) && info.minor !== "矢弾" ? "equipment" : info.major === "装飾品" ? "accessory" : info.major === "消耗品" || info.minor === "矢弾" ? "consumable" : "other";
+      el("catalogDestination").value = catalogDefaultDestination(item);
       const reasons = [];
       const priceKind = itemPriceKind(item);
       if (itemPriceCurrency(item) !== "G") reasons.push("登録価格は" + itemPriceCurrency(item) + "です。Gへ自動換算しません。取得のみなら『支出に含めない』を選び、Gで取引する場合だけ実際のG単価を入力してください。");
@@ -3524,7 +3601,7 @@
         .replaceAll(">", "&gt;").replaceAll('"', "&quot;");
     }
     function normalizeName(s) {
-      return formatYutoText(s)
+      return normalizeItemNameWidth(formatYutoText(s))
         .replace(/\[[^\]]+\]/g, "") // [魔] などのアイコン類は照合上は除外
         .replace(/[〈〉]/g, "")
         .replace(/[　\s]+/g, " ")
@@ -3614,7 +3691,7 @@
       if (!itemAliasGroupIndex.has(rule.group)) itemAliasGroupIndex.set(rule.group, new Set());
       [rule.canonical, ...(rule.aliases || [])].forEach(name => {
         const key = compactItemAliasText(name);
-        if (!itemAliasCanonicalIndex.has(key)) itemAliasCanonicalIndex.set(key, rule.canonical);
+        if (!itemAliasCanonicalIndex.has(key)) itemAliasCanonicalIndex.set(key, normalizeItemNameWidth(rule.canonical));
         itemAliasGroupIndex.get(rule.group).add(key);
       });
     });
@@ -3819,7 +3896,7 @@
         const price = parseCsvPrice(cols[hasHeader ? priceIndex : 1], i + (hasHeader ? 2 : 1));
         const info = getDictionaryItemNameInfo(sourceName);
         const aliasValues = hasHeader ? cols.filter((v, j) => /^(?:aliases|alias\d*|略称)$/.test(header[j] || "")) : cols.slice(2);
-        const aliases = [...new Set([info.alias, sourceName !== info.name ? sourceName : "", ...aliasValues.flatMap(v => String(v).split("|"))].map(v => String(v || "").trim()).filter(v => v && v !== info.name))];
+        const aliases = normalizeItemAliases(info.name, [info.alias, sourceName !== info.name ? sourceName : "", ...aliasValues.flatMap(v => String(v).split("|"))]);
         const categoryIndex = hasHeader ? header.findIndex(v => v === "category" || v === "カテゴリ") : -1;
         const noteIndex = hasHeader ? header.findIndex(v => v === "note" || v === "メモ") : -1;
         return { sourceName, name: info.name, price, aliases,
@@ -3881,7 +3958,7 @@
       try {
         const backup = readPriceDictionaryReplacementBackup();
         button.hidden = !backup;
-        status.textContent = backup ? "置き換え前の控え：" + backup.items.length + "件（" + backup.savedAt + "）。" + (backup.items.length ? "戻す場合はCSVを出力して、丸ごと置き換えで読み込んでください。" : "置き換え前は空の辞書でした。控えCSVは見出しだけです。") : "";
+        status.textContent = backup ? "置き換え前の控え：" + backup.items.length + "件（" + backup.savedAt + "）。" + (backup.items.length ? "戻す場合はCSVを出力して、『新しいCSVで辞書を入れ替える』で読み込んでください。" : "置き換え前は空の辞書でした。控えCSVは見出しだけです。") : "";
       } catch (err) { button.hidden = true; status.textContent = err.message; }
     }
     function exportPriceDictionaryReplacementBackup() {
@@ -4238,7 +4315,7 @@
         const candidate = {
           name,
           price,
-          aliases: [...new Set([nameInfo.alias, ...rawAliases].map(v => String(v || "").trim()).filter(Boolean))],
+          aliases: normalizeItemAliases(name, [nameInfo.alias, ...rawAliases]),
           category: String(rawItem.category || "").trim(),
           note: String(rawItem.note || "").trim(),
           updatedAt: rawItem.updatedAt || "",
@@ -4256,7 +4333,7 @@
           out.push(candidate);
           return;
         }
-        existing.aliases = [...new Set([...(existing.aliases || []), ...candidate.aliases])]
+        existing.aliases = normalizeItemAliases(existing.name, [...(existing.aliases || []), ...candidate.aliases])
           .filter(alias => normalizeItemKey(alias) !== normalizeItemKey(existing.name));
         if (!existing.category && candidate.category) existing.category = candidate.category;
         Object.entries(itemDetails(candidate)).forEach(([key, value]) => { if (!String(existing[key] ?? "").trim()) existing[key] = value; });
@@ -4570,7 +4647,7 @@
       const detailKeys = forceDetails || (items || []).some(item => Object.keys(itemDetails(item)).length) ? ITEM_DETAIL_FIELDS.map(field => field.key) : [];
       const rows = [["name", "price", "aliases", "category", "note", ...detailKeys]];
       (items || []).forEach(item => {
-        rows.push([item.name, item.price, (item.aliases || []).join("|"), item.category || "", item.note || "", ...detailKeys.map(key => item[key] ?? "")]);
+        rows.push([normalizeItemNameWidth(item.name), item.price, normalizeItemAliases(item.name, item.aliases).join("|"), item.category || "", item.note || "", ...detailKeys.map(key => item[key] ?? "")]);
       });
       const csv = rows.map(cols => cols.map(v => {
         const s = String(v ?? "");
@@ -4775,14 +4852,15 @@
       if (mode !== "auto") return { known: false, scale: parsed.scale, modifiers: [], errors: [], mode };
       return { ...parsed, errors: parsed.known || parsed.errors.length ? parsed.errors : ["自動補正の定義が未登録です。"], mode };
     }
-    function processStatEffectsSummary(value) {
+    function processStatEffectsSummary(value, factor = null) {
       const parsed = parseProcessStatEffects(value);
       if (parsed.errors.length) return "要確認（未反映）";
       if (!parsed.known) return "未登録（効果未確認）";
       const labels = { ...PROCESS_STAT_LABELS, requiredStrength: "必筋" };
+      const scaled = Number.isSafeInteger(factor) && factor !== 0 && (parsed.scale === "signed" || parsed.scale === "count" && factor > 0);
       const effects = parsed.modifiers.map(modifier => (modifier.kind === "weapon" ? "武器" : "防具") + "：" +
-        Object.entries(modifier).filter(([key]) => key !== "kind").map(([key, value]) => labels[key] + (value >= 0 ? "+" : "") + value).join("・"));
-      const scale = parsed.scale === "signed" ? "符号付き段階" : parsed.scale === "count" ? "数量ごと" : "1回";
+        Object.entries(modifier).filter(([key]) => key !== "kind").map(([key, value]) => { const delta = value * (scaled ? factor : 1); return labels[key] + (delta >= 0 ? "+" : "") + delta; }).join("・"));
+      const scale = parsed.scale === "signed" ? (scaled ? (factor > 0 ? "+" : "") + factor : "1段階あたり") : parsed.scale === "count" ? (scaled ? "数量" + factor : "数量ごと") : "1回";
       return effects.join(" ／ ") + "（" + scale + "）";
     }
     function parseProcessCsv(text) {
@@ -4818,6 +4896,7 @@
           metalArmor: row.metalArmor === "1",
           shield: row.shield === "1",
           ...processWeaponCategoryFields(row.weaponCategories),
+          ...processWeaponRequirementFields(row.weaponRequirements),
           ...symbolFlagFields(row.grantsMagic, "grantsMagic"),
           ...processStatEffectsFields(row.statEffects),
           ...processMetadataFields(row),
@@ -4843,6 +4922,35 @@
       // 空の旧データに新しいキーを加えない。空欄は従来どおり武器種の限定なし。
       return categories ? { weaponCategories: categories } : {};
     }
+    const processWeaponRequirementsCache = new Map();
+    function parseProcessWeaponRequirements(value) {
+      const raw = String(value ?? "");
+      if (!raw.trim()) return { known: false, errors: [] };
+      if (processWeaponRequirementsCache.has(raw)) return processWeaponRequirementsCache.get(raw);
+      let result;
+      try {
+        const data = JSON.parse(raw), allowed = ["damageTypes", "usages", "usageMatch", "excludedItemTypes"];
+        if (!data || typeof data !== "object" || Array.isArray(data) || !Object.keys(data).length || Object.keys(data).some(key => !allowed.includes(key))) throw Error();
+        if ("usageMatch" in data && (!["exact", "family"].includes(data.usageMatch) || !data.usages)) throw Error();
+        for (const key of Object.keys(data).filter(key => key !== "usageMatch")) {
+          if (!Array.isArray(data[key]) || !data[key].length || data[key].length > 32 || data[key].some(tag => typeof tag !== "string" || !tag.trim() || tag.length > 100)) throw Error();
+          if (key === "damageTypes" && data[key].some(tag => !["刃", "打"].includes(tag))) throw Error();
+        }
+        if (data.usageMatch === "family" && data.usages.some(usage => !/^[0-9]+H$/i.test(usage.normalize("NFKC").trim()))) throw Error();
+        result = { known: true, ...data, errors: [] };
+      } catch { result = { known: false, errors: ["武器の適用条件が未対応または不正です。条件を確認するまで新規候補へ表示しません。"] }; }
+      if (processWeaponRequirementsCache.size >= 200) processWeaponRequirementsCache.clear();
+      processWeaponRequirementsCache.set(raw, result); return result;
+    }
+    function processWeaponRequirementFields(value) {
+      const raw = String(value ?? ""); return raw.trim() ? { weaponRequirements: raw } : {};
+    }
+    function processWeaponRequirementsText(value) {
+      const parsed = parseProcessWeaponRequirements(value);
+      if (parsed.errors.length) return "適用条件：要確認（新規選択不可）";
+      if (!parsed.known) return "";
+      return [parsed.damageTypes?.length ? "武器属性：" + parsed.damageTypes.join("・") : "", parsed.usages?.length ? "用法：" + parsed.usages.join("／") + (parsed.usageMatch === "family" ? "（派生用法を含む）" : "") : "", parsed.excludedItemTypes?.length ? parsed.excludedItemTypes.join("・") + "は対象外" : ""].filter(Boolean).join(" ／ ");
+    }
     function normalizeCustomProcessItem(raw) {
       const item = raw || {};
       return {
@@ -4852,6 +4960,7 @@
         metalArmor: Boolean(item.metalArmor),
         shield: Boolean(item.shield),
         ...processWeaponCategoryFields(item.weaponCategories),
+        ...processWeaponRequirementFields(item.weaponRequirements),
         ...symbolFlagFields(item.grantsMagic, "grantsMagic"),
         ...processStatEffectsFields(item.statEffects),
         ...processMetadataFields(item),
@@ -4875,6 +4984,7 @@
         metalArmor: normalized.metalArmor,
         shield: normalized.shield,
         ...processWeaponCategoryFields(normalized.weaponCategories),
+        ...processWeaponRequirementFields(normalized.weaponRequirements),
         ...symbolFlagFields(normalized.grantsMagic, "grantsMagic"),
         ...processStatEffectsFields(normalized.statEffects),
         ...processMetadataFields(normalized),
@@ -4887,11 +4997,12 @@
       const grouped = new Map();
       (definitions || []).forEach(def => {
         if (!def || !def.name) return;
-        const groupKey = JSON.stringify([def.name, normalizeProcessWeaponCategories(def.weaponCategories), readMagicFlag(def.grantsMagic), def.statEffects ?? "", def.source ?? "", def.sourcePage ?? "", def.effectSummary ?? "", def.statEffectsMode ?? "", def.processChoices ?? ""]);
+        const groupKey = JSON.stringify([def.name, normalizeProcessWeaponCategories(def.weaponCategories), def.weaponRequirements ?? "", readMagicFlag(def.grantsMagic), def.statEffects ?? "", def.source ?? "", def.sourcePage ?? "", def.effectSummary ?? "", def.statEffectsMode ?? "", def.processChoices ?? ""]);
         if (!grouped.has(groupKey)) {
           grouped.set(groupKey, {
             name: def.name, weapon: false, nonMetalArmor: false, metalArmor: false, shield: false,
             ...processWeaponCategoryFields(def.weaponCategories),
+            ...processWeaponRequirementFields(def.weaponRequirements),
             ...symbolFlagFields(def.grantsMagic, "grantsMagic"),
             ...processStatEffectsFields(def.statEffects),
             ...processMetadataFields(def),
@@ -4947,6 +5058,8 @@
         if (!Number.isSafeInteger(item.maxCount) || item.maxCount < 1) throw new Error(item.name + "：回数上限は1以上の整数で入力してください。");
         const effects = getEffectiveProcessStatEffects(item);
         if (effects.errors.length) throw new Error(item.name + "：" + effects.errors.join(" "));
+        const requirements = parseProcessWeaponRequirements(item.weaponRequirements);
+        if (requirements.errors.length) throw new Error(item.name + "：" + requirements.errors.join(" "));
         return item;
       });
     }
@@ -4991,7 +5104,7 @@
         def.category || "", def.name, def.rank, def.price,
         def.weapon ? 1 : 0, def.armor ? 1 : 0, def.nonMetalArmor ? 1 : 0,
         def.metalArmor ? 1 : 0, def.shield ? 1 : 0, def.multiCountable ? 1 : 0,
-        def.maxCount || 1, def.note || "", normalizeProcessWeaponCategories(def.weaponCategories), symbolFlagFields(def.grantsMagic, "grantsMagic").grantsMagic ?? "", def.statEffects ?? "", def.source || "", def.sourcePage || "", def.effectSummary || "", def.statEffectsMode ?? "", def.processChoices ?? ""
+        def.maxCount || 1, def.note || "", normalizeProcessWeaponCategories(def.weaponCategories), symbolFlagFields(def.grantsMagic, "grantsMagic").grantsMagic ?? "", def.statEffects ?? "", def.source || "", def.sourcePage || "", def.effectSummary || "", def.statEffectsMode ?? "", def.processChoices ?? "", def.weaponRequirements ?? ""
       ])];
       downloadProcessCsvRows(rows, "data_merged.csv");
       showToast("統合加工CSVを出力しました");
@@ -5010,6 +5123,68 @@
       a.remove();
       URL.revokeObjectURL(url);
     }
+    function buildCsvAuthoringGuide() {
+      return [
+        VERSION + " CSV作成ガイド（作成者向け）",
+        "",
+        "HTMLは表示・編集の仕組みです。商品・価格・出典、技能や作成対象との対応、表示グループと並び順はCSV側で指定します。商品データはひな形に含まれません。",
+        "これは基本的な記入方法です。確認できない情報は空欄にし、商品名や説明から性能・条件を推測して埋めないでください。",
+        "",
+        "1. 共通の作り方",
+        "『辞書・加工データ管理』→『CSVを自作する』で価格または加工のひな形をダウンロードし、列名を変えず2行目から記入します。UTF-8のCSVで保存してください。",
+        "カンマ・改行・二重引用符を含むセルはCSVの引用規則で囲み、内部の二重引用符を二重化します。JSON列も文字列の1セルとして扱います。",
+        "取り込み時は件数・価格差・エラーを確認します。『追加・統合』は既存の異なる値を保護します。全情報を揃える場合だけ、控えを出してから『新しいCSVで辞書を入れ替える』を使います。",
+        "小分類はcategory、種類・用途はitemTypes、関連技能はrelatedSkillsで別に指定します。表示グループを追加しても小分類そのものは変わりません。部位や性能を商品名から推測しません。",
+        "既存の学習候補を使う場合は『価格候補（整理中）』で名称・価格・略称を整理して辞書へ登録します。CSV中心の運用では自動収集をOFFにできます。登録済みの価格は自動変更しません。",
+        "",
+        "2. 価格CSVの基本",
+        "name：商品名。price：0以上の単価。0は無料で、未確認の意味ではありません。",
+        "aliases：略称を | で区切ります。category：大分類-小分類。note：辞書の管理メモです。",
+        "source・sourcePage：参照元とページ。effectSummary：比較用の短い概要。",
+        "priceKind：fixed（固定）・minimum（最低額）・reference（非売品評価）・variable（変動）。priceCurrencyは空欄ならG。非固定・別通貨の価格は実単価を確認します。",
+        "",
+        "3. 探し方をCSVで指定する",
+        "relatedSkills：広い関連技能の検索タグ。browseSkills：専用道具として表示する技能。両者は別で、relatedSkillsだけでは専用道具に表示しません。",
+        "表示先の例：browseSkills=架空技能A|架空技能B。技能名は自由で、HTMLに技能名や商品リストを追加する必要はありません。",
+        "browseRole：basic（基本）・extra（追加）・空欄。閲覧用の区分で、使用資格の判定ではありません。",
+        "craftTargets：対応する作成対象を | 区切りで指定。materialGrade：素材の区分。同じ商品を対象ごとに複製しません。",
+        "browseGroup：表内の区切り名。browseOrder：表示する数値順。同じ商品を表示先ごとに二重登録しないでください。",
+        "acquisitionKind=school と schools に流派名を指定すると流派専用品として分けます。関連流派を書くだけでは専用品になりません。",
+        "optionalGroups：標準非表示にする用途名を | 区切りで指定。表示設定で再表示できます。",
+        "",
+        "4. 性能・部位・手持ち道具",
+        "usage：資料にある用法。非武器の道具に1H・2Hがあれば、分類は道具のまま装備欄へ追加できます。",
+        "equipmentProfiles：使い方ごとの形態を文字列JSONで指定。kindはweapon・armor・item。itemは非攻撃の手持ち道具です。価格・数量は商品1件分のままです。",
+        '形態の構造例（架空）：[{"id":"example","label":"道具として","kind":"item","usage":"1H"}]',
+        "equipSlots：装備可能部位を | で区切ります。例：背中|腰。追加枠や同時占有はextraSlotRules・accessoryRulesで別に指定します。",
+        "部位・使い方・追加枠は、辞書の『詳細』で登録して全件CSVを出力する方法もあります。空欄と、なしを確認した値は区別してください。",
+        "",
+        "5. 加工CSV",
+        "name・rank・priceは必須。rankはB・A・S・SS、priceは0以上の費用です。ランクごとに1行とし、一律料金も適用する各ランクへ同額を記入します。",
+        "weapon・armor・nonMetalArmor・metalArmor・shield：対象は1、対象外は0。防具はarmor=1と該当する防具種別を指定します。",
+        "multiCountable：複数回可なら1。maxCount：回数上限。weaponCategories：武器種の限定。weaponRequirements：属性・用法・対象外タグの条件JSON。",
+        "grantsMagic：1=魔法を付与、0=付与しない、空欄=未確認。statEffectsMode：auto・none・reference・unknown。noneは数値補正なしを確認した場合だけ使います。",
+        "statEffects：登録済みの整数加算だけを定義。scaleはonce・count・signed。加工名から補正を推測しません。",
+        '補正の構造例（架空）：{"scale":"once","modifiers":[{"kind":"weapon","accuracy":1}]}',
+        "processChoices：選べる効果のJSON。未知・不正な定義は部分的に実行せず保持します。自由備考と生成する選択効果は別に扱います。",
+        "source・sourcePage・effectSummary・noteは、出典と概要・メモを分けて短く記入します。G以外の費用・取得条件をGへ換算しないでください。",
+        "読込CSVは参照専用。自作加工はフォームで登録・CSV出力する方法もあります。",
+        "",
+        "6. この版の列一覧（任意列を省略した旧CSVも読込可能）",
+        "価格：name,price,aliases,category,note," + ITEM_DETAIL_FIELDS.map(field => field.key).join(","),
+        ...ITEM_DETAIL_FIELDS.map(field => "  " + field.key + "：" + field.label),
+        "加工：" + PROCESS_CSV_HEADERS.join(","),
+        "",
+        "ひな形やこのガイドに、実商品の一覧・価格・効果本文は含まれません。共有は公開・再配布できるデータに限ってください。",
+        ""
+      ].join("\r\n");
+    }
+    function downloadCsvAuthoringGuide() {
+      const url = URL.createObjectURL(new Blob(["\ufeff" + buildCsvAuthoringGuide()], { type: "text/plain;charset=utf-8" }));
+      const a = document.createElement("a"); a.href = url; a.download = "csv_authoring_guide.txt";
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      showToast("CSV作成ガイドを出力しました。辞書・作業内容は変更していません");
+    }
     function clonePlain(value) {
       return JSON.parse(JSON.stringify(value ?? null));
     }
@@ -5027,7 +5202,7 @@
         `価格候補 ${Array.isArray(data.learnedPriceItems) ? data.learnedPriceItems.length : 0}件`,
         Array.isArray(data.userProcessItems) ? `自作加工 ${data.userProcessItems.length}件` : "自作加工は変更しません",
         `CSV本文 ${csvTexts.priceCsvText || csvTexts.processCsvText ? "あり" : "なし"}`,
-        ...(data.legacyRequirementData ? ["旧版の必要品対応表は反映しません。供物入り価格CSVを登録してください"] : [])
+        ...(data.legacyRequirementData ? ["旧版の必要品対応表は反映しません。必要な品を含む価格CSVを登録してください"] : [])
       ].join("、");
     }
     function buildSettingsExport(profile = "shared") {
@@ -5220,7 +5395,7 @@
         stats.priceCsvImported ? "価格CSV本文を反映" : "",
         stats.processCsvImported ? "加工CSV本文を反映" : ""
       ].filter(Boolean).join("、") || "CSV本文の反映なし";
-      setSettingsBackupStatus(`読み込みました：登録済み価格辞書 ${stats.confirmed}件、価格候補 ${stats.learned}件、手動加工 ${stats.customProcess}件\n${csvNote}` + (stats.legacyRequirementData ? "\n旧版の必要品対応表は反映していません。供物入り価格CSVを登録してください。旧保存データは削除していません。" : ""));
+      setSettingsBackupStatus(`読み込みました：登録済み価格辞書 ${stats.confirmed}件、価格候補 ${stats.learned}件、手動加工 ${stats.customProcess}件\n${csvNote}` + (stats.legacyRequirementData ? "\n旧版の必要品対応表は反映していません。必要な品を含む価格CSVを登録してください。旧保存データは削除していません。" : ""));
       showToast("設定JSONを読み込みました");
     }
     function isWeaponType(type) { return type === "武器"; }
@@ -5252,7 +5427,11 @@
     function getAvailableProcessDefinitions(target, weaponCategory = "") {
       const type = typeof target === "object" ? target?.type : target;
       const category = typeof target === "object" ? getEquipmentProcessWeaponCategory(target) : String(weaponCategory ?? "").normalize("NFKC").trim();
+      const requirementMatches = new Map();
       return state.processMaster.filter(def => {
+        const key = def.weaponRequirements || "";
+        if (!requirementMatches.has(key)) requirementMatches.set(key, processMatchesWeaponRequirements(def, target));
+        if (!requirementMatches.get(key)) return false;
         if (isWeaponType(type)) {
           const allowed = normalizeProcessWeaponCategories(def.weaponCategories);
           return def.weapon && (!allowed || Boolean(category && allowed.split("|").includes(category)));
@@ -5261,6 +5440,32 @@
         if (type === "非金属鎧") return def.armor && def.nonMetalArmor;
         if (type === "金属鎧") return def.armor && def.metalArmor;
         return false;
+      });
+    }
+    function processMatchesWeaponRequirements(definition, target) {
+      const rule = parseProcessWeaponRequirements(definition.weaponRequirements);
+      if (!rule.known && !rule.errors.length) return true;
+      if (!rule.known || !target || typeof target !== "object" || target.type !== "武器") return false;
+      const item = itemSymbolCatalog(target);
+      if ((rule.excludedItemTypes || []).some(tag => itemTagValues(item.itemTypes).includes(tag))) return false;
+      const parsed = equipmentProfilesForRow(target);
+      if (parsed.errors.length) return false;
+      const profiles = parsed.profiles.filter(profile => profile.kind === "weapon");
+      const rawUsage = target.sourcePrefix ? state.rawJson?.[target.sourcePrefix + "Usage"] ?? state.rawJson?.[target.sourcePrefix + "_Usage"] : "";
+      const candidates = profiles.length ? profiles : [{ kind: "weapon", usage: rawUsage || item.usage }];
+      const plain = { ...target, processes: [] }, usageKey = value => String(value ?? "").normalize("NFKC").replace(/\s/g, "").toUpperCase();
+      return candidates.some(profile => {
+        if (rule.damageTypes?.length) {
+          const types = getEffectiveItemSymbols(plain, profile).damageTypes.split("|");
+          if (!rule.damageTypes.some(type => types.includes(type))) return false;
+        }
+        if (rule.usages?.length) {
+          const usages = String(profile.usage || "").split(/[|/／\r\n]+/).map(usageKey);
+          if (!rule.usages.some(usage => usages.some(actual => rule.usageMatch === "family"
+            ? [...actual.matchAll(/(?:^|[^0-9])([0-9]+H)/g)].some(match => match[1] === usageKey(usage))
+            : actual === usageKey(usage)))) return false;
+        }
+        return true;
       });
     }
     // CSVがなくても過去の履歴から読み取りたい加工名。新規選択の候補には含めない。
@@ -5303,9 +5508,10 @@
     }
     function processNameSelectHtml(proc, target, i, p) {
       const names = getDistinctProcessNames(target);
+      const limitedNames = new Set(state.processMaster.filter(def => parseProcessChoices(def.processChoices).enforceLimits).map(def => processNameKey(def.name)));
       const aliasAvailable = names.some(name => processNameKey(name) === processNameKey(proc.name));
       if (proc.name && !names.includes(proc.name) && aliasAvailable) names.push(proc.name);
-      const options = names.map(name => '<option value="' + esc(name) + '"' + (name === proc.name ? ' selected' : '') + '>' + esc(name === "その他" ? "その他（手入力）" : name) + '</option>').join("");
+      const options = names.map(name => { const limit = typeof target === "object" && name !== proc.name && limitedNames.has(processNameKey(name)) ? processSelectionLimitMessage(proc, target, name) : ""; return '<option value="' + esc(name) + '"' + (name === proc.name ? ' selected' : '') + (limit ? ' disabled title="' + esc(limit) + '"' : '') + '>' + esc((name === "その他" ? "その他（手入力）" : name) + (limit ? '（上限）' : '')) + '</option>'; }).join("");
       const retained = proc.name && !names.includes(proc.name) ? '<option value="' + esc(proc.name) + '" selected disabled>' + esc(proc.name) + '（対象データなし・保持中）</option>' : '';
       return '<select data-action="processName" data-i="' + i + '" data-p="' + p + '">' + options + retained + '</select>';
     }
@@ -5341,9 +5547,9 @@
         const keys = (x, allowed) => object(x) && Object.keys(x).every(k => allowed.includes(k));
         const text = (s, max = 500) => typeof s === "string" && s.trim() && s.length <= max;
         const id = s => typeof s === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(s);
-        if (!keys(data, ["version", "maxApplications", "distinctEffects", "options"]) || data.version !== 1 || !Array.isArray(data.options) || !data.options.length || data.options.length > 200 ||
+        if (!keys(data, ["version", "maxApplications", "distinctEffects", "enforceLimits", "options"]) || data.version !== 1 || !Array.isArray(data.options) || !data.options.length || data.options.length > 200 ||
             data.maxApplications !== undefined && (!Number.isSafeInteger(data.maxApplications) || data.maxApplications < 1 || data.maxApplications > 99) ||
-            data.distinctEffects !== undefined && typeof data.distinctEffects !== "boolean") throw Error();
+            data.distinctEffects !== undefined && typeof data.distinctEffects !== "boolean" || data.enforceLimits !== undefined && typeof data.enforceLimits !== "boolean") throw Error();
         const ids = new Set();
         for (const o of data.options) {
           if (!keys(o, ["id", "label", "group", "note", "effectKey", "targets", "parameters", "statEffectsMode", "statEffects", "statBounds", "source", "sourcePage", "condition", "details"]) || !id(o.id) || ids.has(o.id) || !text(o.label,200) ||
@@ -5373,6 +5579,20 @@
     }
     function processChoiceTarget(row) {
       return ({"武器":"weapon","非金属鎧":"nonMetalArmor","金属鎧":"metalArmor","盾":"shield"})[row?.type] || "";
+    }
+    function processSelectionLimitMessage(proc, row, name = proc.name) {
+      const definition = getProcessDefinition(name, proc.rank, row), choices = parseProcessChoices(definition?.processChoices);
+      if (!choices.known || !choices.enforceLimits) return "";
+      const maximum = choices.maxApplications ?? (definition.multiCountable ? Math.max(1, toNumber(definition.maxCount, 1)) : 1);
+      const count = (row.processes || []).filter(other => other !== proc && processNameKey(other.name) === processNameKey(name)).reduce((sum, other) => sum + Math.max(1, toNumber(other.count, 1)), 0);
+      return count + 1 > maximum ? "この加工は最大" + maximum + "回です。" : "";
+    }
+    function processChoiceOptionBlocked(proc, row, option, choices) {
+      return Boolean(choices.enforceLimits && choices.distinctEffects && (row.processes || []).some(other => {
+        if (other === proc || processNameKey(other.name) !== processNameKey(proc.name)) return false;
+        const selected = choices.options.find(candidate => candidate.id === other.choiceId);
+        return selected && (selected.effectKey || selected.id) === (option.effectKey || option.id);
+      }));
     }
     function getProcessChoiceState(proc, row) {
       const definition = getProcessDefinition(proc.name,proc.rank,row), choices = parseProcessChoices(definition?.processChoices);
@@ -5434,7 +5654,7 @@
       const selected = getProcessChoiceState(proc,row);
       if (!selected.choices.known && !selected.errors.length) return "";
       const attrs = ' data-i="'+i+'" data-p="'+p+'"';
-      return '<div class="processChoices"><select data-action="processChoice"'+attrs+' aria-label="加工の効果"><option value="">効果を選択</option>' + selected.options.map(o=>'<option value="'+esc(o.id)+'"'+(o.id===proc.choiceId?' selected':'')+'>'+esc((o.group ? o.group+'：' : '')+o.label)+'</option>').join('')+'</select>' +
+      return '<div class="processChoices"><select data-action="processChoice"'+attrs+' aria-label="加工の効果"><option value="">効果を選択</option>' + selected.options.map(o=>'<option value="'+esc(o.id)+'"'+(o.id===proc.choiceId?' selected':'')+(o.id!==proc.choiceId && processChoiceOptionBlocked(proc,row,o,selected.choices)?' disabled':'')+'>'+esc((o.group ? o.group+'：' : '')+o.label)+'</option>').join('')+'</select>' +
         (selected.option?.parameters || []).map(parameter=> '<label class="hint">'+esc(parameter.label)+(parameter.type === "enum" ? '<select data-action="processChoiceParameter"'+attrs+' data-key="'+esc(parameter.id)+'"><option value="">選択してください</option>'+parameter.options.map(o=>'<option value="'+esc(o.value)+'"'+(proc.choiceParameters?.[parameter.id]===o.value?' selected':'')+'>'+esc(o.label)+'</option>').join('')+'</select>' : '<input type="text" data-action="processChoiceParameter"'+attrs+' data-key="'+esc(parameter.id)+'" maxlength="200" value="'+esc(proc.choiceParameters?.[parameter.id] || '')+'">')+'</label>').join('') +
         (selected.option ? '<span class="hint">'+esc(selectedProcessNote(proc,row))+'</span>' +
           ([selected.option.condition,selected.option.details, [selected.option.source,selected.option.sourcePage ? selected.option.sourcePage+'頁' : ''].filter(Boolean).join(' ')].filter(Boolean).length ? '<details class="catalogDetails"><summary>条件・出典</summary><p class="hint">'+[selected.option.condition,selected.option.details,[selected.option.source,selected.option.sourcePage ? selected.option.sourcePage+'頁' : ''].filter(Boolean).join(' ')].filter(Boolean).map(esc).join('<br>')+'</p></details>' : '') : '') + (selected.errors.length ? '<span class="hint needsReview" role="status">'+esc(selected.errors.join(' '))+'</span>' : '')+'</div>';
@@ -5448,7 +5668,7 @@
       const max = getMaxProcessCount(proc.name), choices = [];
       for (let value = -max; value <= max; value++) if (value) choices.push(value);
       const current = Number(proc.adjustment), known = Number.isInteger(current) && current !== 0 && Math.abs(current) <= max;
-      return '<select data-action="processAdjustment" data-i="' + i + '" data-p="' + p + '" aria-label="性能の調整量">' + (!known ? '<option value="" selected>方向未指定</option>' : '') + choices.map(value => '<option value="' + value + '"' + (known && value === current ? ' selected' : '') + '>調整 ' + (value > 0 ? '+' : '') + value + '</option>').join("") + '</select>';
+      return '<select data-action="processAdjustment" data-i="' + i + '" data-p="' + p + '" aria-label="性能の調整量">' + (!known ? '<option value="" selected>方向未指定</option>' : '') + choices.map(value => '<option value="' + value + '"' + (known && value === current ? ' selected' : '') + '>' + (value > 0 ? '+' : '') + value + '</option>').join("") + '</select>';
     }
     function syncNewProcessAdjustment(proc, row) {
       const parsed = getEffectiveProcessStatEffects(getProcessDefinition(proc.name, proc.rank, row));
@@ -5461,7 +5681,7 @@
     function getEquipmentBaseProfiles(row) {
       if (row.sourcePrefix && !row.applyEquipmentProfiles) {
         if (row.sourceEquipmentProfiles) return { ...parseEquipmentProfiles(row.sourceEquipmentProfiles), basis: "読込済みの性能" };
-        return { known: true, errors: [], basis: "読込済みの性能", profiles: [equipmentProfileFromRaw(state.rawJson || {}, row, { id: "source-" + row.sourcePrefix, index: 1, kind: row.type === "武器" ? "weapon" : "armor", profileNote: "" })] };
+        return { known: true, errors: [], basis: "読込済みの性能", profiles: [equipmentProfileFromRaw(state.rawJson || {}, row, { id: "source-" + row.sourcePrefix, index: 1, kind: row.type === "武器" ? "weapon" : row.type === "その他" && /^weapon/.test(row.sourcePrefix) ? "item" : "armor", profileNote: "" })] };
       }
       const parsed = equipmentProfilesForRow(row);
       if (parsed.known && parsed.profiles.length || parsed.errors.length) return { ...parsed, basis: "辞書の基本性能" };
@@ -5524,13 +5744,14 @@
       if (!parsed.known && !parsed.errors.length && !definition?.statEffectsConflict) return '<span class="hint">数値補正：' + (parsed.mode === "none" ? 'なし（確認済み）' : parsed.mode === "reference" ? '書籍参照のみ' : '未確認') + '</span>';
       if (!parsed.known || definition?.statEffectsConflict) return '<span class="hint needsReview">性能補正：要確認（未反映）</span>';
       const enabled = processStatsEnabled(proc, row);
-      return '<label class="hint"><input type="checkbox" data-action="processStats" data-i="' + i + '" data-p="' + p + '"' + (enabled ? ' checked' : '') + '> 性能に反映</label>' + (!enabled && (row.sourcePrefix || proc.sourceProcess) ? '<span class="hint">既存性能を保持・再加算なし</span>' : '');
+      const factor = parsed.scale === "signed" ? Number(proc.adjustment) : parsed.scale === "count" ? toNumber(proc.count, 1) : null;
+      return '<div class="processStatControl"><label class="hint"><input type="checkbox" data-action="processStats" data-i="' + i + '" data-p="' + p + '"' + (enabled ? ' checked' : '') + '> 性能に反映</label><span class="hint processStatSummary" title="この加工を反映した場合の登録補正">' + esc(processStatEffectsSummary(definition.statEffects, factor)) + '</span></div>';
     }
     function getProcessDefinition(name, rank, target = "", weaponCategory = "") {
       if (!name || name === "その他") return null;
       const rankKey = normalizeProcessRank(rank);
       if (!rankKey) return null;
-      const pool = target ? getAvailableProcessDefinitions(target, weaponCategory) : state.processMaster.filter(def => !normalizeProcessWeaponCategories(def.weaponCategories));
+      const pool = target ? getAvailableProcessDefinitions(target, weaponCategory) : state.processMaster.filter(def => !normalizeProcessWeaponCategories(def.weaponCategories) && !String(def.weaponRequirements || "").trim());
       const ranked = pool.filter(def => normalizeProcessRank(def.rank) === rankKey);
       const exact = ranked.filter(def => def.name === name);
       const resolved = definitions => {
@@ -5579,12 +5800,14 @@
         const value = JSON.parse(raw), used = new Set(), ids = new Set();
         if (!value || Object.keys(value).some(key => !["version", "groups"].includes(key)) || value.version !== 1 || !Array.isArray(value.groups) || value.groups.length > 1000) return { known: false, groups: [] };
         for (const group of value.groups) {
-          if (!group || Object.keys(group).some(key => !["id", "commonNote", "forms"].includes(key)) || typeof group.id !== "string" || !/^[a-z0-9_-]+$/.test(group.id) || ids.has(group.id) || typeof group.commonNote !== "string" || !Array.isArray(group.forms) || group.forms.length < 2 || group.forms.length > 100) return { known: false, groups: [] };
+          if (!group || Object.keys(group).some(key => !["id", "commonNote", "forms"].includes(key)) || typeof group.id !== "string" || !/^[a-z0-9_-]+$/.test(group.id) || ids.has(group.id) || typeof group.commonNote !== "string" || !Array.isArray(group.forms) || group.forms.length < 1 || group.forms.length > 100) return { known: false, groups: [] };
           ids.add(group.id); const profileIds = new Set();
           for (const [index, form] of group.forms.entries()) {
             if (!form || Object.keys(form).some(key => !["prefix", "nameKey", "id", "kind", "index", "profileNote"].includes(key)) || typeof form.prefix !== "string" || !/^(?:weapon|armour|armor)\d+$/.test(form.prefix) || used.has(form.prefix) || typeof form.id !== "string" || !form.id || profileIds.has(form.id) || !["weapon", "armor", "item"].includes(form.kind) || typeof form.profileNote !== "string" || form.index !== index + 1 || ![form.prefix + "Name", form.prefix + "_Name"].includes(form.nameKey)) return { known: false, groups: [] };
             used.add(form.prefix); profileIds.add(form.id);
           }
+          // 単独の道具も非攻撃の種別を往復する。武器・防具の単独行は従来どおり対象外。
+          if (group.forms.length === 1 && group.forms[0].kind !== "item") return { known: false, groups: [] };
         }
         return { known: true, groups: value.groups };
       } catch { return { known: false, groups: [] }; }
@@ -5706,16 +5929,17 @@
     }
     function equipmentProfilesForRow(row) {
       const live = state.accessoryPresetByName?.get(row.name);
-      const raw = row.catalogName === row.name && row.catalogDetails?.equipmentProfiles !== undefined
-        ? row.catalogDetails.equipmentProfiles : live?.equipmentProfiles;
-      const parsed = parseEquipmentProfiles(raw);
+      const saved = row.catalogName === row.name ? row.catalogDetails : null;
+      const item = { ...live, ...saved, category: row.catalogCategory || live?.category,
+        equipmentProfiles: saved?.equipmentProfiles !== undefined ? saved.equipmentProfiles : live?.equipmentProfiles };
+      const parsed = equipmentProfilesForItem(item);
       if (parsed.known || parsed.errors.length) return parsed;
       return row.sourceEquipmentProfiles ? parseEquipmentProfiles(row.sourceEquipmentProfiles) : parsed;
     }
     function attachEquipmentProfiles(row, item) {
       if (!row || !item) return;
       row.catalogName = item.name; row.catalogCategory = item.category; row.catalogDetails = itemDetails(item);
-      const parsed = parseEquipmentProfiles(item.equipmentProfiles);
+      const parsed = equipmentProfilesForItem(item);
       if (!row.sourcePrefix) row.applyEquipmentProfiles = Boolean(parsed.known && parsed.profiles.length && !parsed.errors.length);
       if (row.applyEquipmentProfiles && parsed.profiles.length > 1 && !row.equipmentGroupId) row.equipmentGroupId = newEquipmentGroupId();
     }
@@ -5774,7 +5998,7 @@
         if (!complete) { members.forEach(({ row }) => { row.equipmentProfileWarning = "同一品の印が揃わないため、各行を保持しています。所有数・価格を確認してください。"; }); return; }
         members.sort((a, b) => a.marker.index - b.marker.index);
         const primary = members[0], profiles = members.map(({ row, marker }) => equipmentProfileFromRaw(data, row, marker));
-        const merged = { ...primary.row, note: primary.marker.baseNote, equipmentGroupId: primary.marker.groupId,
+        const merged = { ...primary.row, ...(profiles.every(profile => profile.kind === "item") ? { type: "その他" } : {}), note: primary.marker.baseNote, equipmentGroupId: primary.marker.groupId,
           sourceEquipmentForms: members.map(({ row, marker }) => ({ sourcePrefix: row.sourcePrefix, sourceNameKey: row.sourceNameKey, type: row.type, profileId: marker.id, kind: marker.kind, index: marker.index, profileNote: marker.profileNote })),
           sourceEquipmentProfiles: JSON.stringify(profiles), applyEquipmentProfiles: false };
         replacements.set(first.row, merged); members.forEach(({ row }) => { if (row !== first.row) removed.add(row); });
@@ -6833,7 +7057,7 @@
         Object.assign(output, group.writes);
         const removed = new Set(Object.entries(group.writes).filter(([key, value]) => /^(?:weapon|armour|armor)\d+_?Name$/.test(key) && !value).map(([key]) => key.replace(/_?Name$/, "")));
         for (const [id, meta] of metadata) if (meta.forms.some(form => removed.has(form.prefix))) { metadata.delete(id); metadataEdited = true; }
-        if (group.equipmentMeta && group.equipmentMeta.forms.length > 1) {
+        if (group.equipmentMeta && (group.equipmentMeta.forms.length > 1 || group.equipmentMeta.forms.some(form => form.kind === "item"))) {
           const prefixes = new Set(group.equipmentMeta.forms.map(form => form.prefix));
           for (const [id, meta] of metadata) if (id === group.equipmentMeta.id || meta.forms.some(form => prefixes.has(form.prefix))) metadata.delete(id);
           metadata.set(group.equipmentMeta.id, group.equipmentMeta); metadataEdited = true;
@@ -6929,33 +7153,40 @@
       }
       return "";
     }
+    function renderCharacterDiffRow(beforeHtml, afterHtml, { beforeLine, afterLine, lineNumbers = false, beforeMissing = false, afterMissing = false, emptyLabel = "（空欄）" } = {}) {
+      const cell = (side, html, line, missing) => '<div class="jsonDiffCell" data-diff-side="' + side + '" role="cell"><div class="jsonDiffCellMeta' + (lineNumbers ? '' : ' isSimple') + '"><span class="jsonDiffSideLabel">' + (side === "before" ? "変更前" : "変更後") + '</span>' + (lineNumbers ? '<span class="jsonDiffLineLabel">' + (line === undefined ? '—' : esc(line) + '行目') + '</span>' : '') + '</div>' +
+        (missing ? '<p class="jsonDiffEmpty">' + (side === "before" ? '対応する行なし（追加）' : '対応する行なし（削除）') + '</p>' : '<pre>' + (html || esc(emptyLabel)) + '</pre>') + '</div>';
+      return '<div class="jsonDiffRow" role="row">' + cell("before", beforeHtml, beforeLine, beforeMissing) + cell("after", afterHtml, afterLine, afterMissing) + '</div>';
+    }
+    function renderCharacterDiffComparison(rowsHtml, label, whole = false) {
+      return '<div class="jsonDiffComparison' + (whole ? ' jsonDiffWhole' : '') + '" role="table" aria-label="' + esc(label) + 'の変更前後"><div class="jsonDiffHeaders" role="row"><span role="columnheader">変更前</span><span role="columnheader">変更後</span></div><div role="rowgroup">' + rowsHtml + '</div></div>';
+    }
     function renderCharacterFieldDiff(key, beforeValue, afterValue) {
       const before = decodeYutoText(beforeValue ?? ""), after = decodeYutoText(afterValue ?? "");
-      const label = '<small>' + esc(characterFieldLabel(key)) + '</small>';
+      const fieldLabel = characterFieldLabel(key), label = '<small>' + esc(fieldLabel) + '</small>';
       if (!["cashbook", "items"].includes(key) && !before.includes("\n") && !after.includes("\n")) {
         const [oldHtml, newHtml] = highlightCharacterLine(before, after);
-        return '<div>' + label + '<pre>変更前：' + (oldHtml || "（空欄）") + '\n変更後：' + (newHtml || "（空欄）") + '</pre></div>';
+        return '<div>' + label + renderCharacterDiffComparison(renderCharacterDiffRow(oldHtml, newHtml), fieldLabel) + '</div>';
       }
       const diff = getCharacterTextDiff(before, after);
       const blocks = diff.hunks.map(hunk => {
         const section = hunk.after.length ? characterDiffSection(diff.newLines, hunk.after[0].line)
           : characterDiffSection(diff.oldLines, hunk.before[0].line);
-        let html = '<div class="jsonDiffBlock">' + (section ? '<small>見出し：' + esc(section) + '</small>' : "");
+        let rowsHtml = "";
         const count = Math.max(hunk.before.length, hunk.after.length);
         for (let i = 0; i < Math.min(count, 20); i++) {
           const oldLine = hunk.before[i], newLine = hunk.after[i];
           const [oldHtml, newHtml] = oldLine && newLine ? highlightCharacterLine(oldLine.text, newLine.text)
-            : [oldLine ? '<del>' + esc(oldLine.text) + '</del>' : "", newLine ? '<ins>' + esc(newLine.text) + '</ins>' : ""];
-          if (oldLine) html += '<pre><span class="jsonDiffLineLabel">変更前 ' + oldLine.line + '行目：</span> ' + (oldHtml || "（空行）") + '</pre>';
-          if (newLine) html += '<pre><span class="jsonDiffLineLabel">変更後 ' + newLine.line + '行目：</span> ' + (newHtml || "（空行）") + '</pre>';
+            : [oldLine?.text ? '<del>' + esc(oldLine.text) + '</del>' : "", newLine?.text ? '<ins>' + esc(newLine.text) + '</ins>' : ""];
+          rowsHtml += renderCharacterDiffRow(oldHtml, newHtml, { lineNumbers: true, beforeLine: oldLine?.line, afterLine: newLine?.line, beforeMissing: !oldLine, afterMissing: !newLine, emptyLabel: "（空行）" });
         }
+        let html = '<div class="jsonDiffBlock">' + (section ? '<small>見出し：' + esc(section) + '</small>' : "") + renderCharacterDiffComparison(rowsHtml, fieldLabel);
         if (count > 20) html += '<p class="hint">以降' + (count - 20) + '行の比較は省略しています。全文を開いて確認してください。</p>';
         return html + '</div>';
       }).join("");
       return '<div class="jsonTextDiff">' + label + '<p class="hint">変更箇所のみ：' + diff.hunks.length + 'か所' +
         (diff.simplified ? '（長文のため変更範囲をまとめて表示）' : '') + '</p>' + blocks +
-        '<details class="jsonDiffFull"><summary>全文を確認（欄全体を置換）</summary><small>変更前</small><pre>' +
-        esc(before || "（空欄）") + '</pre><small>変更後</small><pre>' + esc(after || "（空欄）") + '</pre></details></div>';
+        '<details class="jsonDiffFull"><summary>全文を確認（欄全体を置換）</summary>' + renderCharacterDiffComparison(renderCharacterDiffRow(esc(before), esc(after)), fieldLabel + "全文", true) + '</details></div>';
     }
     function closeCharacterJson() {
       characterExportDraft = null;
@@ -7162,7 +7393,10 @@
         const nameInfo = getKnownItemNameInfo(data[`weapon${i}Name`] || data[`weapon${i}_Name`] || "");
         if (!nameInfo.name) continue;
         const sourceNameKey = data[`weapon${i}Name`] !== undefined ? `weapon${i}Name` : `weapon${i}_Name`;
-        rows.push({ sourcePrefix: `weapon${i}`, sourceNameKey, type: "武器", name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, abyssCursePrefixes: nameInfo.prefixes, price: 0, count: 1, excludeCost: false, note: formatYutoText(data[sourceNameKey.replace(/Name$/, "Note")] ?? data[`weapon${i}Note`] ?? data[`weapon${i}_Note`] ?? ""), processes: [] });
+        const profiles = equipmentProfilesForItem(state.accessoryPresetByName?.get(nameInfo.name));
+        const hasAttackData = ["Category", "Acc", "Rate", "Crit", "Dmg"].some(suffix => String(data[`weapon${i}${suffix}`] ?? data[`weapon${i}_${suffix}`] ?? "").trim());
+        const toolOnly = !hasAttackData && profiles.profiles.length && profiles.profiles.every(profile => profile.kind === "item");
+        rows.push({ sourcePrefix: `weapon${i}`, sourceNameKey, type: toolOnly ? "その他" : "武器", name: nameInfo.name, learnedName: nameInfo.alias || nameInfo.name, abyssCursePrefixes: nameInfo.prefixes, price: 0, count: 1, excludeCost: false, note: formatYutoText(data[sourceNameKey.replace(/Name$/, "Note")] ?? data[`weapon${i}Note`] ?? data[`weapon${i}_Note`] ?? ""), processes: [] });
       }
       for (const i of armorNumbers) {
         const nameInfo = getKnownItemNameInfo(data[`armour${i}Name`] || data[`armor${i}Name`] || "");
@@ -7977,7 +8211,7 @@
         (index === null ? '' : '<div class="miniActions"><button type="button" class="small" data-action="editUserProcess" data-i="' + index + '">編集</button><button type="button" class="small danger" data-action="removeCustomProcess" data-i="' + index + '">削除</button></div>') +
         (magic === null ? '' : '<p class="hint">魔法のアイテム化：' + (magic ? '行う' : '行わない') + '</p>') +
         '<p class="hint processStatSummary">' + esc(processNumberSummary(item)) + '</p>' + (conflict ? '<p class="hint needsReview">CSVと同名のため適用していません。別名へ変更してください。</p>' : '')) +
-        td("対象", esc(targets.join("・") || "未登録") + (item.weaponCategories ? '<p class="hint">武器種：' + esc(item.weaponCategories.split('|').join('・')) + '</p>' : '')) +
+        td("対象", esc(targets.join("・") || "未登録") + (item.weaponCategories ? '<p class="hint">武器種：' + esc(item.weaponCategories.split('|').join('・')) + '</p>' : '') + (item.weaponRequirements ? '<p class="hint">' + esc(processWeaponRequirementsText(item.weaponRequirements)) + '</p>' : '')) +
         td("ランク別費用", processFeesHtml(item)) +
         td("効果・出典", itemComparisonSummaryHtml({ effectSummary: item.effectSummary }, "加工") + '<p class="processSource">' + esc(source) + '</p>') +
         td("メモ", itemComparisonSummaryHtml({ effectSummary: item.note }, "加工"));
@@ -8035,7 +8269,7 @@
     function openUserProcessEditor(index = null) {
       const item = index === null ? { ...blankCustomProcessItem(), weapon: true, statEffectsMode: "unknown" } : clonePlain(state.customProcessItems[index]);
       if (!item) return;
-      userProcessDraft = { index, snapshot: getUserProcessStateSnapshot(), originalStatEffects: String(item.statEffects || "") };
+      userProcessDraft = { index, snapshot: getUserProcessStateSnapshot(), originalStatEffects: String(item.statEffects || ""), originalWeaponRequirements: String(item.weaponRequirements || "") };
       el("userProcessEditorTitle").textContent = index === null ? "自作加工を追加" : "自作加工を編集";
       el("saveUserProcessBtn").textContent = index === null ? "登録する" : "変更を保存";
       el("userProcessName").value = item.name || "";
@@ -8073,7 +8307,7 @@
         if (!name) throw new Error("加工名を入力してください。");
         const conflict = userProcessNameConflict(name);
         if (conflict) throw new Error(conflict.reason || "CSVと同名の加工は登録できません。別名を入力してください。");
-        const item = { name, category: "自作", prices: {}, weaponCategories: el("userProcessWeaponCategories").value.trim(),
+        const item = { name, category: "自作", prices: {}, weaponCategories: el("userProcessWeaponCategories").value.trim(), ...processWeaponRequirementFields(draft.originalWeaponRequirements),
           multiCountable: el("userProcessMultiCountable").checked, maxCount: Number(el("userProcessMaxCount").value),
           grantsMagic: el("userProcessGrantsMagic").value, statEffectsMode: el("userProcessStatEffectsMode").value,
           source: el("userProcessSource").value.trim(), sourcePage: el("userProcessSourcePage").value.trim(),
@@ -9020,10 +9254,13 @@
       for (const item of getAllPriceItems()) {
         const category = String(item.category || "").trim();
         if (!category && queryLength < 3) continue;
-        if (!isPriceItemVisible(item) || !categoryMatchesForSuggest(category, context)) continue;
+        const categoryMatches = categoryMatchesForSuggest(category, context);
+        if (!isPriceItemVisible(item) || !categoryMatches && context !== "equipment") continue;
         const matched = getPriceItemLookupKeys(item)
           .some(itemKey => queryKeys.some(queryKey => itemKey.includes(queryKey)));
         if (!matched) continue;
+        // 詳細な装備判定は名前が一致した品だけ。通常の武器・防具の候補は従来どおり。
+        if (!categoryMatches && catalogDefaultDestination(item) !== "equipment") continue;
         if (context === "consumable" && isMaterialCardCandidate(item)) continue;
         if (context === "accessory" && accessoryFrame && accessoryFrameMatch(item, accessoryFrame) === "mismatch") continue;
         const key = normalizeItemKey(item.name);
@@ -9125,7 +9362,7 @@
     }
 
     function commitRowItemName(row, target) {
-      const enteredName = String(row.name || "").trim();
+      const enteredName = normalizeItemNameWidth(row.name).trim();
       const nameInfo = getKnownItemNameInfo(enteredName);
       const symbols = readItemNameSymbols(enteredName);
       if (Object.keys(symbols).length) { Object.assign(row, symbols); row.symbolOverrideName = nameInfo.name; }
@@ -9201,13 +9438,14 @@
         if (key === "category" || key === "categoryMajor") {
           updatePriceCategoryField(item, target);
         } else if (key === "aliases") {
-          item.aliases = String(value || "").split("|").map(v => v.trim()).filter(Boolean);
+          item.aliases = normalizeItemAliases(item.name, value);
         } else if (key === "price") {
           item.price = toNumber(value, 0);
         } else {
           item[key] = String(value || "").trim();
         }
         if (key === "name" && commit) item.name = canonicalizeLearnedPriceName(item.name);
+        if (["name", "aliases"].includes(key) && commit) { item.aliases = normalizeItemAliases(item.name, item.aliases); if (key === "aliases") target.value = item.aliases.join("|"); }
         item.updatedAt = new Date().toISOString().slice(0, 10);
         saveInlinePriceEdit(false, key, commit);
         return;
@@ -9219,13 +9457,14 @@
         if (key === "category" || key === "categoryMajor") {
           updatePriceCategoryField(item, target);
         } else if (key === "aliases") {
-          item.aliases = String(value || "").split("|").map(v => v.trim()).filter(Boolean);
+          item.aliases = normalizeItemAliases(item.name, value);
         } else if (key === "price") {
           item.price = toNumber(value, 0);
         } else {
           item[key] = String(value || "").trim();
         }
         if (key === "name" && commit) item.name = canonicalizeLearnedPriceName(item.name);
+        if (["name", "aliases"].includes(key) && commit) { item.aliases = normalizeItemAliases(item.name, item.aliases); if (key === "aliases") target.value = item.aliases.join("|"); }
         item.updatedAt = new Date().toISOString().slice(0, 10);
         saveInlinePriceEdit(true, key, commit);
         return;
@@ -9264,6 +9503,10 @@
       }
       if (action === "processName") {
         const row = state.equipment[i], proc = row.processes[p];
+        const limit = processSelectionLimitMessage(proc, row, value);
+        if (limit && value !== proc.name) { target.value = proc.name; showToast(limit); return; }
+        // 別の加工の回数・方向を持ち越さない。ランク変更時の選択値は維持する。
+        if (value !== proc.name) { proc.count = 1; delete proc.adjustment; }
         proc.name = value;
         delete proc.choiceId; delete proc.choiceParameters;
         proc.symbolEffectConfirmed = true;
@@ -9306,6 +9549,10 @@
       if (action === "processChoice" || action === "processChoiceParameter") {
         const row=state.equipment[i],proc=row?.processes[p]; if (!proc) return;
         if (action === "processChoice" && !commit) return;
+        if (action === "processChoice" && value !== proc.choiceId) {
+          const selected = getProcessChoiceState(proc,row), option = selected.options.find(candidate => candidate.id === value);
+          if (option && processChoiceOptionBlocked(proc,row,option,selected.choices)) { target.value = proc.choiceId || ""; showToast("同じ効果は重ねて選択できません。"); return; }
+        }
         if (action === "processChoice") { proc.choiceId=value; proc.choiceParameters={}; proc.count=1; }
         else { if (!proc.choiceParameters || typeof proc.choiceParameters !== "object") proc.choiceParameters={}; proc.choiceParameters[key]=value; }
         if (commit) renderAll(); generateOutputs(); return;
@@ -9517,6 +9764,7 @@
       const i = Number(t.dataset.i);
       const s = Number(t.dataset.s);
       const p = Number(t.dataset.p);
+      if (action === "downloadCsvGuide") { downloadCsvAuthoringGuide(); return; }
       if (action === "openCatalog") { openCatalog(t.dataset.context); return; }
       if (action === "openPriceDictionary") {
         closeCatalog(); el("dataSettingsSection").open = true; el("confirmedPriceSection").open = true;
@@ -9564,7 +9812,11 @@
         }
         return;
       }
-      if (action === "addProcess") state.equipment[i].processes.push(blankProcess(state.equipment[i], getEquipmentProcessRank(state.equipment[i])));
+      if (action === "addProcess") {
+        const row = state.equipment[i], proc = blankProcess(row, getEquipmentProcessRank(row)), limit = processSelectionLimitMessage(proc, row);
+        if (limit) { showToast(limit); return; }
+        row.processes.push(proc);
+      }
       if (action === "removeProcess") state.equipment[i].processes.splice(p, 1);
       if (action === "removeEquipment") state.equipment.splice(i, 1);
       if (action === "removeAccessory") removeAccessoryRow(i);
@@ -9652,6 +9904,7 @@
     el("priceCsvFile").addEventListener("change", e => readPriceDictionaryFile(e, "merge"));
     el("replacePriceCsvFile").addEventListener("change", e => readPriceDictionaryFile(e, "replace"));
     el("replacePriceCsvBtn").addEventListener("click", () => el("replacePriceCsvFile").click());
+    el("mergePriceCsvBtn").addEventListener("click", () => el("priceCsvFile").click());
     el("exportPriceReplaceBackupBtn").addEventListener("click", exportPriceDictionaryReplacementBackup);
     el("priceDictionaryReplaceConsent").addEventListener("change", () => {
       el("applyPriceDictionaryImportBtn").disabled = priceDictionaryImportDraft?.mode === "replace" && !el("priceDictionaryReplaceConsent").checked;
@@ -9844,7 +10097,7 @@
       const headerMenu = document.querySelector(".headerMenu");
       if (headerMenu) headerMenu.removeAttribute("open");
       const modal = el("helpModal");
-      if (modal) modal.classList.add("isOpen");
+      if (modal) { modal.classList.add("isOpen"); modal.querySelector(".modalPanel").scrollTop = 0; }
     }
     function closeHelp() {
       const modal = el("helpModal");
@@ -9854,6 +10107,9 @@
       const topic = el(id), modal = el("helpModal");
       if (!topic || !modal?.contains(topic) || topic.tagName !== "DETAILS") return;
       openHelp(); topic.open = true;
+      for (let parent = topic.parentElement; parent && parent !== modal; parent = parent.parentElement) {
+        if (parent.tagName === "DETAILS") parent.open = true;
+      }
       topic.scrollIntoView({ block: "start" });
       topic.querySelector("summary")?.focus({ preventScroll: true });
     }
@@ -10089,7 +10345,7 @@
     (async function init() {
       // CSV中心の入口を先に置く。候補収集は既存設定を変えず、必要な人が最後の項目から使う。
       const settingsBody = el("dataSettingsSection").querySelector(".dataSettingsBody");
-      ["confirmedPriceSection", "customProcessSection", "learnedPriceSection"].forEach(id => settingsBody.appendChild(el(id)));
+      ["confirmedPriceSection", "customProcessSection", "learnedPriceSection", "csvAuthoringTools"].forEach(id => settingsBody.appendChild(el(id)));
       initializeUpdateNotice();
       ["catalog", "dictionary"].forEach(prefix => {
         el(prefix + "Rank").innerHTML = ITEM_RANK_FILTERS.map(([value, label]) => '<option value="' + value + '">' + label + '</option>').join("");
@@ -10127,6 +10383,7 @@
       if (savedPriceCsv) {
         el("dataSettingsSection").open = true; el("confirmedPriceSection").open = true;
         el("retryLegacyPriceImportBtn").hidden = false;
+        el("priceCsvBackupTools").open = true;
         el("priceDictionaryImportStatus").textContent = "以前の価格CSVが残っています。確認後に登録済み価格辞書へ統合します。取消した場合は元データを保持します。";
         previewPriceDictionaryCsv(savedPriceCsv, "以前保存した価格CSV", true);
       }
