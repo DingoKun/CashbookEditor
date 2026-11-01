@@ -1,10 +1,11 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.9.11
+  version: v1.9.12
   date: 2026-11-01
   versioning: previous v26 is treated as 0.26
   notes:
+    - v1.9.12：計算結果0だけの空枠を新規装備に再利用し、加工名と説明を複数用法へ出力
     - v1.9.11：CSV入れ替えを主操作へ整理し、統合・控え・作成用の操作と詳しい説明を折り畳み
     - v1.9.10：利用者向けの操作説明と、ダウンロードするCSV作成ガイドを分離
     - v1.9.9：装備欄の予測入力に、用法のある手持ち道具も含める
@@ -75,7 +76,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.9.11</title>
+  <title>SW2.5 収支・持ち物エディタ v1.9.12</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -1168,7 +1169,7 @@
       <div>
         <div class="titleLine">
           <h1>SW2.5 収支・持ち物エディタ</h1>
-          <span class="version">v1.9.11</span>
+          <span class="version">v1.9.12</span>
         </div>
         <p class="lead">① URL読込 → ② アイテムを追加・整理 → ③ JSON／テキスト出力</p>
       </div>
@@ -1291,6 +1292,7 @@
             <p>点数違いの系列は、開いて点数・登録価格を確認してから追加します。点数の切替だけでは購入しません。「点数違いをまとめる」を外すと個別表示へ戻せます。カードは専用欄または全体検索を使い、消耗品からは購入できません。</p>
           </details>
           <details id="helpProcessGuide"><summary>加工データと性能補正</summary>
+            <p>施した加工名・選択効果は装備JSONの備考にも出力します。複数の用法がある品は各行へ同じ説明を出し、共通の <code>@</code> 付き行は二重計算を避けるため先頭形態だけへ出します。加工CSVの長い管理メモは自動転記しません。</p>
             <p>「加工を追加」は操作ボタン、「加工数」は現在登録されている件数です。加工CSVは参照専用で、出典・短い効果説明・数値補正の扱いを確認できます。自作加工は専用フォームから別名で登録し、CSV定義を上書きしません。「参照のみ」「なし」「未確認」は数値補正を加えず、不正な定義も適用しません。魔法を付与する属性は数値補正とは独立です。</p>
             <p>加工CSVに登録された補正だけを、基準の性能へ加えて表示・JSONへ反映します。装備行の「性能（加工後）」で結果を、「辞書・出典（加工前）」で基礎値を確認できます。辞書の基礎性能やキャラクターの技能は変更しません。読み込んだ過去の加工は再加算せず、新しく追加した加工を初期ONにします。必要な場合だけ加工の「性能に反映」を切り替えてください。</p>
             <p>符号付きの加工は調整量をマイナス・プラスから選びます。費用はその絶対値です。未登録の補正、数式・特殊な値は推測せず保留し、元値を残します。加工順や一時的な効果は自動判定しません。キャラクターの性能を辞書へ学習する機能は追加していません。</p>
@@ -1335,6 +1337,10 @@
           <button id="closeChangelogBtn" type="button" class="small">閉じる</button>
         </div>
         <div class="modalBody">
+          <div class="changelogItem">
+            <h3>v1.9.12</h3>
+            <ul><li>新規装備のJSON出力で、命中・追加Dの計算結果0だけが残る空枠も再利用し、先頭に空行が残る問題を修正しました。備考・設定・未知の項目がある行は保護します。</li><li>数値が変わらない加工も備考へ加工名を出し、複数用法の各行に説明を表示。共通の@付き行は先頭だけに出し、過去の出力の読み込みも維持します。</li></ul>
+          </div>
           <div class="changelogItem">
             <h3>v1.9.11</h3>
             <ul><li>価格辞書のCSV入れ替えを主操作にし、追加・統合、バックアップ・復旧、CSV自作は折り畳みへ整理しました。</li><li>使い方は普段の4つの操作を中心に短縮。詳しい操作は必要な項目だけ開けます。確認・控え・上書き保護は変更しません。</li></ul>
@@ -1893,7 +1899,7 @@
   </div>
 
   <script>
-    const VERSION = "v1.9.11";
+    const VERSION = "v1.9.12";
     const SETTINGS_EXPORT_KIND = "sw25-cashbook-editor-settings";
     const SETTINGS_EXPORT_FORMAT_VERSION = 15;
     const ACCESSORY_CODES = { "頭": "Head", "顔": "Face", "耳": "Ear", "首": "Neck", "背": "Back", "右": "HandR", "左": "HandL", "腰": "Waist", "足": "Leg", "他": "Other" };
@@ -5641,7 +5647,15 @@
     function equipmentProcessNotes(row) {
       const restored=row.processChoiceRestoredNote;
       if (restored && restored.signature === processChoiceNoteSignature(row)) return restored.note;
-      return (row.processes || []).map(p=>selectedProcessNote(p,row)).filter(Boolean).join("\n");
+      return (row.processes || []).map(proc=> {
+        const selected = selectedProcessNote(proc,row);
+        if (selected) return selected;
+        // 旧履歴の文章を生成文だと推測しない。自由備考を分離できた加工だけ再生成する。
+        if (proc.sourceProcess && !row.processChoiceMetadataRestored || !String(proc.name || proc.customName || "").trim()) return "";
+        const amount = Number.isSafeInteger(proc.adjustment) && proc.adjustment ? " " + (proc.adjustment > 0 ? "+" : "") + proc.adjustment
+          : toNumber(proc.count,1) > 1 ? " ×" + toNumber(proc.count,1) : "";
+        return processDisplayName(proc) + amount;
+      }).filter(Boolean).join(" ／ ");
     }
     function equipmentCombinedNote(row) {
       return [String(row.note || ""),equipmentProcessNotes(row),!row.applyEquipmentProfiles && !row.sourceEquipmentForms?.length ? row.processChoiceSingleProfileNote : ""].filter(Boolean).join("\n");
@@ -5816,8 +5830,8 @@
       const markers = new Map();
       readEquipmentMetadata(data).groups.forEach(group => {
         const names = group.forms.map(form => getKnownItemNameInfo(data[form.nameKey]).name);
-        const complete = names.every(name => name && name === names[0]) && group.forms.every((form, index) =>
-          String(data[form.nameKey.replace(/Name$/, "Note")] || "") === equipmentProfileNote({ note: group.commonNote }, { note: form.profileNote }, index, group.forms.length, group.id));
+        const complete = names.every(name => name && name === names[0]) && [false,true].some(legacy => group.forms.every((form,index) =>
+          String(data[form.nameKey.replace(/Name$/, "Note")] || "") === equipmentProfileNote({ note: group.commonNote }, { note: form.profileNote }, index, group.forms.length, group.id, legacy)));
         if (!complete) return;
         group.forms.forEach(form => markers.set(form.prefix, { groupId: group.id, id: form.id, kind: form.kind, index: form.index, total: group.forms.length,
           baseNote: form.index === 1 ? formatYutoText(group.commonNote) : "", profileNote: formatYutoText(form.profileNote) }));
@@ -5827,7 +5841,7 @@
     function equipmentMetadataGroup(row, forms, groupId) {
       return { id: groupId, commonNote: equipmentCombinedNote(row), forms: forms.map(({ prefix, nameKey, profile }, index) => ({ prefix, nameKey: nameKey || prefix + "Name", id: profile.id, kind: profile.kind, index: index + 1, profileNote: String(profile.note || "") })) };
     }
-    // 選択効果の生成備考を自由文から分離する。外部保存で失われたら本文を推測除去しない。
+    // 加工の生成備考を自由文から分離する。外部保存で失われたら本文を推測除去しない。
     const PROCESS_CHOICE_META_KEY = "cashbookEditorProcessChoicesV1";
     function processChoiceRecord(proc, history = false) {
       const record = { name: String(proc.name || ""), customName: String(proc.customName || ""), rank: String(proc.rank || "B"), count: proc.count ?? 1,
@@ -5846,8 +5860,15 @@
       const keys = [nameKey,nameKey.replace(/Name$/,"Note"), ...["Category","Usage","Reqd","Acc","Rate","Crit","Dmg","Eva","Def","Own","Class","Skill"].map(suffix=>prefix+suffix)];
       return Object.fromEntries(keys.filter(key=>Object.hasOwn(data,key)).map(key=>[key,clonePlain(data[key])]));
     }
-    function processChoiceStoredNote(group,form,index) {
-      const base = index === 0 ? [group.freeNote,group.generatedNote].filter(Boolean).join("\n") : "";
+    function equipmentCommonNoteForForm(note,index,legacy = false) {
+      const text = String(note || "");
+      if (index === 0) return text;
+      if (legacy) return "";
+      // 共通の自動計算記法は推測分割せず、その行全体を先頭形態にだけ保持する。
+      return text.split(/\r\n|[\r\n]/).filter(line=>!/[@＠]/.test(line)).join("\n").replace(/^\n+|\n+$/g,"");
+    }
+    function processChoiceStoredNote(group,form,index,legacy = false) {
+      const base = equipmentCommonNoteForForm([group.freeNote,group.generatedNote].filter(Boolean).join("\n"),index,legacy);
       return [base,form.profileNote && (group.forms.length > 1 || base !== form.profileNote) ? form.profileNote : ""].filter(Boolean).join("\n");
     }
     function readProcessChoiceMetadata(data) {
@@ -5879,8 +5900,8 @@
     }
     function restoreProcessChoiceMetadata(rows,data) {
       readProcessChoiceMetadata(data).groups.forEach(group=> {
-        const complete = group.forms.every((form,index)=>JSON.stringify(processChoiceFormSnapshot(data,form.prefix,form.nameKey)) === JSON.stringify(form.fields) &&
-          String(data[form.nameKey.replace(/Name$/,"Note")] || "") === processChoiceStoredNote(group,form,index));
+        const complete = group.forms.every(form=>JSON.stringify(processChoiceFormSnapshot(data,form.prefix,form.nameKey)) === JSON.stringify(form.fields)) &&
+          [false,true].some(legacy=>group.forms.every((form,index)=>String(data[form.nameKey.replace(/Name$/,"Note")] || "") === processChoiceStoredNote(group,form,index,legacy)));
         if (!complete) return;
         const row = rows.find(row=> {
           const forms = row.sourceEquipmentForms?.length ? row.sourceEquipmentForms : [{sourcePrefix:row.sourcePrefix,sourceNameKey:row.sourceNameKey}];
@@ -5900,12 +5921,12 @@
       return rows;
     }
     function equipmentProcessExportOptions(row,before,forms) {
-      const hasChoices = candidate=>(candidate?.processes || []).some(proc=>proc.choiceId !== undefined || String(getProcessDefinition(proc.name,proc.rank,candidate)?.processChoices || "").trim());
-      const relevant = hasChoices(row) || hasChoices(before) || row.processChoiceMetadataRestored || before?.processChoiceMetadataRestored;
+      const hasProcesses = candidate=>(candidate?.processes || []).some(proc=>String(proc.name || proc.customName || "").trim());
+      const relevant = hasProcesses(row) || hasProcesses(before) || row.processChoiceMetadataRestored || before?.processChoiceMetadataRestored;
       if (!relevant) return {};
       return {
         processMetadataEdited: JSON.stringify((row.processes || []).map(proc=>processChoiceRecord(proc))) !== JSON.stringify((before?.processes || []).map(proc=>processChoiceRecord(proc))),
-        processChoiceMeta: hasChoices(row) ? {type:row.type,freeNote:String(row.note || ""),generatedNote:equipmentProcessNotes(row),
+        processChoiceMeta: hasProcesses(row) ? {type:row.type,freeNote:String(row.note || ""),generatedNote:equipmentProcessNotes(row),
           processes:(row.processes || []).map(proc=>processChoiceRecord(proc)),forms:forms.map(form=>({prefix:form.prefix,nameKey:form.nameKey || form.prefix+"Name",profileNote:String(form.profileNote || "")}))} : null
       };
     }
@@ -6025,9 +6046,9 @@
       const suffixes = profile.kind === "armor" ? { requiredStrength: "Reqd", evasion: "Eva", defense: "Def" } : { requiredStrength: "Reqd", accuracy: "Acc", power: "Rate", critical: "Crit", damage: "Dmg" };
       return Object.fromEntries(result.changes.filter(change => suffixes[change.key]).map(change => [prefix + suffixes[change.key], change.after]));
     }
-    function equipmentProfileNote(row, profile, index, total, groupId) {
-      // 同一品のIDはJSON別項目へ。共通の@効果は先頭形態だけに置く。
-      const base = index === 0 ? equipmentCombinedNote(row) : "";
+    function equipmentProfileNote(row, profile, index, total, groupId, legacy = false) {
+      // 説明は各形態へ、自動計算用の共通行は先頭へ。同一品のIDはJSON別項目に保持する。
+      const base = equipmentCommonNoteForForm(equipmentCombinedNote(row),index,legacy);
       return [base, profile.note && (total > 1 || base !== profile.note) ? profile.note : ""].filter(Boolean).join("\n");
     }
     function blankProcess(target = "武器", itemRank = "") {
@@ -6761,12 +6782,15 @@
           const canonicalPrefix = prefix => String(prefix || "").replace(/^armor(?=\d+$)/, "armour");
           const emptyFields = new Set(["Name", "Note", "Category", "Usage", "Reqd", "Acc", "Rate", "Crit", "Dmg", "Eva", "Def", "Own", "Class", "Skill"]);
           const defaultArmourCategories = new Set(["盾", "非金属鎧", "金属鎧", "その他"]);
+          const defaultWeaponTotals = new Set(["AccTotal", "DmgTotal"]);
           // 名前だけで空枠とは判断しない。読込時・最新版のどちらかに情報があれば保護する。
           [base.raw, latest].forEach(data => Object.entries(data || {}).forEach(([key, value]) => {
             const match = key.match(/^(weapon|armour|armor)([1-9]\d*)(.*)$/);
             if (!match) return;
             const prefix = canonicalPrefix(match[1] + match[2]), suffix = match[3].replace(/^_/, "");
             if (prefix.startsWith("armour") && suffix === "Category" && typeof value === "string" && defaultArmourCategories.has(value.trim())) return;
+            // ゆとシートが空の武器行にも保存する派生計算値。実際の性能0や未知項目は保護する。
+            if (prefix.startsWith("weapon") && defaultWeaponTotals.has(suffix) && (value == null || value === "" || value === "0" || value === 0)) return;
             // 未知の項目は空値でも残す。数値0・false・オブジェクトも空文字として扱わない。
             if (!emptyFields.has(suffix) || value !== undefined && value !== null && (typeof value !== "string" || value.trim())) reserved.add(prefix);
           }));
@@ -6827,6 +6851,7 @@
         }
         if (before?.sourceEquipmentForms?.length) {
           const writes = {}, equipments = [];
+          const notesEdited = equipmentCombinedNote(row) !== equipmentCombinedNote(before) || processChoiceNoteSignature(row) !== processChoiceNoteSignature(before);
           if (!row.name) sources.forEach(source => Object.assign(writes, clearRow(source.sourcePrefix)));
           else sources.forEach((source, index) => {
             const nameKey = source.sourceNameKey || source.sourcePrefix + "Name";
@@ -6834,7 +6859,7 @@
               const profile = parseEquipmentProfiles(before.sourceEquipmentProfiles).profiles.find(profile => profile.id === source.profileId);
               writes[nameKey] = editedCharacterName(row, before, profile, base.raw[nameKey]);
             }
-            if (!characterFieldEqual(base.raw[nameKey.replace(/Name$/, "Note")],equipmentProfileNote(row,{note:source.profileNote},index,sources.length,before.equipmentGroupId)) || readEquipmentProfileNote(base.raw[nameKey.replace(/Name$/, "Note")])) {
+            if (notesEdited || readEquipmentProfileNote(base.raw[nameKey.replace(/Name$/, "Note")])) {
               const profile = parseEquipmentProfiles(before.sourceEquipmentProfiles).profiles.find(profile => profile.id === source.profileId) || { id: source.profileId, kind: source.kind, note: source.profileNote };
               writes[nameKey.replace(/Name$/, "Note")] = equipmentProfileNote(row, profile, index, sources.length, before.equipmentGroupId);
             }
@@ -7090,7 +7115,7 @@
           const row=outputRows.find(row=>row.sourcePrefix === plan.forms[0].prefix);
           if (!row) return;
           const record={...clonePlain(plan),historyProcesses:processChoiceHistory(row),forms:plan.forms.map(form=>({...form,fields:processChoiceFormSnapshot(output,form.prefix,form.nameKey)}))};
-          if (record.forms.every((form,index)=>String(output[form.nameKey.replace(/Name$/,"Note")] || "") === processChoiceStoredNote(record,form,index))) processMetadata.push(record);
+          if ([false,true].some(legacy=>record.forms.every((form,index)=>String(output[form.nameKey.replace(/Name$/,"Note")] || "") === processChoiceStoredNote(record,form,index,legacy)))) processMetadata.push(record);
         });
         if (processMetadata.length) output[PROCESS_CHOICE_META_KEY]=JSON.stringify({version:1,groups:processMetadata});
         else delete output[PROCESS_CHOICE_META_KEY];
