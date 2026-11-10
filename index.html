@@ -1,10 +1,13 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.10.37
+  version: v1.10.40
   date: 2026-11-10
   versioning: previous v26 is treated as 0.26
   notes:
+    - v1.10.40：価格辞書の見出し件数を修正し、補助操作をCSVボタンの横へ移動
+    - v1.10.39：武器の基本一覧を先に表示し、分類の階層と開閉を色で区別
+    - v1.10.38：辞書から探す画面を広げ、検索欄を一覧と一緒にスクロール
     - v1.10.37：点数付きアイテムの購入候補と初期値を価格CSVで指定
     - v1.10.36：名称照合で英字の大小・点数表記のゆれを共通化
     - v1.10.35：セッション後の補足を整理し、必要な注意だけ操作時に表示
@@ -120,7 +123,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.10.37</title>
+  <title>SW2.5 収支・持ち物エディタ v1.10.40</title>
   <style>
     :root {
       --bg: #f7f7f8;
@@ -493,8 +496,12 @@
     .toolbar > button, .miniActions > button { min-height: 30px; padding: 4px 9px; font-size: 12px; line-height: 18px; }
     .toolbar > button.small, .miniActions > button.small { font-size: 12px; }
     .dictionaryViewActions { gap: 6px; margin: 6px 0; }
-    .dictionaryImportMain { margin-bottom: 6px; padding: 8px; border: 1px solid var(--section-border); border-radius: 7px; background: var(--section-bg); }
+    .dictionaryViewActions .hint { margin: 0 0 0 auto; }
+    .dictionaryImportMain { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-bottom: 6px; padding: 5px 6px; border: 1px solid var(--section-border); border-radius: 7px; background: var(--section-bg); }
     .dictionaryImportMain .toolbar { margin: 0; }
+    .dictionaryImportMain > .disclosure { min-width: 0; max-width: 100%; margin: 0; }
+    .dictionaryImportMain > .disclosure > summary { min-height: 28px; padding: 4px 6px; }
+    .dictionaryImportMain > .disclosure[open] { flex-basis: 100%; }
     .dictionaryImportMain .hint { margin: 6px 0 0; }
     #priceCsvBackupTools[hidden], #priceCsvBackupTools button[hidden], #exportBeforePriceReplaceBtn[hidden] { display: none; }
     #priceDictionaryImportStatus:empty { margin: 0; }
@@ -658,18 +665,35 @@
     .tableScrollViewport { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .tableScrollViewport:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
     .dictionaryGroup { margin-top: 5px; border: 1px solid var(--line); border-radius: 4px; overflow: clip; }
-    .dictionaryGroup > summary { display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; padding: 5px 7px; background: var(--section-bg); font-weight: 700; }
+    .dictionaryGroup > summary {
+      --group-closed: color-mix(in srgb, var(--accent) 9%, #f5f8fc);
+      --group-open: color-mix(in srgb, var(--accent) 26%, #e0e9f5);
+      display: flex; align-items: center; gap: 6px; list-style: none; cursor: pointer;
+      padding: 5px 7px; background: var(--group-closed); font-weight: 700;
+    }
+    .dictionaryGroupBody > .dictionaryGroup > summary {
+      --group-closed: #f4f5f7;
+      --group-open: color-mix(in srgb, var(--accent) 8%, #e3e7ee);
+      font-weight: 600;
+    }
+    .dictionaryGroupBody .dictionaryGroupBody > .dictionaryGroup > summary {
+      --group-closed: #f7f4ee;
+      --group-open: color-mix(in srgb, var(--accent) 7%, #eee2d1);
+    }
+    .dictionaryGroup[open] > summary {
+      background: var(--group-open);
+      box-shadow: inset 3px 0 color-mix(in srgb, var(--accent) 50%, #555d69);
+    }
     .dictionaryGroup > summary::-webkit-details-marker { display: none; }
     .dictionaryGroup > summary::before { content: "›"; display: inline-block; width: 12px; line-height: 16px; font-size: 20px; text-align: center; }
     .dictionaryGroup[open] > summary::before { transform: rotate(90deg); }
     .dictionaryGroup > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
     .dictionaryGroupCount { color: var(--muted); font-size: 11px; font-weight: 400; }
-    .dictionaryGroupViewport { max-height: min(55vh, 420px); overflow: auto; scrollbar-gutter: stable; }
+    .dictionaryGroupViewport { max-height: min(72dvh, 780px); overflow: auto; scrollbar-gutter: stable; }
     .dictionaryGroupViewport::-webkit-scrollbar { height: 9px; width: 9px; }
     .dictionaryGroupViewport::-webkit-scrollbar-thumb { background: #aeb6c2; border-radius: 5px; }
     .dictionaryGroupViewport::-webkit-scrollbar-track { background: #eef0f3; }
     .dictionaryGroupBody { padding: 0 5px 5px; }
-    .dictionaryMinor > summary { background: #f7f9fc; font-weight: 600; }
     .dictionaryName { display: flex; gap: 3px; align-items: center; }
     .dictionaryName > input { flex: 1; width: 0; }
     .dictionaryName > button { flex: 0 0 auto; }
@@ -677,7 +701,7 @@
     .priceDetailSlots { grid-column: 1 / -1; min-width: 0; margin: 0; padding: 7px; border: 1px solid var(--line); border-radius: 4px; }
     .slotChoices { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 4px 0 7px; }
     .slotChoices label { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
-    #priceDetailsModal .modalPanel { width: min(860px, 100%); max-height: min(88dvh, 900px); display: flex; flex-direction: column; overflow: hidden; }
+    #priceDetailsModal .modalPanel { width: min(1080px, 100%); max-height: calc(100dvh - 32px); display: flex; flex-direction: column; overflow: hidden; }
     #priceDetailsModal .modalHeader { flex: 0 0 auto; padding: 6px 10px; }
     #priceDetailsModal .modalBody { overflow-y: auto; min-height: 0; padding: 8px 10px; scrollbar-gutter: stable; }
     #priceDetailsName { margin: 0 0 3px; color: #182333; font-size: 17px; font-weight: 700; overflow-wrap: anywhere; }
@@ -722,13 +746,20 @@
     #confirmedPriceTable .dictionaryAction > button { width: 100%; }
     #confirmedPriceTable .dictionaryStat input { padding-left: 3px; padding-right: 3px; }
     #confirmedPriceTable .categoryEditor { grid-template-columns: 5.2em minmax(7.8em, 1fr); }
-    #itemCatalogModal { align-items: flex-start; padding-top: max(16px, 4vh); }
-    .modalPanel.catalogPanel { width: min(1120px, 100%); max-height: 90vh; }
+    #itemCatalogModal { padding: 12px; }
+    .modalPanel.catalogPanel { width: 100%; height: 100%; max-height: none; display: flex; flex-direction: column; overflow: hidden; scrollbar-gutter: auto; }
+    #itemCatalogModal .modalHeader { flex: none; padding: 5px 9px; }
+    #itemCatalogModal .modalBody { flex: 1 1 auto; min-height: 0; min-width: 0; padding: 6px 8px; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+    .catalogHeaderActions { flex: none; display: flex; gap: 4px; }
+    .catalogHeaderActions button { white-space: nowrap; }
+    #itemCatalogTitle { line-height: 1.2; }
     .catalogFilters { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 6px; }
     .catalogFilters label { margin: 0; }
-    .catalogFindWays { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-bottom: 7px; }
-    .catalogFindWays > span { font-size: 11px; color: var(--muted); }
-    .catalogFindWays > button { flex: 0 0 auto; min-height: 28px; }
+    .catalogMainFilters { grid-template-columns: repeat(auto-fit, minmax(122px, 1fr)); gap: 4px 6px; }
+    .catalogMainFilters > :first-child { grid-column: span 2; }
+    .catalogPanel .catalogFilters > label { min-width: 0; }
+    .catalogFindWays { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 4px; }
+    .catalogFindWays > button { flex: 0 0 auto; min-height: 26px; }
     .catalogFindWays > button[aria-pressed="true"] { background: var(--section-open); border-color: var(--accent); font-weight: 700; }
     .catalogSkillField:focus-within { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
     .catalogSkillCount { font-size: 11px; color: var(--muted); font-weight: 400; }
@@ -742,14 +773,15 @@
     .tableSortButton:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     .tableSortArrows { display: inline-grid; font-size: 8px; line-height: 8px; color: #8794a6; }
     .tableSortArrows .active { color: var(--accent); }
-    .catalogResults { height: clamp(180px, 35vh, 390px); overflow: auto; scrollbar-gutter: stable; margin-top: 8px; border: 1px solid var(--line); }
+    .catalogResults { min-width: 0; overflow-x: auto; margin-top: 4px; border: 1px solid var(--line); }
     .catalogTree { padding: 6px; }
     .catalogTreeTable { overflow-x: auto; scrollbar-gutter: stable; }
     .catalogTree .dictionaryGroupBody { min-width: 0; }
     .catalogTree .catalogPager { position: static; }
     .catalogTable { min-width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
-    .catalogTable th, .catalogTable td { padding: 4px 6px; border: 1px solid var(--line); white-space: normal; overflow-wrap: anywhere; }
-    .catalogTable th { position: sticky; top: 0; background: var(--section-bg); z-index: 1; }
+    .catalogTable th, .catalogTable td { padding: 2px 5px; border: 1px solid var(--line); white-space: normal; overflow-wrap: anywhere; }
+    .catalogTable thead th { background: var(--section-bg); }
+    .catalogTable .comparisonEffect:not([open]) .comparisonEffectPreview { -webkit-line-clamp: 1; }
     .catalogTable .catalogNameCell { white-space: normal; }
     #itemSymbolsDamageLabel[hidden] { display: none; }
     button[data-action="itemSymbols"][hidden] { display: none; }
@@ -760,6 +792,21 @@
     .catalogAttributeFilters { margin: 5px 0; font-size: 12px; }
     .catalogAttributeFilters > summary { cursor: pointer; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; list-style-position: inside; }
     .catalogAttributeFilters > .catalogFilters { margin-top: 5px; }
+    .catalogMeta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 12px; margin: 4px 0; font-size: 12px; }
+    .catalogMeta > details { min-width: 0; max-width: 100%; margin: 0; }
+    .catalogMeta > details[open] { flex-basis: 100%; }
+    .catalogMeta > details > summary { cursor: pointer; }
+    .catalogMeta > .hint { margin: 0; }
+    #catalogCount { margin: 3px 0 0; }
+    @media (max-width: 700px) {
+      #itemCatalogModal, #priceDetailsModal { padding: 5px; }
+      #priceDetailsModal .modalPanel { max-height: 100%; }
+      #itemCatalogModal .modalBody { padding: 5px; }
+      #itemCatalogModal .modalHeader { padding-inline: 6px; gap: 5px; }
+      .catalogMainFilters, #catalogAttributeFilters > .catalogFilters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .catalogMainFilters > :first-child { grid-column: 1 / -1; }
+      .catalogHeaderActions button, .catalogFindWays > button { min-height: 34px; }
+    }
     .itemAttributeSummary, .itemAttributeDetails > summary { display: block; max-width: 100%; font-size: 10px; line-height: 16px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .itemAttributeDetails { margin-top: 2px; }
     .itemAttributeDetails > summary { display: list-item; list-style-position: inside; cursor: pointer; }
@@ -1142,6 +1189,7 @@
     .dictionaryFilters { display: flex; flex-wrap: wrap; gap: 6px; align-items: end; margin: 8px 0; }
     .dictionaryFilters label { flex: 1 1 150px; min-width: 0; margin: 0; }
     .dictionaryCategory td { background: var(--section-open); font-weight: bold; }
+    .dictionaryCategory.dictionarySectionHeading td { background: #eef0f3; color: #263445; }
     .categoryEditor { display: grid; grid-template-columns: 5.5em minmax(9em, 1fr); gap: 4px; align-items: center; min-width: 0; }
     .categoryEditor select, .categoryEditor input { width: 100%; min-width: 0; }
     .categoryEditor select { padding-left: 4px; padding-right: 2px; }
@@ -1342,7 +1390,7 @@
       <div>
         <div class="titleLine">
           <h1>SW2.5 収支・持ち物エディタ</h1>
-          <span class="version">v1.10.37</span>
+          <span class="version">v1.10.40</span>
         </div>
       </div>
       <div class="topActions">
@@ -1442,9 +1490,9 @@
             <p>「名称変更」で見出しを編集して「保存」すると、出力する収支履歴の見出しも変わります。JSON出力では収支履歴の変更を選んだ場合だけ反映します。「読込時の原文を見る」は変更前の参考表示です。</p>
           </details>
           <details id="helpItemSearch"><summary>名前を覚えていないアイテムを辞書から探す</summary>
-            <p>① 分類・部位、または「専用道具から探す」で技能を選ぶ → ② 性能・価格を比べる → ③「追加」で購入します。名前を覚えていなくても選べます。</p>
+            <p>分類・部位、または「専用道具」で技能を選び、性能・価格を比べて「追加」で購入します。</p>
             <p>技能・流派・作成対象の選択肢は、読み込んだ辞書に登録された内容です。同じ商品を複数の入口から探せる場合もあります。</p>
-            <p>「流派から探す」では取得条件を確認してください。「素材を探す」は対応する商品を絞る操作で、選択だけでは購入・消費しません。</p>
+            <p>「流派」では取得条件を確認してください。「素材」は対応品を絞る操作で、選択だけでは購入・消費しません。</p>
             <p>装飾品は部位で絞れます。「手」は左右共通、「他」は全装飾品が対象です。既存の装備は自動で置換・削除しません。</p>
             <p>通常一覧は大分類・小分類を開いて選び、分類内は価格が安い順に表示します。列名の▲▼で分類内を並べ替えられます。価格が未確認・最低額・非売品評価の場合は、実単価の入力か「支出に含めない」を選びます。</p>
             <p>消耗品・カードは「買い足す」で支出と所持数を増やします。現在数の直接変更は残数の訂正だけで、購入費を追加しません。カードは専用表へ反映するため「所持品に含める」は標準OFFです。特別用途の表示は「設定」→「表示・カラー設定」で選べます。</p>
@@ -1524,6 +1572,21 @@
         </div>
         <div class="modalBody">
           <div class="changelogItem">
+            <h3>v1.10.40</h3>
+            <p class="changelogDate">2026-11-10</p>
+            <ul><li>価格辞書の件数に配下の品を含め、同じ品は見出しごとに1件と数えます。以前の辞書データと一覧の見方はCSVボタンの横にまとめました。</li></ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.10.39</h3>
+            <p class="changelogDate">2026-11-10</p>
+            <ul><li>武器は通常の一覧を先に表示し、分類名と同じ見出しは繰り返しません。</li><li>大分類・小分類・開閉状態を見分けやすい配色にしました。</li></ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.10.38</h3>
+            <p class="changelogDate">2026-11-10</p>
+            <ul><li>「辞書からアイテムを探す」を広げ、検索欄も一覧と一緒にスクロールします。「検索へ」で先頭へ戻れます。</li><li>価格辞書の一覧と詳細編集も表示範囲を広げました。</li></ul>
+          </div>
+          <div class="changelogItem">
             <h3>v1.10.37</h3>
             <p class="changelogDate">2026-11-10</p>
             <ul><li>点数付きアイテムの購入候補は価格CSVで指定できます。ほかの点数も選べます。</li></ul>
@@ -1532,21 +1595,6 @@
             <h3>v1.10.36</h3>
             <p class="changelogDate">2026-11-10</p>
             <ul><li>辞書の検索・所持品の照合で、英字の大小・全角半角・登録済みの点数表記のゆれを吸収します。別の品にも当たる場合は自動で決めません。</li></ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.10.35</h3>
-            <p class="changelogDate">2026-11-09</p>
-            <ul><li>セッション後のラベルや補足を短くし、詳しい説明は「使い方」にまとめました。</li></ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.10.34</h3>
-            <p class="changelogDate">2026-11-09</p>
-            <ul><li>セッション後から買い物へ進み、更新と買い物をJSONにまとめて出力できます。ゆとシート側の更新を検知すると出力を止めます。</li><li>セッション日付は既定をYY/MM/DDにし、書式選択と複数日の入力を追加しました。</li></ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.10.33</h3>
-            <p class="changelogDate">2026-11-09</p>
-            <ul><li>セッション後から買い物へ移ると対象の回を引き継ぎ、今回分を「日付 買い物」にまとめます。一番下に同じ回の枠があれば自動で追記します。</li></ul>
           </div>
           <p><a href="./RELEASE_OVERVIEW.md" target="_blank" rel="noopener noreferrer">これまでの主な変更</a> ／ <a href="./CHANGELOG.md" target="_blank" rel="noopener noreferrer">全バージョンの詳細</a></p>
           <p class="hint">HTMLだけお持ちの場合は、<a href="https://github.com/dingokun/CashbookEditor/blob/HEAD/CHANGELOG.md" target="_blank" rel="noopener noreferrer">GitHubの更新履歴</a>をご覧ください。</p>
@@ -1647,10 +1695,10 @@
     </div>
     <div id="itemCatalogModal" class="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="itemCatalogTitle">
       <div class="modalPanel catalogPanel">
-        <div class="modalHeader"><span id="itemCatalogTitle">登録済み辞書からアイテムを探す</span><button id="closeCatalogBtn" type="button" class="small">閉じる</button></div>
-        <div class="modalBody">
-          <div class="catalogFindWays" aria-label="アイテムの探し方"><span>探し方</span><button id="catalogBrowseListBtn" type="button" class="small" aria-controls="catalogSearch" aria-pressed="true" title="分類・部位から探します。流派専用品は別の一覧です">通常分類</button><button id="catalogBrowseSkillsBtn" type="button" class="small" aria-controls="catalogRelatedSkills" aria-pressed="false" title="技能を選択欄で指定します">専用道具から探す</button><button id="catalogBrowseSchoolsBtn" type="button" class="small" aria-controls="catalogSchoolLabel" aria-pressed="false" title="流派専用品だけを流派ごとに探します">流派から探す</button><button id="catalogBrowseCraftBtn" type="button" class="small" aria-controls="catalogCraftTarget" title="作成する対象を選び、CSVに対応が登録された素材を探します" hidden>素材を探す</button></div>
-          <div class="catalogFilters">
+        <div class="modalHeader"><span id="itemCatalogTitle">辞書からアイテムを探す</span><div class="catalogHeaderActions"><button id="catalogBackToSearchBtn" type="button" class="small" aria-controls="catalogSearch">検索へ</button><button id="closeCatalogBtn" type="button" class="small">閉じる</button></div></div>
+        <div class="modalBody" id="catalogScrollBody">
+          <div class="catalogFindWays" role="group" aria-label="アイテムの探し方"><button id="catalogBrowseListBtn" type="button" class="small" aria-controls="catalogSearch" aria-pressed="true" title="分類・部位から探します。流派専用品は別の一覧です">通常分類</button><button id="catalogBrowseSkillsBtn" type="button" class="small" aria-controls="catalogRelatedSkills" aria-pressed="false" title="技能を選択欄で指定します">専用道具</button><button id="catalogBrowseSchoolsBtn" type="button" class="small" aria-controls="catalogSchoolLabel" aria-pressed="false" title="流派専用品だけを流派ごとに探します">流派</button><button id="catalogBrowseCraftBtn" type="button" class="small" aria-controls="catalogCraftTarget" title="作成する対象を選び、CSVに対応が登録された素材を探します" hidden>素材</button></div>
+          <div class="catalogFilters catalogMainFilters">
             <label>検索<input id="catalogSearch" type="search" placeholder="名前・種類・技能・効果など" title="名前・略称・メモ・書籍・種類・関連技能・使用条件・効果概要・回復情報から検索"></label>
             <label id="catalogSkillLabel" class="catalogSkillField" hidden>専用道具の技能 <small id="catalogSkillCount" class="catalogSkillCount"></small><select id="catalogRelatedSkills" title="読み込んだ辞書に表示先が登録された専用道具から探します。" aria-describedby="catalogSkillHint"></select></label>
             <label id="catalogSchoolLabel" hidden>流派<select id="catalogSchools"><option value="">すべて</option></select></label>
@@ -1658,26 +1706,28 @@
             <label>大分類<select id="catalogMajor"></select></label>
             <label id="catalogMinorLabel">小分類<select id="catalogMinor"></select></label>
             <label id="catalogEquipSlotLabel" hidden>装備できる部位<select id="catalogEquipSlot"></select></label>
-            <label id="catalogRankLabel">ランク<select id="catalogRank"></select></label>
-            <label>価格上限（G）<input id="catalogMaxPrice" type="number" min="0" placeholder="指定なし"></label>
-            <label>分類内の並び順<select id="catalogSort"></select></label>
           </div>
           <p id="catalogSkillHint" class="hint" hidden></p>
           <p id="catalogCraftTargetHint" class="hint" hidden>選択した作成対象に対応する登録品を表示中。選択だけでは購入・消費しません。<button id="catalogClearCraftTargetBtn" type="button" class="small">対象を解除</button></p>
-          <details id="catalogAttributeFilters" class="catalogAttributeFilters"><summary>種類・用途でさらに絞る <span id="catalogAttributeFilterStatus"></span></summary><div class="catalogFilters">
+          <div class="catalogMeta">
+          <details id="catalogAttributeFilters" class="catalogAttributeFilters"><summary>絞り込み・並び順 <span id="catalogAttributeFilterStatus"></span></summary><div class="catalogFilters">
+            <label id="catalogRankLabel">ランク<select id="catalogRank"></select></label>
+            <label>価格上限（G）<input id="catalogMaxPrice" type="number" min="0" placeholder="指定なし"></label>
             <label>種類・用途<select id="catalogItemTypes"></select></label>
             <label>取得条件<select id="catalogAcquisition"><option value="">すべて</option><option value="restricted">その他の取得条件あり</option><option value="unmarked">専用の取得条件が未登録</option></select></label>
-          </div><p class="hint">種類・用途は分類をまたいで絞ります。流派専用品は「流派から探す」に分離しています。<button id="catalogClearAttributesBtn" type="button" class="small">絞り込みを解除</button></p></details>
-          <p class="hint"><label id="catalogGroupPurposeLabel" class="catalogSeriesOption" hidden><input id="catalogGroupPurpose" type="checkbox" checked><span id="catalogGroupPurposeCaption">用途ごとに区切る</span></label> <label class="catalogSeriesOption"><input id="catalogGroupPoints" type="checkbox" checked>点数違いをまとめる</label></p>
+            <label>分類内の並び順<select id="catalogSort"></select></label>
+          </div><p class="hint"><button id="catalogClearAttributesBtn" type="button" class="small">絞り込みを解除</button></p></details>
 <details id="catalogListHelp" class="miniHelp disclosure"><summary>一覧の見方</summary><div class="disclosureBody"><p class="hint">分類の › で開閉し、開いた分類内で価格などを比較します。列名の▲▼で並べ替えます。複数値は先頭の数値、空欄・特殊は末尾。技能などで絞るとCSVの用途区分ごとに表示し、「用途ごとに区切る」で切り替えられます。点数の切替だけでは購入しません。</p><p class="hint">最低額・変動価格・非売品の評価額は、追加前に今回のG単価を確認します。別単位の対価はGへ自動換算しません。Gの価格上限はG登録品だけが対象で、価格順も単位ごとです。実際の取引がなければ「支出に含めない」を選んでください。</p></div></details>
-          <details id="catalogOptions" class="catalogOptions"><summary>追加方法（通常は購入）</summary><label>支出の扱い<select id="catalogMode"><option value="purchase">購入として追加</option><option value="owned">支出に含めない</option></select></label><span class="hint">1個を追加します。装備の数量・価格は追加後に編集できます。消耗品の追加購入は「買い足す」、購入額の訂正は購入履歴から行います。</span></details>
+          <details id="catalogOptions" class="catalogOptions"><summary>追加方法</summary><label>支出の扱い<select id="catalogMode"><option value="purchase">購入として追加</option><option value="owned">支出に含めない</option></select></label><span class="hint">1個を追加します。装備の数量・価格は追加後に編集できます。消耗品の追加購入は「買い足す」、購入額の訂正は購入履歴から行います。</span></details>
+          <p class="hint"><label id="catalogGroupPurposeLabel" class="catalogSeriesOption" hidden><input id="catalogGroupPurpose" type="checkbox" checked><span id="catalogGroupPurposeCaption">用途ごとに区切る</span></label> <label class="catalogSeriesOption"><input id="catalogGroupPoints" type="checkbox" checked>点数違いをまとめる</label></p>
+          </div>
           <p id="catalogCount" class="hint" role="status"></p>
           <div id="catalogResults" class="catalogResults"></div>
           <div class="catalogPager"><button id="catalogPrev" type="button" class="small">前へ</button><span id="catalogPage"></span><button id="catalogNext" type="button" class="small">次へ</button></div>
           <div id="catalogSelected" class="catalogSelected" hidden>
             <strong id="catalogSelectedName"></strong><p id="catalogReviewReason" class="hint"></p><dl id="catalogSelectedFacts" class="catalogFacts" hidden></dl><p id="catalogSelectedNote" class="catalogNote" hidden></p>
             <div class="catalogFilters">
-              <label>この品の支出<select id="catalogReviewMode"><option value="purchase">購入として追加</option><option value="owned">支出に含めない</option></select></label>
+              <label>この品の支出<select id="catalogReviewMode" aria-describedby="catalogSelectedName catalogReviewReason"><option value="purchase">購入として追加</option><option value="owned">支出に含めない</option></select></label>
               <label>追加先<select id="catalogDestination"><option value="equipment">武器・防具</option><option value="accessory">装飾品</option><option value="consumable">消耗品</option><option value="other">その他・取引</option></select></label>
               <label id="catalogPartLabel">装飾品の部位<select id="catalogPart"></select></label>
               <label>今回の単価（G）<input id="catalogPrice" type="number" min="0" step="any"></label>
@@ -1815,37 +1865,32 @@
       <div class="sectionBody">
         <div class="dictionaryImportMain">
           <div class="toolbar"><button id="mergePriceCsvBtn" type="button" class="primary">CSVから追加</button><button id="replacePriceCsvBtn" type="button">CSVで入れ替え</button><button id="exportMergedPriceBtn" type="button" class="small">辞書をCSVで保存</button></div>
+          <details id="priceCsvBackupTools" class="miniHelp disclosure quietDisclosure" hidden><summary>以前の辞書データ</summary><div class="disclosureBody">
+            <div class="toolbar"><button id="exportPriceReplaceBackupBtn" type="button" hidden>以前の控えをCSVで保存</button><button id="retryLegacyPriceImportBtn" type="button" hidden>旧形式のCSVを取り込む</button></div>
+            <p id="priceReplaceBackupStatus" class="hint" role="status"></p>
+          </div></details>
+          <details id="dictionaryListHelp" class="miniHelp disclosure quietDisclosure"><summary>分類・一覧の見方</summary><div class="disclosureBody">
+            <div class="categoryList" id="priceCategoryGuide"></div>
+            <p class="hint">装飾品は部位別、武器・防具は小分類内でランク順。表内に見出しがある場合は、見出し順を優先します。</p>
+            <p class="hint">空欄は未登録です。概要を押すと全文、編集は「詳細」から。回復性能はHP・MPに自動反映しません。</p>
+            <button id="repairConfirmedCategoriesBtn" type="button" class="small">カテゴリの列ずれ確認</button>
+            <p id="confirmedCategoryRepairResult" class="hint" role="status"></p>
+          </div></details>
         </div>
         <input id="replacePriceCsvFile" type="file" accept=".csv,text/csv" aria-label="入れ替え用の価格CSV" hidden>
         <input id="priceCsvFile" type="file" accept=".csv,text/csv" aria-label="追加用の価格CSV" hidden>
         <p id="priceDictionaryImportStatus" class="hint" role="status"></p>
-        <details id="priceCsvBackupTools" class="miniHelp disclosure" hidden><summary>以前の辞書データ</summary><div class="disclosureBody">
-          <div class="toolbar"><button id="exportPriceReplaceBackupBtn" type="button" hidden>以前の控えをCSVで保存</button><button id="retryLegacyPriceImportBtn" type="button" hidden>旧形式のCSVを取り込む</button></div>
-          <p id="priceReplaceBackupStatus" class="hint" role="status"></p>
-        </div></details>
         <div class="dictionaryFilters">
           <label>検索<input id="dictionarySearch" type="search" placeholder="名前・種類・技能・効果など" title="名前・略称・メモ・書籍・種類・関連技能・使用条件・効果概要・回復情報から検索"></label>
           <label>大分類<select id="dictionaryMajorCategory"><option value="">すべて</option></select></label>
           <label>小分類<select id="dictionaryCategory"><option value="">すべて</option></select></label>
           <label id="dictionaryRankLabel">ランク<select id="dictionaryRank"></select></label>
-          <label>カテゴリ内の並び<select id="dictionarySort"></select></label>
+          <label>並び順<select id="dictionarySort"></select></label>
           <label>探し方<select id="dictionaryBrowseMode"><option value="category" selected>通常分類・部位別</option><option value="skills">専用道具（技能別）</option><option value="schools">流派アイテム</option></select></label>
           <label id="dictionarySkillLabel" hidden>専用道具の技能<select id="dictionarySkill"><option value="">すべて</option></select></label>
           <label id="dictionarySchoolLabel" hidden>流派<select id="dictionarySchool"><option value="">すべて</option></select></label>
         </div>
-        <p id="dictionaryViewStatus" class="hint" role="status"></p>
-        <details class="miniHelp disclosure">
-                <summary>分類・一覧の見方</summary>
-                <div class="disclosureBody">
-                <div class="categoryList" id="priceCategoryGuide"></div>
-                <p class="hint">大分類・小分類の › で開閉します。装飾品は部位別、武器・防具は小分類内をランク順→選んだ並び順で表示します。表内に区切りがある場合は、その順を優先します。</p>
-                <p class="hint">部位・回復性能・効果概要は登録されている内容を表示し、空欄は未登録です。概要を押すと全文、編集は「詳細」から。「小分類未設定」は小分類が空の品です。タグとは別に扱います。</p>
-                <p class="hint">回復威力と固定回復値は別です。HP・MPへの自動反映は行いません。分類や並び順を変えても購入・消費・所持数は変わりません。CSVの分類設計は「CSVひな形・作成ガイド」を参照してください。</p>
-                <button id="repairConfirmedCategoriesBtn" type="button" class="small">カテゴリの列ずれ確認</button>
-                <p id="confirmedCategoryRepairResult" class="hint" role="status"></p>
-                </div>
-              </details>
-        <div class="toolbar dictionaryViewActions"><button type="button" class="primary" data-action="openCatalog" data-context="" title="登録済み辞書から比較して購入・追加します">アイテムを探す</button><button id="refreshDictionaryViewBtn" type="button" class="small" title="編集した分類・並び順を一覧へ反映します。CSVの再読み込みではありません">表示を更新</button></div>
+        <div class="toolbar dictionaryViewActions"><button type="button" class="primary" data-action="openCatalog" data-context="" title="登録済み辞書から比較して購入・追加します">アイテムを探す</button><button id="refreshDictionaryViewBtn" type="button" class="small" title="編集した分類・並び順を一覧へ反映します。CSVの再読み込みではありません">表示を更新</button><span id="dictionaryViewStatus" class="hint" role="status"></span></div>
         <div id="confirmedPriceTable"></div>
       </div>
     </details>
@@ -2066,7 +2111,7 @@
   </div>
 
   <script>
-    const VERSION = "v1.10.37";
+    const VERSION = "v1.10.40";
     const SETTINGS_EXPORT_KIND = "sw25-cashbook-editor-settings";
     const SETTINGS_EXPORT_FORMAT_VERSION = 17;
     const DEFAULT_SESSION_COUNTER = Object.freeze({ enabled: true, label: "1ゾロ" });
@@ -3392,7 +3437,17 @@
       el("catalogPart").innerHTML = ACCESSORY_PARTS.map(part => '<option>' + part + '</option>').join(""); el("catalogPart").value = "他";
       el("catalogMode").value = "purchase"; el("catalogOptions").open = false; el("catalogQuantity").value = "1"; el("catalogStatus").textContent = "";
       if (context === "consumable") el("catalogStatus").textContent = MATERIAL_CARD_CONSUMABLE_HINT;
-      renderCatalog(); openManagedModal("itemCatalogModal", { focus: false, restoreFocus: false }); el("catalogSearch").focus();
+      renderCatalog(); openManagedModal("itemCatalogModal", { focus: false, restoreFocus: false });
+      el("catalogScrollBody").scrollTop = 0;
+      el(matchMedia("(pointer: coarse)").matches ? "catalogBackToSearchBtn" : "catalogSearch").focus({ preventScroll: true });
+    }
+    function focusCatalogSearch() {
+      el("catalogScrollBody").scrollTop = 0;
+      el("catalogSearch").focus({ preventScroll: true });
+    }
+    function scrollCatalogBodyTo(target) {
+      const body = el("catalogScrollBody");
+      body.scrollTop += target.getBoundingClientRect().top - body.getBoundingClientRect().top - 5;
     }
     function focusCatalogBrowse(kind) {
       if (!catalogSession) return;
@@ -3515,7 +3570,11 @@
             if (pages > 1) {
               const pager = document.createElement("div"); pager.className = "catalogPager";
               pager.innerHTML = '<button type="button" class="small" data-direction="-1"' + (!view.page ? ' disabled' : '') + '>前へ</button><span>' + (view.page + 1) + ' / ' + pages + '</span><button type="button" class="small" data-direction="1"' + (view.page === pages - 1 ? ' disabled' : '') + '>次へ</button>';
-              pager.addEventListener("click", event => { const button = event.target.closest("[data-direction]"); if (!button || itemSearchResultsPending("catalogResults")) return; view.page += Number(button.dataset.direction); draw(); });
+              pager.addEventListener("click", event => {
+                const button = event.target.closest("[data-direction]"); if (!button || itemSearchResultsPending("catalogResults")) return;
+                view.page += Number(button.dataset.direction); draw();
+                const heading = details.querySelector(":scope > summary"); heading.focus({ preventScroll: true }); scrollCatalogBodyTo(heading);
+              });
               body.appendChild(pager);
             }
           };
@@ -3579,13 +3638,11 @@
         const value = el(id).value; return { key, value, tag: value && value !== "unregistered" ? JSON.parse(value) : "" };
       });
       el("catalogCraftTargetHint").hidden = !el("catalogCraftTarget").value;
-      el("catalogAttributeFilterStatus").textContent = attributeFilters.filter(filter => filter.value && filter.key === "itemTypes").map(filter => {
-        const select = el(filter.key === "itemTypes" ? "catalogItemTypes" : "catalogRelatedSkills");
-        return select.options[select.selectedIndex].textContent;
-      }).join(" ／ ");
       const sort = el("catalogSort").value;
       const school = el("catalogSchools").value ? JSON.parse(el("catalogSchools").value) : "", acquisition=el("catalogAcquisition").value;
       const rankFilter = syncItemRankFilter("catalog", major);
+      const moreFilters = [max, rankFilter, acquisition, el("catalogItemTypes").value].filter(Boolean).length;
+      el("catalogAttributeFilterStatus").textContent = moreFilters ? "（" + moreFilters + "件適用中）" : "";
       if (!cache.sorted.has(sort)) {
         const compare = makeItemViewComparator(sort);
         cache.sorted.set(sort, [...session.items].sort((a, b) => compare(a.item, b.item) || a.index - b.index));
@@ -3614,13 +3671,13 @@
       const previous = session.lastCatalogRender;
       if (!resetTreePage && previous?.key === renderKey && previous.rows.length === rows.length && rows.every((row, index) => row === previous.rows[index])) {
         // 絞り込み語が変わっても同じ結果なら、入力済みの選択肢と表のDOMを作り直さない。
-        el("catalogResults").scrollTop = 0; return;
+        return;
       }
       if (treeMode) {
         renderCatalogCategoryTree(rows, reveal);
         el("catalogCount").textContent = "分類を開いて選択：" + rows.length + "件 ／ 登録" + session.totalItems + "件";
         session.lastCatalogRender = { key: renderKey, rows };
-        el("catalogResults").scrollTop = 0; return;
+        return;
       }
       const purposeSections = groupPurposeAvailable && el("catalogGroupPurpose").checked
         ? (schoolMode ? getSchoolRowSections(rows,school) : skillMode ? getSkillRowSections(rows,selectedSkill) : getDictionaryRowSections(rows, "", "その他の関連品")) : [{ label: "", rows }];
@@ -3639,7 +3696,6 @@
       el("catalogPage").textContent = (session.page + 1) + " / " + pages;
       el("catalogPrev").disabled = session.page === 0; el("catalogNext").disabled = session.page >= pages - 1;
       session.lastCatalogRender = { key: renderKey, rows };
-      el("catalogResults").scrollTop = 0;
     }
     function selectCatalogItem(index, reviewOnly = false) {
       if (itemSearchResultsPending("catalogResults")) {
@@ -3774,18 +3830,24 @@
     }
     function getDictionaryRowSections(rows, major, unassignedLabel = "表示グループ未設定") {
       if (major === "装飾品" || !rows.some(({ item }) => String(item.browseGroup || "").trim())) return [{ label: "", rows }];
+      const weapon = major === "武器";
       const orderOf = item => { const raw = String(item.browseOrder ?? "").trim(), value = raw === "" ? Infinity : Number(raw); return Number.isFinite(value) ? value : Infinity; };
       const sections = new Map();
       rows.forEach(row => {
-        const label = String(row.item.browseGroup || "").trim();
+        const group = String(row.item.browseGroup || "").trim();
+        // 武器の空欄・小分類と同じ見出しは、登録漏れではなくその分類の基本一覧。
+        const label = weapon && group && group === getPriceCategoryInfo(row.item.category).minor ? "" : group;
         const order = orderOf(row.item);
         if (!sections.has(label)) sections.set(label, { label, order, rows: [] });
         const section = sections.get(label); section.order = Math.min(section.order, order); section.rows.push(row);
       });
-      // 群内もCSVの明示順を優先。同じ値・未指定同士は価格等の選択順を保つ。区切りOFFには適用しない。
-      return [...sections.values()].sort((a, b) => Number(!a.label) - Number(!b.label) ||
+      if (weapon && sections.size === 1 && sections.has("")) return [{ label: "", rows }];
+      const minor = weapon ? getPriceCategoryInfo(rows[0].item.category).minor : "";
+      const fallback = weapon ? (minor ? "通常の" + minor : "通常武器") : unassignedLabel;
+      // 武器は基本一覧が先頭。それ以外の空欄は末尾。名前のある群はCSVの明示順を維持する。
+      return [...sections.values()].sort((a, b) => (Number(!a.label) - Number(!b.label)) * (weapon ? -1 : 1) ||
         (a.order === b.order ? 0 : a.order - b.order) || a.label.localeCompare(b.label, "ja"))
-        .map(section => ({ ...section, label: section.label || unassignedLabel, rows: section.rows.slice().sort((a, b) => {
+        .map(section => ({ ...section, label: section.label || fallback, rows: weapon && !section.label ? section.rows : section.rows.slice().sort((a, b) => {
           const left = orderOf(a.item), right = orderOf(b.item); return left === right ? 0 : left - right;
         }) }));
     }
@@ -9705,7 +9767,7 @@
       dictionaryGroupViews.set(key, view);
       details.open = reveal || view.open;
       details.innerHTML = '<summary>' + esc(label) + '<span class="dictionaryGroupCount"></span></summary>' + (nested ? '<div class="dictionaryGroupBody"></div>' : '');
-      const group = { details, label, major, nested, view, body: details.querySelector(".dictionaryGroupBody"), count: 0, minors: new Map(), rows: [], hydrated: false };
+      const group = { details, label, major, nested, view, body: details.querySelector(".dictionaryGroupBody"), minors: new Map(), rows: [], hydrated: false };
       dictionaryLazyGroups.set(details, group);
       details.addEventListener("toggle", () => {
         if (!details.isConnected) return;
@@ -9892,7 +9954,7 @@
         (!schoolFilter || schoolBrowseTags(item).map(normalizeItemSearchText).includes(schoolFilter)) &&
         (!query || item.name === spellingMatch || itemSearchText(item).includes(query))
       ).sort((a, b) => compare(a.item, b.item) || a.i - b.i);
-      el("dictionaryViewStatus").textContent = "表示" + rows.length + "件／登録" + items.length + "件" + (schoolMode ? "（流派専用品）" : skillMode ? "（技能用の道具。同じ商品を参照）" : "（流派専用品は別一覧）");
+      el("dictionaryViewStatus").textContent = "表示" + rows.length + "件";
       if (items.length && !rows.length) root.innerHTML = '<p class="hint">条件に一致するアイテムはありません。</p>';
       const filterKey = JSON.stringify([query, major, category, rankFilter,browseMode,skillFilter,schoolFilter]);
       const reveal = Boolean(query || major || category !== null || rankFilter || skillFilter || schoolFilter) && renderConfirmedPriceTable.lastFilter !== filterKey;
@@ -9917,7 +9979,7 @@
       const addDedicatedRow = row => {
         const skills=itemTagValues(row.item.browseSkills).filter(skill=>!skillFilter || normalizeItemSearchText(skill)===skillFilter);
         if (!skills.length) return;
-        const tools=dedicatedGroup();tools.count++;
+        const tools=dedicatedGroup();
         skills.forEach(skill=> {
           const key=normalizeItemSearchText(skill);
           if (!tools.minors.has(key)) {
@@ -9925,21 +9987,21 @@
             group.skillMode=true;group.skillName=key;group.details.dataset.skill=key;
             tools.body.appendChild(group.details);tools.minors.set(key,group);
           }
-          const group=tools.minors.get(key);group.count++;group.rows.push(row);
+          tools.minors.get(key).rows.push(row);
         });
       };
       rows.forEach(({ item, i }) => {
         const info = getPriceCategoryInfo(item.category);
         const row={item,i,info};
         if (schoolMode) {
-          const parent=majorGroup("流派アイテム");parent.count++;
+          const parent=majorGroup("流派アイテム");
           schoolBrowseTags(item).filter(school=>!schoolFilter || normalizeItemSearchText(school)===schoolFilter).forEach(school=>{
             const key=normalizeItemSearchText(school);
             if(!parent.minors.has(key)){
               const group=createDictionaryGroup(school,JSON.stringify(["schools",key]),false,reveal,"");
               group.schoolMode=true;group.details.dataset.school=key;parent.body.appendChild(group.details);parent.minors.set(key,group);
             }
-            const group=parent.minors.get(key);group.count++;group.rows.push(row);
+            parent.minors.get(key).rows.push(row);
           });return;
         }
         addDedicatedRow(row);
@@ -9952,12 +10014,12 @@
               const group=createDictionaryGroup("その他の技能用品（表示先未指定）",JSON.stringify(["dedicated",key]),false,reveal,"その他");
               group.details.dataset.browseKind="unassigned";tools.body.appendChild(group.details);tools.minors.set(key,group);
             }
-            const group=tools.minors.get(key);group.count++;group.rows.push(row);tools.count++;
+            tools.minors.get(key).rows.push(row);
           }
           return;
         }
         const groupName = info.major || "自由カテゴリ・未設定";
-        const group = majorGroup(groupName,info.major); group.count++;
+        const group = majorGroup(groupName,info.major);
         const browseGroups = getDictionaryBrowseGroups(item, info);
         browseGroups.forEach(browse => {
           if (!group.minors.has(browse.key)) {
@@ -9967,8 +10029,7 @@
             minor.categoryKey = browse.categoryKey || info.key;
             group.body.appendChild(minor.details); group.minors.set(browse.key, minor);
           }
-          const minor = group.minors.get(browse.key);
-          minor.count++; minor.rows.push({ item, i, info });
+          group.minors.get(browse.key).rows.push(row);
         });
       });
       const finishGroup = group => {
@@ -9981,9 +10042,14 @@
           group.minors = new Map([...group.minors].sort(([, a], [, b]) =>
             Number(a.details.dataset.browseKind === "dedicated")-Number(b.details.dataset.browseKind === "dedicated") || comparePriceCategories(a.categoryKey, b.categoryKey)));
         }
-        group.minors.forEach(minor=>{group.body.appendChild(minor.details);finishGroup(minor);});
-        if (group.nested && !group.count) group.count=[...group.minors.values()].reduce((sum,minor)=>sum+minor.count,0);
-        group.details.querySelector(":scope > summary .dictionaryGroupCount").textContent = group.count + "件";
+        // 複数の技能・部位に並ぶ品も、各見出しでは辞書の行番号で1件にまとめる。
+        const indices = new Set(group.rows.map(row => row.i));
+        group.minors.forEach(minor => {
+          group.body.appendChild(minor.details);
+          finishGroup(minor).forEach(index => indices.add(index));
+        });
+        group.details.querySelector(":scope > summary .dictionaryGroupCount").textContent = indices.size + "件";
+        return indices;
       };
       [...groups.values()].sort((a,b)=>comparePriceCategories(a.major || a.label,b.major || b.label)).forEach(group=>{
         root.appendChild(group.details);finishGroup(group);
@@ -12056,8 +12122,16 @@
     });
     el("downloadPriceTemplateBtn").addEventListener("click", () => exportPriceItemsCsv([], "price_details_template.csv", "列名のみの性能付きCSVひな形を出力しました", true));
     el("closeCatalogBtn").addEventListener("click", closeCatalog);
+    el("catalogBackToSearchBtn").addEventListener("click", focusCatalogSearch);
     el("itemCatalogModal").addEventListener("click", e => { if (e.target === el("itemCatalogModal")) closeCatalog(); });
-    el("catalogResults").addEventListener("click", e => { const button = e.target.closest("[data-catalog-select]"); if (button) selectCatalogItem(Number(button.dataset.catalogSelect)); });
+    el("catalogResults").addEventListener("click", e => {
+      const button = e.target.closest("[data-catalog-select]"); if (!button) return;
+      selectCatalogItem(Number(button.dataset.catalogSelect));
+      if (catalogSession?.selected && !el("catalogSelected").hidden) {
+        el("catalogReviewMode").focus({ preventScroll: true });
+        scrollCatalogBodyTo(el("catalogSelected"));
+      }
+    });
     el("catalogResults").addEventListener("input", event => {
       const input = event.target;
       if (input.matches("[data-material-quantity]") && catalogSession) {
@@ -12087,7 +12161,10 @@
       }
       renderCatalog();
     }));
-    el("catalogClearAttributesBtn").addEventListener("click", () => { el("catalogItemTypes").value = ""; el("catalogRelatedSkills").value = ""; el("catalogCraftTarget").value = ""; renderCatalog(); });
+    el("catalogClearAttributesBtn").addEventListener("click", () => {
+      ["catalogItemTypes", "catalogRelatedSkills", "catalogCraftTarget", "catalogAcquisition", "catalogRank", "catalogMaxPrice"].forEach(id => { el(id).value = ""; });
+      resetItemSearch("catalogMaxPrice"); renderCatalog();
+    });
     el("catalogClearCraftTargetBtn").addEventListener("click", () => { el("catalogCraftTarget").value = ""; renderCatalog(); });
     document.addEventListener("click", e => {
       const button = e.target.closest("[data-view-sort]");
@@ -12098,8 +12175,13 @@
       select.value = select.value === key + "Asc" || key === "rank" && select.value === "rank" ? key + "Desc" : key + "Asc";
       if (prefix === "catalog") renderCatalog(); else renderConfirmedPriceTable();
     });
-    el("catalogPrev").addEventListener("click", () => { if (catalogSession) { if (itemSearchResultsPending("catalogResults")) { renderCatalog(); return; } catalogSession.page--; renderCatalog(false); } });
-    el("catalogNext").addEventListener("click", () => { if (catalogSession) { if (itemSearchResultsPending("catalogResults")) { renderCatalog(); return; } catalogSession.page++; renderCatalog(false); } });
+    [[el("catalogPrev"), -1], [el("catalogNext"), 1]].forEach(([button, direction]) => button.addEventListener("click", () => {
+      if (!catalogSession) return;
+      if (itemSearchResultsPending("catalogResults")) { renderCatalog(); return; }
+      catalogSession.page += direction; renderCatalog(false);
+      el("catalogResults").querySelector("[data-catalog-select], .catalogSeries > summary, .catalogMundane > summary")?.focus({ preventScroll: true });
+      scrollCatalogBodyTo(el("catalogCount"));
+    }));
     ["catalogMode", "catalogDestination", "catalogPart"].forEach(id => el(id).addEventListener("change", updateCatalogAddButton));
     el("catalogAddBtn").addEventListener("click", addCatalogItem);
     el("closePriceDetailsBtn").addEventListener("click", closePriceDetails);
