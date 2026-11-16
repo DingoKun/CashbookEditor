@@ -1,7 +1,7 @@
 <!doctype html>
 <!--
   SW2.5 Balance Item Editor
-  version: v1.10.55
+  version: v1.10.58
   date: 2026-11-15
   versioning: previous v26 is treated as 0.26
   notes:
@@ -126,7 +126,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SW2.5 収支・持ち物エディタ v1.10.55</title>
+  <title>SW2.5 収支・持ち物エディタ v1.10.58</title>
   <link rel="icon" type="image/svg+xml" sizes="any" href="data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20256%20256%22%3E%3Ctitle%3EBook%3C%2Ftitle%3E%3Cdefs%3E%3ClinearGradient%20id%3D%22bg%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%221%22%20y2%3D%221%22%3E%3Cstop%20stop-color%3D%22%23233B53%22%2F%3E%3Cstop%20offset%3D%221%22%20stop-color%3D%22%230C1B2D%22%2F%3E%3C%2FlinearGradient%3E%3C%2Fdefs%3E%3Cpath%20d%3D%22M58%208H198Q248%208%20248%2058V198Q248%20248%20198%20248H58Q8%20248%208%20198V58Q8%208%2058%208Z%22%20fill%3D%22url%28%23bg%29%22%20stroke%3D%22%2352667C%22%20stroke-width%3D%221%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M44%2079C72%2069%20101%2076%20128%2093C155%2076%20184%2069%20212%2079V183C182%20175%20154%20183%20128%20201C102%20183%2074%20175%2044%20183Z%22%20fill%3D%22%23C6AE7F%22%2F%3E%3Cpath%20d%3D%22M51%2083C78%2076%20102%2084%20124%2099V189C102%20175%2078%20169%2051%20176Z%22%20fill%3D%22%23F4E8CE%22%2F%3E%3Cpath%20d%3D%22M132%2099C154%2084%20178%2076%20205%2083V176C178%20169%20154%20175%20132%20189Z%22%20fill%3D%22%23F4E8CE%22%2F%3E%3Cpath%20d%3D%22M66%20109C82%20107%2098%20112%20111%20119M66%20132C82%20130%2098%20135%20111%20142M145%20119C158%20112%20174%20107%20190%20109M145%20142C158%20135%20174%20130%20190%20132%22%20fill%3D%22none%22%20stroke%3D%22%23708799%22%20stroke-width%3D%224%22%20stroke-linejoin%3D%22round%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E" />
   <style>
     :root {
@@ -1146,8 +1146,8 @@
     .generalSkillCheckLabels { display:grid; grid-template-columns:minmax(0,1fr) 84px 72px; gap:6px; font-size:12px; color:var(--muted); }
     .generalSkillPreview { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; }
     #generalSkillCsvStatus:empty, #generalSkillNotice:empty { display:none; }
-    #generalSkillPicker optgroup { font-weight:700; }
-    #generalSkillPicker option { font-weight:400; }
+    #generalSkillPicker optgroup, #generalSkillBrowsePicker optgroup, #honorBrowseSchool optgroup { font-weight:700; }
+    #generalSkillPicker option, #generalSkillBrowsePicker option, #honorBrowseSchool option { font-weight:400; }
     .schoolChoice { display:grid; grid-template-columns:minmax(0,1fr) 76px; gap:6px; align-items:center; padding:6px 0; border-bottom:1px solid var(--line); }
     .schoolChoice label { display:flex; align-items:center; gap:6px; margin:0; min-width:0; overflow-wrap:anywhere; }
     .schoolChoice input[type=checkbox] { width:18px; height:18px; flex:none; }
@@ -1334,7 +1334,11 @@
     #dataManagementBody .section { margin: 5px 0; }
     #dataManagementBody .section > summary { min-height: 34px; padding: 6px 8px; }
     #dataManagementBody .sectionBody { padding: 8px; }
-    .dataManagementNav { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 5px; }
+    .catalogReadRow { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:3px 8px; padding:5px 0; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }
+    .catalogReadRow > .hint { grid-column:1/-1; margin:0; white-space:pre-wrap; }
+    .catalogReadRow > span { white-space:nowrap; }
+    .catalogReadHeading { margin:8px 0 2px; font-size:13px; }
+    .catalogReadSelect { display:block; margin:0 0 4px; }
     #dataManagementIssueBadge { margin-left: 6px; color: var(--warn-text); }
     #dataManagementBody .dictionaryGroupViewport { max-height: none; }
     #honorDataSetupBtn[hidden], #generalSkillDataSetupBtn[hidden] { display: none; }
@@ -1509,7 +1513,7 @@
       <div>
         <div class="titleLine">
           <h1>SW2.5 収支・持ち物エディタ</h1>
-          <span class="version">v1.10.55</span>
+          <span class="version">v1.10.58</span>
         </div>
       </div>
       <div class="topActions">
@@ -1544,14 +1548,20 @@
         <div class="modalHeader"><span id="dataManagementTitle">データ管理</span><button id="closeDataManagementBtn" type="button" class="small">閉じる</button></div>
         <div id="dataManagementWarning" class="warnbox" role="alert" hidden></div>
         <div id="dataManagementBody" class="modalBody">
-          <nav class="dataManagementNav" aria-label="管理するデータ">
-            <button type="button" class="small" data-action="openDataManagement" data-section="price">価格辞書</button>
-            <button type="button" class="small" data-action="openDataManagement" data-section="process">加工</button>
-            <button type="button" class="small" data-action="openDataManagement" data-section="honor">流派・名誉点</button>
-            <button type="button" class="small" data-action="openDataManagement" data-section="general">一般技能</button>
-          </nav>
-          <details class="section" id="honorDataSection"><summary>流派・名誉点</summary><div class="sectionBody" id="honorDataBody"><details class="miniHelp disclosure"><summary>CSVの内容</summary><div class="disclosureBody"><p class="hint">流派・秘伝・秘伝魔法と、装備の専用化に必要な名誉点を登録します。列仕様はCSV作成ガイドへ。</p></div></details></div></details>
-          <details class="section" id="generalSkillDataSection"><summary>一般技能</summary><div class="sectionBody" id="generalSkillDataBody"><details class="miniHelp disclosure"><summary>CSVの書き方</summary><div class="disclosureBody"><p class="hint">CSVは1判定1行。skill（技能名）、check（判定名）、abilities（Dex・Agi・Str・Vit・Int・Mnd。複数は | 区切り）を指定します。aliases（別名）、source（書名）、sourcePage（頁）、notes（条件）、minLevel（必要レベル、空欄は1）は任意。能力が空欄なら画面で選びます。同じ技能の行をまとめて登録します。選択欄はsourceの書名ごとに区切り、複数出典の技能は最初の書名に表示します。CSVの入れ替えでは編集中の技能・判定を変更しません。</p></div></details></div></details>
+          <details class="section" id="honorDataSection">
+            <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">流派・名誉点</span></span></summary>
+            <div class="sectionBody" id="honorDataBody"><details class="miniHelp disclosure" id="honorCatalogBrowser"><summary>登録データを見る</summary><div class="disclosureBody">
+              <label class="catalogReadSelect">流派・専用化<select id="honorBrowseSchool"></select></label>
+              <div id="honorBrowseView"></div>
+            </div></details></div>
+          </details>
+          <details class="section" id="generalSkillDataSection">
+            <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">一般技能</span></span></summary>
+            <div class="sectionBody" id="generalSkillDataBody"><details class="miniHelp disclosure" id="generalSkillCatalogBrowser"><summary>登録データを見る</summary><div class="disclosureBody">
+              <label class="catalogReadSelect">技能<select id="generalSkillBrowsePicker"></select></label>
+              <div id="generalSkillBrowseView"></div>
+            </div></details></div>
+          </details>
         </div>
       </div>
     </div>
@@ -1583,7 +1593,15 @@
           <details id="helpCsvGuide"><summary>価格辞書のCSVを追加・入れ替え</summary>
             <p>「設定」→「データ管理」→「価格辞書」で操作します。「CSVから追加」は今の辞書を残し、未登録の品や項目を補います。同名の価格・性能などの違いは、確認画面で選んだ場合だけ変更します。</p>
             <p>「CSVで入れ替え」は辞書全体を選んだCSVに揃えます。CSVにない品や項目は残りません。控えが必要なら先に「辞書をCSVで保存」を押してください。元のCSV、価格候補、加工データ、キャラクターの入力は変更しません。</p>
-            <p>加工CSVは「武器・防具の加工データ管理」の「強化CSV」で選びます。自作する場合は「CSVひな形・作成ガイド」を使います。</p>
+            <p>加工CSVは「設定」→「データ管理」→「加工データ」の「強化CSV」で選びます。自作する場合は「CSVひな形・作成ガイド」を使います。</p>
+          </details>
+          <details id="helpHonorGuide"><summary>流派・専用化と名誉点</summary>
+            <p>「流派」で入門してから秘伝・秘伝魔法を選びます。今回の入門を取り消すと、その流派で今回選んだ秘伝・秘伝魔法も取り消します。取得済みの記録は変更しません。</p>
+            <p>専用化は装備の「専用」列で選びます。費用と支払済み記録の対応付けは「名誉点の記録」で確認します。既存の取得は再消費せず、装備を外しても過去の費用は戻しません。残高はゆとシートへの取り込み後に再計算されます。</p>
+          </details>
+          <details id="helpGeneralSkillGuide"><summary>一般技能と判定のパレット</summary>
+            <p>技能・レベルと出力する判定を選び、JSONへ反映します。ゆとシートへ取り込んでコマを出力すると、選んだ判定をパレットに含められます。特典などは「追加修正」へ入力します。条件付き効果は自動計算しません。</p>
+            <p>既存の手書きパレットは保持します。追加パレット内の「一般技能」開始・終了行は管理用です。手入力のみのパレット設定では、ゆとシート側で自動パレットを併用する設定にしてください。</p>
           </details>
           <details id="jsonFileFallback" class="disclosure">
             <summary>JSONファイルから読み込む（補助）</summary>
@@ -1618,7 +1636,7 @@
             <p>購入済み装備は「履歴で管理」の一行にまとめています。開くと辞書の参考額や追加計上の操作を確認できます。通常表示が短くなっても、過去の取引や除外設定は変わりません。</p>
             <p>「履歴で管理」は装備欄から購入費を追加しない状態です。辞書参考価格は実際に払った額ではなく、個別の購入記録との一致も保証しません。過去の購入額は履歴側で訂正し、記録していない新しい購入費だけ「購入費を追加」（加工は「加工費を追加」）で足します。</p>
             <p>明示した0Gは無料の購入額として保持します。「履歴で管理」は無料という意味ではなく、装備欄から追加支出を計上しない状態です。「未登録」は単価の確認・入力が必要な状態で、0Gとは区別します。数字が0でも、価格未入力の行では無料を確認したことになりません。</p>
-            <p>最低額・変動価格・非売品の評価額・G以外の単位は、辞書の参考情報です。「単価を確認」の品は実際のG単価を入力するまで収支へ出力しません。無料の場合も0を明示します。別単位の自動換算や名誉点・栄光点の残高管理はしません。</p>
+            <p>最低額・変動価格・非売品の評価額・G以外の単位は、辞書の参考情報です。「単価を確認」の品は実際のG単価を入力するまで収支へ出力しません。無料の場合も0を明示します。価格辞書の別単位はGへ換算しません。追加名誉点は「名誉点の記録」で確認します。</p>
             <p>灰色は履歴・所持数で管理して追加支出なし、薄い黄土色は計上対象外、薄緑の取引行は収入、薄青の取引行は預金・貸付・借入・返済です。各行の文字表示でも区別できます。白は通常の編集行、見出しの色はテーマ設定です。JSON比較の赤・緑は変更前・変更後で、収支の色とは別です。</p>
           </details>
           <details><summary>装備情報と収支履歴・見出しの整理</summary>
@@ -1709,6 +1727,21 @@
         </div>
         <div class="modalBody">
           <div class="changelogItem">
+            <h3>v1.10.58</h3>
+            <p class="changelogDate">2026-11-16</p>
+            <ul><li>流派・一般技能の説明を「使い方」へ、CSVの書き方を共通の作成ガイドへ集約しました。重複する補足と古い画面名を整理し、必要な注意は残しています。</li></ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.10.57</h3>
+            <p class="changelogDate">2026-11-16</p>
+            <ul><li>データ管理の開閉表示を統一し、重複する移動ボタンを整理しました。</li><li>流派・一般技能の登録内容をキャラクターなしでも閲覧でき、4種類のCSVひな形と作成説明を下部へまとめました。</li></ul>
+          </div>
+          <div class="changelogItem">
+            <h3>v1.10.56</h3>
+            <p class="changelogDate">2026-11-16</p>
+            <ul><li>空白入り金額と数値の0を、履歴・初期所持金・残金で正しく読み取るよう修正しました。</li></ul>
+          </div>
+          <div class="changelogItem">
             <h3>v1.10.55</h3>
             <p class="changelogDate">2026-11-15</p>
             <ul><li>本のアイコンの色を、選択された紺色へ変更しました。</li></ul>
@@ -1717,21 +1750,6 @@
             <h3>v1.10.54</h3>
             <p class="changelogDate">2026-11-15</p>
             <ul><li>戦闘準備室と同じ本のアイコンに揃えました。収支・持ち物エディタは青緑色で表示します。</li></ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.10.53</h3>
-            <p class="changelogDate">2026-11-15</p>
-            <ul><li>「駒の残数をコピー」の成功表示は4秒後に閉じます。コピー補助ボタンを再登録すると反映されます。注意や手動コピーの案内は残ります。</li></ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.10.52</h3>
-            <p class="changelogDate">2026-11-15</p>
-            <ul><li>一般技能の選択欄を書籍ごとの太字見出しで整理しました。追加CSVで対応する技能・判定を登録できます。</li></ul>
-          </div>
-          <div class="changelogItem">
-            <h3>v1.10.51</h3>
-            <p class="changelogDate">2026-11-15</p>
-            <ul><li>CSV登録・辞書編集を「設定」→「データ管理」へ集約しました。</li><li>流派・一般技能を全幅にし、途中保存と名誉点記録は横並びへ。価格・色の見方は表示設定へ移しました。</li></ul>
           </div>
           <p><a href="./RELEASE_OVERVIEW.md" target="_blank" rel="noopener noreferrer">これまでの主な変更</a> ／ <a href="./CHANGELOG.md" target="_blank" rel="noopener noreferrer">全バージョンの詳細</a></p>
           <p class="hint">HTMLだけお持ちの場合は、<a href="https://github.com/dingokun/CashbookEditor/blob/HEAD/CHANGELOG.md" target="_blank" rel="noopener noreferrer">GitHubの更新履歴</a>をご覧ください。</p>
@@ -2019,7 +2037,7 @@
     </details>
 
     <details class="section" id="customProcessSection">
-      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">武器・防具の加工データ管理</span><span class="summaryCount" id="processCsvStatus">0件</span></span></summary>
+      <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">加工データ</span><span class="summaryCount" id="processCsvStatus">0件</span></span></summary>
       <div class="sectionBody">
         <label for="processCsvFile">強化CSV</label>
               <input id="processCsvFile" type="file" accept=".csv,text/csv" />
@@ -2054,7 +2072,7 @@
     </details>
 
     <details id="csvAuthoringTools" class="miniHelp disclosure quietDisclosure"><summary>CSVひな形・作成ガイド</summary><div class="disclosureBody">
-      <div class="toolbar"><button type="button" id="downloadPriceTemplateBtn" title="価格CSVの列名だけをダウンロードします。辞書は変更しません">価格CSVひな形DL</button><button id="downloadProcessTemplateBtn" type="button" title="加工CSVの列名だけをダウンロードします。加工データは変更しません">加工CSVひな形DL</button><button type="button" data-action="downloadCsvGuide">CSV作成ガイドDL</button></div>
+      <div class="toolbar"><span class="hint">ひな形</span><button type="button" id="downloadPriceTemplateBtn" title="価格CSVの列名だけをダウンロードします。辞書は変更しません" aria-label="価格CSVのひな形をダウンロード">価格</button><button id="downloadProcessTemplateBtn" type="button" title="加工CSVの列名だけをダウンロードします。加工データは変更しません" aria-label="加工CSVのひな形をダウンロード">加工</button><button id="honorTemplateBtn" type="button" title="流派・名誉点CSVの列名だけをダウンロードします" aria-label="流派・名誉点CSVのひな形をダウンロード">流派・名誉点</button><button id="generalSkillTemplateBtn" type="button" title="一般技能CSVの列名だけをダウンロードします" aria-label="一般技能CSVのひな形をダウンロード">一般技能</button><button type="button" data-action="downloadCsvGuide">CSV作成ガイドDL</button></div>
     </div></details>
       </div>
     </div>
@@ -2089,14 +2107,13 @@
     <details class="section" id="honorSection">
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">流派</span><span id="honorSummary" class="hint"></span></span></summary>
       <div class="sectionBody">
-        <div class="toolbar" id="honorCsvTools"><button id="honorCsvLoadBtn" type="button" title="流派・名誉点CSVを読み込む" aria-label="流派・名誉点CSVを読み込む">CSV読込</button><input id="honorCsvFile" type="file" accept=".csv,text/csv" hidden><button id="honorCsvExportBtn" type="button" class="small">CSV保存</button><button id="honorTemplateBtn" type="button" class="small">ひな形</button></div>
+        <div class="toolbar" id="honorCsvTools"><button id="honorCsvLoadBtn" type="button" title="流派・名誉点CSVを読み込む" aria-label="流派・名誉点CSVを読み込む">CSV読込</button><input id="honorCsvFile" type="file" accept=".csv,text/csv" hidden><button id="honorCsvExportBtn" type="button" class="small">CSV保存</button></div>
         <p id="honorCsvStatus" class="hint honorNotice" role="status"></p>
         <label>流派<select id="honorSchoolPicker"></select></label>
         <button type="button" id="honorDataSetupBtn" class="small" data-action="openDataManagement" data-section="honor" hidden>データを登録</button>
         <div id="honorSchoolView"></div>
         <p id="honorNotice" class="hint honorNotice" role="status"></p>
         <details class="miniHelp disclosure"><summary>手入力</summary><div class="disclosureBody schoolManual"><label>種類<select id="honorManualType"><option value="school">流派入門</option><option value="art">秘伝</option><option value="magic">秘伝魔法</option></select></label><label>名誉点<input id="honorManualCost" type="number" min="0" max="999999" step="1"></label><label class="wide">名称<input id="honorManualName" type="text" maxlength="160"></label><button id="addHonorManualBtn" type="button">追加</button></div></details>
-        <details class="miniHelp disclosure"><summary>使い方</summary><div class="disclosureBody"><p class="hint">流派を選び、入門してから秘伝を選びます。今回の入門を取り消すと、その流派で今回選んだ秘伝・秘伝魔法も取り消します。取得済みの記録は変更しません。</p></div></details>
       </div>
     </details>
 
@@ -2111,13 +2128,12 @@
     <details class="section" id="generalSkillsSection">
       <summary><span class="summaryLeft"><span class="summaryIcon"></span><span class="summaryTitle">一般技能</span><span id="generalSkillCount" class="hint"></span></span></summary>
       <div class="sectionBody">
-        <div class="toolbar" id="generalSkillCsvTools"><button id="generalSkillCsvLoadBtn" type="button">CSV読込</button><input id="generalSkillCsvFile" type="file" accept=".csv,text/csv" hidden><button id="generalSkillCsvExportBtn" type="button" class="small">CSV保存</button><button id="generalSkillTemplateBtn" type="button" class="small">ひな形</button></div>
+        <div class="toolbar" id="generalSkillCsvTools"><button id="generalSkillCsvLoadBtn" type="button">CSV読込</button><input id="generalSkillCsvFile" type="file" accept=".csv,text/csv" hidden><button id="generalSkillCsvExportBtn" type="button" class="small">CSV保存</button></div>
         <p id="generalSkillCsvStatus" class="hint" role="status"></p>
         <div class="generalSkillAdd"><label>技能<select id="generalSkillPicker"><option value="">手入力</option></select></label><button id="addGeneralSkillBtn" type="button">技能を追加</button></div>
         <button type="button" id="generalSkillDataSetupBtn" class="small" data-action="openDataManagement" data-section="general" hidden>データを登録</button>
         <p id="generalSkillNotice" class="hint" role="status"></p>
         <div id="generalSkillRows"></div>
-        <details class="miniHelp disclosure"><summary>使い方</summary><div class="disclosureBody"><p class="hint">選んだ判定をJSONへ含め、ゆとシートに取り込んでコマを出力します。特典などは修正欄へ入力します。条件付き効果は自動計算しません。</p><p class="hint">既存の手書きパレットは保持します。追加パレット内の「一般技能」開始・終了行は管理用です。自動出力を使わないパレット設定では、ゆとシート側の出力設定も確認してください。</p></div></details>
       </div>
     </details>
 
@@ -2289,7 +2305,7 @@
   </div>
 
   <script>
-    const VERSION = "v1.10.55";
+    const VERSION = "v1.10.58";
     const SETTINGS_EXPORT_KIND = "sw25-cashbook-editor-settings";
     const SETTINGS_EXPORT_FORMAT_VERSION = 19;
     const DEFAULT_SESSION_COUNTER = Object.freeze({ enabled: true, label: "1ゾロ" });
@@ -4408,10 +4424,14 @@
       const n = Number(raw.replace(/,/g, "").replace(/[^\d.-]/g, ""));
       return Number.isFinite(n) ? n : fallback;
     }
+    function firstMoneyValue(...values) {
+      return values.find(value => value !== undefined && value !== null && value !== "");
+    }
     function parseMoneyExpression(v) {
       const raw = String(v ?? "").replace(/,/g, "").replace(/[＋]/g, "+").replace(/[－ー]/g, "-").trim();
       if (!raw) return 0;
-      const m = raw.match(/[+-]?\d+(?:\.\d+)?/g);
+      // 符号直後だけを詰め、別々の数値の間の空白は連結しない。
+      const m = raw.replace(/([+-])\s+(?=\d)/g, "$1").match(/[+-]?\d+(?:\.\d+)?/g);
       if (!m) return 0;
       return m.reduce((sum, part) => sum + Number(part), 0);
     }
@@ -5910,7 +5930,7 @@
         "これは基本的な記入方法です。確認できない情報は空欄にし、商品名や説明から性能・条件を推測して埋めないでください。",
         "",
         "1. 共通の作り方",
-        "『設定』→『データ管理』→『CSVひな形・作成ガイド』で価格または加工のひな形をダウンロードし、列名を変えず2行目から記入します。UTF-8のCSVで保存してください。",
+        "『設定』→『データ管理』→『CSVひな形・作成ガイド』で価格・加工・流派/名誉点・一般技能のひな形を選び、列名を変えず2行目から記入します。UTF-8のCSVで保存してください。",
         "カンマ・改行・二重引用符を含むセルはCSVの引用規則で囲み、内部の二重引用符を二重化します。JSON列も文字列の1セルとして扱います。",
         "CSV出力では、数式に見える文字列がある場合だけ確認します。往復で名前・数値・JSON列を変えないため、先頭への引用符追加などは行いません。第三者由来のCSVを表計算アプリで開く場合は、対象列を文字列として取り込み、数式を実行しないよう確認してください。",
         "取り込み時は件数・価格差・エラーを確認します。『CSVから追加』では既存の異なる値を初期選択で保護します。辞書全体を揃える場合は『CSVで入れ替え』を使い、必要なら先に『辞書をCSVで保存』で控えを取ってください。",
@@ -5965,15 +5985,25 @@
         "加工CSVに照合表をまとめるには、照合行だけrecordType=prefixを指定し、table（区分）とprefix（接頭辞）を記入します。source・sourcePage・entryは任意の出典と行番号です。加工行はrecordTypeを空欄またはprocessにします。",
         "同名の別行は保存上区別し、照合は1回分の候補として扱います。価格や性能補正・抽選には使いません。商品ごとの略称はこのCSVではなく価格CSVのaliasesに記入します。",
         "",
-        "7. この版の列一覧（任意列を省略した旧CSVも読込可能）",
+        "7. 流派・名誉点CSV",
+        "1項目1行。idは一意の英数字ID（_ . : - も可）とし、typeはschool（流派入門）・art（秘伝）・magic（秘伝魔法）・dedication（専用化）。秘伝・秘伝魔法のschoolには登録した親流派のidを指定し、school/dedication行のschoolは空欄にします。手入力やキャラクターの習得状態とは別の登録データです。",
+        "honorCostは0以上の名誉点。空欄は未登録で、0点とは別です。freeEligibleはtrue（ランク特典対象）・false（対象外）・空欄（未登録）。無料扱いの自動判定や既存習得の再消費は行いません。",
+        "prerequisitesは前提、notesは補足、sourceは書名、sourcePageは頁です。browseGroupは流派行だけの任意区分（100文字以内）。表示は書籍・区分・流派の初出順です。targetはdedication行だけにweapon・shield・armor・accessoryHp・accessoryMp・toolから指定し、他の行は空欄にします。",
+        "登録データはキャラクターなしでも閲覧できます。入門・習得・費用の記録はキャラクター読込後に行い、秘伝の習得には親流派への入門が必要です。",
+        "既存記録への対応付けでは費用を保持し、記録漏れの費用修正は未記入・0点の記録に限ります。その他の前提は画面で確認します。",
+        "",
+        "8. 一般技能CSV",
+        "1判定1行。必須列はskill（技能名）・check（判定名）・abilities（対応能力）。abilitiesはDex/Agi/Str/Vit/Int/Mndを指定し、複数は | 区切りの選択肢で、能力値を合算しません。空欄は編集時に手動選択します。",
+        "aliases（別名、| 区切り）、source（書名）、sourcePage（頁）、notes（条件）、minLevel（1～15、空欄は1）は任意。同じ技能の判定行をまとめ、同名判定の能力候補も1行へまとめます。",
+        "書籍名は選択欄の区切りに使い、複数出典の技能は最初の書名に表示します。各判定の出典・条件は保持します。登録データの閲覧はキャラクター不要ですが、技能追加とパレット設定は読込後に行います。CSV入替だけで編集中の技能・判定を変更しません。",
+        "",
+        "9. この版の列一覧（対応する任意列を省略した旧CSVも読込可能）",
         "価格：name,price,aliases,category,note," + ITEM_DETAIL_FIELDS.map(field => field.key).join(","),
         ...ITEM_DETAIL_FIELDS.map(field => "  " + field.key + "：" + field.label),
         "honorCost：商品・加工の追加名誉点。空欄=未登録、0=追加費なし確認済み。honorCostUnit：unit=数量ごと、acquisition=取得1回。honorFreeEligible：true/false/空欄（未確認）。G価格と別管理。",
         "加工：" + PROCESS_CSV_HEADERS.join(","),
         "流派・名誉点：" + HONOR_CSV_HEADER,
-        "idは一意の英数字ID。typeはschool/art/magic/dedication。school行はschool空欄、art/magic行は親流派id。honorCostは通常の必要点、freeEligibleはtrue/false/空欄。prerequisitesとnotesは確認用の短文、source/sourcePageは出典。dedicationだけtarget=weapon/shield/armor/accessoryHp/accessoryMp/tool。空欄費用は画面で確認入力します。",
-        "流派一覧はsource（書名）ごとに区切ります。任意列browseGroupはschool行の区分見出し（例：新規／コンバート、100文字以内）。書籍・区分・その中の流派はCSVでの初出順です。未指定の旧CSVも読み込めます。",
-        "秘伝は入門確認後だけ取得できます。その他の前提は画面で確認します。無料扱いは自動推定せず0点で記録。既存記録への対応付けは費用を保持し、記録漏れの費用修正は未記入・0点の記録に限ります。",
+        "一般技能：skill,aliases,check,abilities,source,sourcePage,notes,minLevel",
         "",
         "ひな形やこのガイドに、実商品の一覧・価格・効果本文は含まれません。共有は公開・再配布できるデータに限ってください。",
         ""
@@ -6246,6 +6276,61 @@
       if (fallback && !entry.opener.getClientRects().length) entry.opener = el(fallback);
       closeManagedModal(modal);
     }
+    function catalogBrowseOptions(rows) {
+      const groups = new Map();
+      rows.forEach(row => {
+        const label = [row.source, row.group].filter(Boolean).join(" ／ ");
+        if (!groups.has(label)) groups.set(label, []);
+        groups.get(label).push('<option value="' + esc(row.value) + '">' + esc(row.name) + '</option>');
+      });
+      return [...groups].map(([label, options]) => label ? '<optgroup label="' + esc(label) + '">' + options.join("") + '</optgroup>' : options.join("")).join("");
+    }
+    function honorCatalogReadRow(row, admission = false) {
+      const cost = row.honorCost == null ? "未登録" : row.honorCost + "点";
+      const target = { weapon:"武器", shield:"盾", armor:"鎧", accessoryHp:"装飾品HP", accessoryMp:"装飾品MP", tool:"道具" }[row.target] || "";
+      const notes = [target, honorDefinitionNotes(row), row.freeEligible == null ? "" : row.freeEligible ? "ランク特典対象" : "ランク特典対象外"].filter(Boolean).join(" ／ ");
+      return '<div class="catalogReadRow" data-catalog-record="' + esc(row.id) + '"><strong>' + esc(row.name) + '</strong><span>' + (admission ? "入門 " : "") + esc(cost) + '</span>' + (notes ? '<p class="hint">' + esc(notes) + '</p>' : '') + '</div>';
+    }
+    function renderHonorCatalogBrowser() {
+      const browser = el("honorCatalogBrowser"); if (!browser) return;
+      const picker = el("honorBrowseSchool"), view = el("honorBrowseView"), selected = picker.value, catalog = state.honorCatalog;
+      const schools = catalog.filter(row => row.type === "school"), dedications = catalog.filter(row => row.type === "dedication");
+      picker.innerHTML = '<option value="">選択してください</option>' + catalogBrowseOptions(schools.map(row => ({ value:row.id, name:row.name, source:row.source, group:row.browseGroup }))) + (dedications.length ? '<option value="@dedication">専用化</option>' : '');
+      picker.disabled = !catalog.length;
+      if ([...picker.options].some(option => option.value === selected)) picker.value = selected;
+      if (!browser.open) { view.innerHTML = ""; return; }
+      if (!catalog.length) { view.innerHTML = '<p class="hint">CSVが未登録です。</p>'; return; }
+      if (picker.value === "@dedication") { view.innerHTML = dedications.map(row => honorCatalogReadRow(row)).join(""); return; }
+      const school = schools.find(row => row.id === picker.value);
+      if (!school) { view.innerHTML = ""; return; }
+      let html = honorCatalogReadRow(school, true);
+      for (const [type, label] of [["art", "秘伝"], ["magic", "秘伝魔法"]]) {
+        const rows = catalog.filter(row => row.type === type && row.school === school.id);
+        if (rows.length) html += '<h4 class="catalogReadHeading">' + label + '</h4>' + rows.map(row => honorCatalogReadRow(row)).join("");
+      }
+      view.innerHTML = html;
+    }
+    function renderGeneralSkillCatalogBrowser() {
+      const browser = el("generalSkillCatalogBrowser"); if (!browser) return;
+      const picker = el("generalSkillBrowsePicker"), view = el("generalSkillBrowseView"), selected = picker.value, catalog = state.generalSkillCatalog;
+      picker.innerHTML = '<option value="">選択してください</option>' + catalogBrowseOptions(catalog.map(skill => ({ value:generalSkillKey(skill.name), name:skill.name, source:skill.checks.find(check => check.source)?.source || "" })));
+      picker.disabled = !catalog.length;
+      if ([...picker.options].some(option => option.value === selected)) picker.value = selected;
+      if (!browser.open) { view.innerHTML = ""; return; }
+      if (!catalog.length) { view.innerHTML = '<p class="hint">CSVが未登録です。</p>'; return; }
+      const skill = picker.value ? catalog.find(row => generalSkillKey(row.name) === picker.value) : null;
+      if (!skill) { view.innerHTML = ""; return; }
+      view.innerHTML = '<div data-catalog-record="' + esc(generalSkillKey(skill.name)) + '">' + (skill.aliases.length ? '<p class="hint">別名：' + esc(skill.aliases.join(" ／ ")) + '</p>' : '') + skill.checks.map((check, index) => {
+        const abilities = check.abilities.map(key => GENERAL_SKILL_ABILITIES[key]);
+        const notes = [abilities.length > 1 ? abilities.join(" ／ ") + "から選択" : "", check.minLevel > 1 ? "Lv" + check.minLevel + "以上" : "", check.notes, [check.source, check.sourcePage ? "p." + check.sourcePage : ""].filter(Boolean).join(" ")].filter(Boolean).join(" ／ ");
+        const ability = abilities.length === 1 ? abilities[0] : abilities.length ? "能力選択" : "能力未指定";
+        return '<div class="catalogReadRow" data-catalog-check="' + index + '"><strong>' + esc(check.name) + '</strong><span>' + esc(ability) + '</span>' + (notes ? '<p class="hint">' + esc(notes) + '</p>' : '') + '</div>';
+      }).join("") + '</div>';
+    }
+    el("honorCatalogBrowser").addEventListener("toggle", renderHonorCatalogBrowser);
+    el("honorBrowseSchool").addEventListener("change", renderHonorCatalogBrowser);
+    el("generalSkillCatalogBrowser").addEventListener("toggle", renderGeneralSkillCatalogBrowser);
+    el("generalSkillBrowsePicker").addEventListener("change", renderGeneralSkillCatalogBrowser);
     function openSettingsBackup() {
       const headerMenu = document.querySelector(".headerMenu");
       const returnFocus = headerMenu?.querySelector("summary");
@@ -7802,7 +7887,7 @@
       return total;
     }
     function extractInitialBudget(data) {
-      return parseMoneyExpression(data.history0Money || data.moneyTotal || data.money || 0);
+      return parseMoneyExpression(firstMoneyValue(data.history0Money, data.moneyTotal, data.money));
     }
 
     function updateLoadedCharacterDisplay({ closeEntry = false } = {}) {
@@ -8147,7 +8232,7 @@
       const definitions = state.honorCatalog.filter(definition => definition.type === "dedication" && (kind === "tool" ? definition.target === "tool" : family === "a" ? ["accessoryHp","accessoryMp"].includes(definition.target) : definition.target === kind));
       const action = inlineDedicationAction(row,family,index), nominal = definitions.find(definition => definition.target === target)?.honorCost;
       const disabled = !state.rawJson || !baseline && !definitions.length;
-      const attrs = ' data-i="' + index + '"' + (disabled ? ' disabled title="流派欄で専用化を含むCSVを登録してください"' : '');
+      const attrs = ' data-i="' + index + '"' + (disabled ? ' disabled title="設定→データ管理→流派・名誉点で専用化を含むCSVを登録してください"' : '');
       let control;
       if (kind === "tool") {
         if (!definitions.length) return "";
@@ -8268,7 +8353,7 @@
       const openPayments = new Set([...root.querySelectorAll('[data-school-payment]')].filter(node => node.open).map(node => node.dataset.schoolPayment));
       const loaded = Boolean(state.rawJson), actions = honorEffectiveActions(), status = honorSchoolStatus(state.rawJson || {},actions,catalog);
       el("addHonorManualBtn").disabled = !loaded;
-      if (!school) { root.innerHTML = ""; el("honorNotice").textContent = loaded ? "流派CSVを登録するか、手入力で追加できます" : "先にキャラクターを読み込んでください"; return; }
+      if (!school) { root.innerHTML = ""; el("honorNotice").textContent = loaded ? "" : "先にキャラクターを読み込んでください"; return; }
       el("honorNotice").textContent = loaded ? "" : "先にキャラクターを読み込んでください";
       const actionIndex = state.honor.actions.findIndex(action => action.type === "school" && (action.catalogId === school.id || honorNameKey(action.name) === honorNameKey(school.name))), pending = state.honor.actions[actionIndex];
       const existing = status.existing.has(school.id), admitted = status.admitted.has(school.id), note = honorDefinitionNotes(school);
@@ -8317,6 +8402,7 @@
     function renderHonor() {
       el("honorCsvExportBtn").disabled = !state.honorCatalog.length;
       refreshHonorPickers(); renderHonorAccounts();
+      renderHonorCatalogBrowser();
     }
     function honorChanged() {
       characterExportDraft = null;
@@ -8641,6 +8727,7 @@
         return source ? '<optgroup label="' + esc(source) + '">' + options + '</optgroup>' : options;
       }).join("");
       if ([...picker.options].some(x => x.value === selected)) picker.value = selected;
+      renderGeneralSkillCatalogBrowser();
     }
     function renderGeneralSkills() {
       const loaded = Boolean(state.rawJson), rows = state.generalSkills.rows;
@@ -10088,7 +10175,7 @@
       restoreTokenStatusSelection(data);
       state.initialMoney = extractInitialBudget(data);
       state.sessionIncome = parseSessionIncome(data);
-      state.sheetRemaining = data.moneyTotal !== undefined || data.money !== undefined ? parseMoneyExpression(data.moneyTotal || data.money || 0) : null;
+      state.sheetRemaining = data.moneyTotal !== undefined || data.money !== undefined ? parseMoneyExpression(firstMoneyValue(data.moneyTotal, data.money)) : null;
       if (postSession && state.sheetRemaining !== null) state.sheetRemaining += state.sessionIncome - parseSessionIncome(postSession.original);
       state.cashbookEntries = parseCashbookEntries(data.cashbook || "");
       state.ledgerMode = state.cashbookEntries.length > 0 || /::|:>|:</.test(decodeYutoText(data.cashbook || ""));
