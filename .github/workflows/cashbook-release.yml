@@ -1,0 +1,67 @@
+name: CSV release gate
+on:
+  push:
+    branches: [release-candidate]
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: cashbook-release-candidate
+  cancel-in-progress: true
+jobs:
+  verify:
+    name: verify-candidate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Verify candidate and trusted main
+        shell: bash
+        env:
+          EXPECTED: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$GITHUB_REPOSITORY_ID" == 1261805576 && "$GITHUB_REF" == refs/heads/release-candidate ]]
+          git init -q .
+          git remote add origin https://github.com/DingoKun/CashbookEditor.git
+          git fetch -q --no-tags --depth=2 origin +refs/heads/main:refs/remotes/origin/main +refs/heads/release-candidate:refs/remotes/origin/candidate
+          base=$(git rev-parse refs/remotes/origin/main)
+          test "$(git rev-parse refs/remotes/origin/candidate)" = "$EXPECTED"
+          if [[ "$EXPECTED" != "$base" ]]; then test "$(git rev-parse "$EXPECTED^1")" = "$base"; fi
+          git diff --quiet "$base" "$EXPECTED" -- . ':!index.html' ':!README.md' ':!CHANGELOG.md' ':!RELEASE_OVERVIEW.md'
+          git worktree add -q --detach "$RUNNER_TEMP/base" "$base"
+          git worktree add -q --detach "$RUNNER_TEMP/candidate" "$EXPECTED"
+          echo "Baseline: $base; candidate: $EXPECTED" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install pinned browser test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Leave both compared trees pristine.
+          mkdir "$RUNNER_TEMP/gate-deps"
+          cp "$RUNNER_TEMP/base/.github/release-deps/"package*.json "$RUNNER_TEMP/gate-deps/"
+          npm ci --prefix "$RUNNER_TEMP/gate-deps" --ignore-scripts --no-audit --no-fund
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/gate-deps/node_modules/playwright" >> "$GITHUB_ENV"
+          if command -v google-chrome >/dev/null; then
+            echo "TEST_CHROME=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          else
+            node "$RUNNER_TEMP/gate-deps/node_modules/playwright/cli.js" install --with-deps chromium
+          fi
+      - name: Verify saved dictionaries and CSV imports
+        shell: bash
+        run: node "$RUNNER_TEMP/base/.github/release/compat.cjs" "$RUNNER_TEMP/base" "$RUNNER_TEMP/candidate" --self-test
+      - name: Classify the exact tested files
+        shell: bash
+        id: assess
+        run: |
+          set -euo pipefail
+          RELEASE_BASE_HTML="$RUNNER_TEMP/base/index.html" node --test "$RUNNER_TEMP/base/.github/release/classify.test.mjs"
+          status=0
+          node "$RUNNER_TEMP/base/.github/release/classify.mjs" "$RUNNER_TEMP/base" "$RUNNER_TEMP/candidate" > "$RUNNER_TEMP/result.json" || status=$?
+          route=$(jq -er '.decision' "$RUNNER_TEMP/result.json")
+          case "$status:$route" in 0:auto|2:review) ;; *) exit 1 ;; esac
+          cat "$RUNNER_TEMP/result.json" >> "$GITHUB_STEP_SUMMARY"
+          echo "route=$route" >> "$GITHUB_OUTPUT"
+      - name: Automatic route allowed
+        if: steps.assess.outputs.route == 'auto'
+        run: echo "Verified compatible; no deployment credentials are available to this job."
+      - name: Owner review required
+        if: steps.assess.outputs.route == 'review'
+        run: echo "Not approved for automatic publication."
